@@ -14,6 +14,7 @@ import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
+import TaskSnap from './TaskSnap';
 
 class AppUpdater {
   constructor() {
@@ -133,5 +134,8 @@ app
       // dock icon is clicked and there are no other windows open.
       if (mainWindow === null) createWindow();
     });
+
+    const taskSnap = TaskSnap.getInstance();
+    taskSnap.start();
   })
   .catch(console.log);
