@@ -7,6 +7,9 @@
 import { exec } from 'child_process';
 import { info } from 'electron-log';
 import WindowTracker from './WindowTracker';
+import { ipcMain } from 'electron';
+import Log from './entity/Log';
+import ActiveWindow from './entity/ActiveWindow';
 
 /**
  * Main class of the application
@@ -33,3 +36,14 @@ export default class TaskSnap {
     exec(`open -a '${process}'`);
   }
 }
+
+// TODO: Move this to API
+ipcMain.on('get-used-applications', async (event, arg) => {
+  const lastStart = await Log.getLastApplicationStart();
+  const applications = await ActiveWindow.getUsedApplications(lastStart);
+  event.reply('get-used-applications', applications);
+});
+
+ipcMain.on('open-application', async (event, arg) => {
+  TaskSnap.getInstance().openApplication(arg[0]);
+});

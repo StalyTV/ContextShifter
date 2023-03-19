@@ -4,13 +4,22 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
-import { Entity, BaseEntity, PrimaryColumn, Column } from "typeorm";
+import { Entity, BaseEntity, PrimaryColumn, Column } from 'typeorm';
 
-@Entity({ name: "log" })
+@Entity({ name: 'log' })
 export default class Log extends BaseEntity {
-  @PrimaryColumn({type: "varchar"})
+  @PrimaryColumn({ type: 'varchar' })
   key!: string;
 
-  @Column({ type: "varchar", nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   value!: string | null;
+
+  static async getLastApplicationStart(): Promise<Date> {
+    const lastStart = (await this.findOneBy({ key: 'lastStart' }))?.value;
+    if (lastStart) {
+      return new Date(lastStart);
+    } else {
+      throw new Error('Last application start not found in database');
+    }
+  }
 }

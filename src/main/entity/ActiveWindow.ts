@@ -4,26 +4,38 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
-import { Entity, BaseEntity, PrimaryGeneratedColumn, Column } from "typeorm";
+import { Entity, BaseEntity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
-@Entity({ name: "active_window" })
+@Entity({ name: 'active_window' })
 export default class ActiveWindow extends BaseEntity {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column("varchar")
+  @Column('varchar')
   ts!: string;
 
-  @Column({ type: "varchar", nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   application!: string;
 
-  @Column({ type: "varchar", nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   title!: string;
 
-  @Column({ type: "varchar", nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   activity!: string;
 
-  @Column({ type: "varchar", nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   url!: string;
 
+  static async getUsedApplications(since: Date) {
+    const activeWindows = await this.createQueryBuilder('active_window')
+      .where('active_window.ts >= :since', {
+        since: since.toISOString(),
+      })
+      .getMany();
+    const applications = activeWindows.map((win) => {
+      return win.application;
+    });
+    const uniqueApplications = [...new Set(applications)];
+    return uniqueApplications;
+  }
 }
