@@ -4,6 +4,7 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
+import { exec } from 'child_process';
 import { info } from 'electron-log';
 import WindowTracker from './WindowTracker';
 
@@ -26,5 +27,9 @@ export default class TaskSnap {
     info('[TaskSnap] Started');
 
     this._windowTracker.start();
+  }
+
+  public openApplication(process: string) {
+    exec(`open -a '${process}'`);
   }
 }

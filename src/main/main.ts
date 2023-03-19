@@ -15,6 +15,8 @@ import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import TaskSnap from './TaskSnap';
+import { Database } from './database';
+import Log from './entity/Log';
 
 class AppUpdater {
   constructor() {
@@ -127,7 +129,7 @@ app.on('window-all-closed', () => {
 
 app
   .whenReady()
-  .then(() => {
+  .then(async () => {
     createWindow();
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the
@@ -135,6 +137,14 @@ app
       if (mainWindow === null) createWindow();
     });
 
+    // create connection with database
+    await Database.initialize();
+  })
+  .then(() => {
+    Database.manager.save(Log, {
+      key: 'lastStart',
+      value: new Date().toISOString(),
+    });
     const taskSnap = TaskSnap.getInstance();
     taskSnap.start();
   })

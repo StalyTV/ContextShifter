@@ -7,6 +7,7 @@
 import { info, debug } from 'electron-log';
 import { WindowsActivityTracker } from '../../release/app/PA.WindowsActivityTracker/typescript/src/index';
 import ActiveWindow from '../../release/app/PA.WindowsActivityTracker/typescript/src/types/ActiveWindow';
+import ActiveWindowDb from './entity/ActiveWindow';
 
 export default class WindowTracker {
   private _tracker: WindowsActivityTracker;
@@ -18,7 +19,13 @@ export default class WindowTracker {
   }
 
   private async onWindowChange(activeWindow: ActiveWindow) {
-    debug('window title', activeWindow);
+    await ActiveWindowDb.insert({
+      ts: activeWindow.ts.toISOString(),
+      application: activeWindow.process,
+      activity: activeWindow.activity,
+      title: activeWindow.windowTitle,
+      url: activeWindow.url,
+    });
   }
 
   public start() {
