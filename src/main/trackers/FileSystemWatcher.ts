@@ -4,39 +4,55 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
-import { info, debug } from 'electron-log';
-import * as fs from 'fs';
+import { info, debug, error } from 'electron-log';
+import watcher from '@parcel/watcher';
+import FileSystemEvent from '../entity/FileSystemEvent';
 
 export default class FileSystemWatcher {
-  private _watchers: fs.FSWatcher[];
+  private _subscriptions: watcher.AsyncSubscription[];
   private _watchedDirectories: string[];
 
   public constructor() {
-    this._watchedDirectories = ['/Users/remyegloff/Documents'];
-    this._watchers = [];
+    this._watchedDirectories = [
+      '/Users/remyegloff/Documents',
+      '/Users/remyegloff/master_thesis',
+    ];
+    this._subscriptions = [];
   }
 
-  private async onFsChange(eventType: fs.WatchEventType, file: string) {
-    console.log(eventType, file);
+  private async onFsEvent(err: Error | null, events: watcher.Event[]) {
+    if (err) {
+      error(`[FileSystemWatcher] error watching events`, err);
+      return;
+    }
+    for (const e of events) {
+      await FileSystemEvent.insert({
+        ts: new Date().toISOString(),
+        path: e.path,
+        type: e.type,
+      });
+    }
   }
 
-  public start() {
+  public async start() {
     info(
       '[FileSystemWatcher] Starting watching file changes. The following directories are watched: ',
       this._watchedDirectories
     );
 
-    this._watchedDirectories.forEach((dir) => {
-      const watcher = fs.watch(dir, (eventname, filename) => {
-        this.onFsChange(eventname, filename);
-      });
-      this._watchers.push(watcher);
-    });
+    for (const dir of this._watchedDirectories) {
+      try {
+        const ref = await watcher.subscribe(dir, this.onFsEvent);
+        this._subscriptions.push(ref);
+      } catch (err) {
+        error('[FileSystemWatcher]', err, dir);
+      }
+    }
   }
 
   public stop() {
     info('[WindowTracker] Stopping watching file changes');
-    this._watchers.forEach((watcher) => watcher.close());
-    this._watchers = [];
+    this._subscriptions.forEach((s) => s.unsubscribe());
+    this._subscriptions = [];
   }
 }

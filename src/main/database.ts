@@ -8,6 +8,7 @@ import { app } from 'electron';
 import path from 'path';
 import { DataSource } from 'typeorm';
 import ActiveWindow from './entity/ActiveWindow';
+import FileSystemEvent from './entity/FileSystemEvent';
 import Log from './entity/Log';
 
 const dbPath = path.join(
@@ -19,6 +20,6 @@ const dbPath = path.join(
 export const Database = new DataSource({
   database: dbPath,
   type: 'better-sqlite3',
-  entities: [ActiveWindow, Log],
+  entities: [ActiveWindow, Log, FileSystemEvent],
   synchronize: true,
 });
