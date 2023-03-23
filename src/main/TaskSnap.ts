@@ -10,6 +10,7 @@ import WindowTracker from './WindowTracker';
 import { ipcMain } from 'electron';
 import Log from './entity/Log';
 import ActiveWindow from './entity/ActiveWindow';
+import isMac from './helpers/isMac';
 
 /**
  * Main class of the application
@@ -33,7 +34,11 @@ export default class TaskSnap {
   }
 
   public openApplication(process: string) {
-    exec(`open -a '${process}'`);
+    if (isMac) {
+      exec(`open -a '${process}'`);
+    } else {
+      exec(`start ${process}`);
+    }
   }
 }
 
