@@ -6,7 +6,8 @@
 
 import { exec } from 'child_process';
 import { info } from 'electron-log';
-import WindowTracker from './WindowTracker';
+import WindowTracker from './trackers/WindowTracker';
+import FileSystemWatcher from './trackers/FileSystemWatcher';
 import isMac from './helpers/isMac';
 
 /**
@@ -15,9 +16,11 @@ import isMac from './helpers/isMac';
 export default class TaskSnap {
   private static _instance: TaskSnap;
   private _windowTracker: WindowTracker;
+  private _fileSystemWatcher: FileSystemWatcher;
 
   private constructor() {
     this._windowTracker = new WindowTracker();
+    this._fileSystemWatcher = new FileSystemWatcher();
   }
 
   public static getInstance() {
@@ -28,6 +31,14 @@ export default class TaskSnap {
     info('[TaskSnap] Started');
 
     this._windowTracker.start();
+    this._fileSystemWatcher.start();
+  }
+
+  public stop() {
+    info('[TaskSnap] Stopped');
+
+    this._windowTracker.stop();
+    this._fileSystemWatcher.stop();
   }
 
   public openApplication(process: string) {

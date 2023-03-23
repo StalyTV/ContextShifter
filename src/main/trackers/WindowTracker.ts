@@ -5,9 +5,9 @@
  */
 
 import { info, debug } from 'electron-log';
-import { WindowsActivityTracker } from '../../release/app/PA.WindowsActivityTracker/typescript/src/index';
-import ActiveWindow from '../../release/app/PA.WindowsActivityTracker/typescript/src/types/ActiveWindow';
-import ActiveWindowDb from './entity/ActiveWindow';
+import { WindowsActivityTracker } from '../../../release/app/PA.WindowsActivityTracker/typescript/src/index';
+import ActiveWindow from '../../../release/app/PA.WindowsActivityTracker/typescript/src/types/ActiveWindow';
+import ActiveWindowDb from '../entity/ActiveWindow';
 
 export default class WindowTracker {
   private _tracker: WindowsActivityTracker;
@@ -29,12 +29,12 @@ export default class WindowTracker {
   }
 
   public start() {
-    debug('[WindowTracker] Starting window tracker');
+    info('[WindowTracker] Starting window tracker');
     this._tracker.start();
   }
 
   public stop() {
-    debug('[WindowTracker] Stopping window tracker');
+    info('[WindowTracker] Stopping window tracker');
     this._tracker.stop();
   }
 }

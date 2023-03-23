@@ -9,7 +9,7 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import path from 'path';
-import "./ipc/api";
+import './ipc/api';
 import { app, BrowserWindow, shell, ipcMain } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
@@ -144,3 +144,8 @@ app
     taskSnap.start();
   })
   .catch(console.log);
+
+app.on('before-quit', async (e) => {
+  const taskSnap = TaskSnap.getInstance();
+  taskSnap.stop();
+});
