@@ -4,24 +4,21 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import Button from 'renderer/components/Button';
 
 export default function NewSnapshot() {
   const [applications, setApplications] = useState<string[]>([]);
 
-  window.electron.ipcRenderer.once('get-used-applications', (arg) => {
-    console.log('received apps', arg);
-    const receivedApps = arg as string[];
-    setApplications(receivedApps);
-  });
-
-  const fetchApplications = () => {
-    window.electron.ipcRenderer.sendMessage('get-used-applications', []);
+  const fetchApplications = async () => {
+    const applications = await window.electron.ipcRenderer.invoke(
+      'get-used-applications'
+    );
+    setApplications(applications);
   };
 
-  const openApplication = (app: string) => {
-    window.electron.ipcRenderer.sendMessage('open-application', [app]);
+  const openApplication = async (app: string) => {
+    await window.electron.ipcRenderer.invoke('open-application', app);
   };
 
   return (
