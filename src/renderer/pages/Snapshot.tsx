@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import Button from 'renderer/components/Button';
 
-export default function NewSnapshot() {
+export default function Snapshot() {
   const [applications, setApplications] = useState<string[]>([]);
 
   const fetchApplications = async () => {
@@ -23,7 +23,7 @@ export default function NewSnapshot() {
 
   return (
     <>
-      <h1>New Task Snap</h1>
+      <h1>Snapshot</h1>
       <Button onClick={() => fetchApplications()}>Refresh Applications</Button>
       {applications.map((app) => {
         return (
