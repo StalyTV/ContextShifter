@@ -10,6 +10,9 @@ import WindowTracker from './trackers/WindowTracker';
 import FileSystemWatcher from './trackers/FileSystemWatcher';
 import isMac from './helpers/isMac';
 import TrayManager from './TrayManager';
+import activeWin from 'active-win';
+import Snapshot from './entity/Snapshot';
+import Application from './entity/Application';
 
 /**
  * Main class of the application
@@ -43,8 +46,31 @@ export default class TaskSnap {
     this._fileSystemWatcher.stop();
   }
 
-  public createNewSnapshot() {
+  public async createNewSnapshot() {
     info('[TaskSnap] New snapshot created');
+
+    const openApplications = await this.getCurrentlyOpenApplications();
+    await Application.save(openApplications);
+
+    const nextId = await Snapshot.getNextId();
+    const newSnapshot = new Snapshot();
+    newSnapshot.created = new Date().toISOString();
+    newSnapshot.name = `Snapshot ${nextId}`;
+    newSnapshot.applications = openApplications;
+    await Snapshot.save(newSnapshot);
+  }
+
+  public async getCurrentlyOpenApplications(): Promise<Application[]> {
+    const openWindows = await activeWin.getOpenWindows();
+    const openApplications: Application[] = [];
+    openWindows.forEach((win) => {
+      const app = new Application();
+      app.name = win.owner.name;
+      app.path = win.owner.path;
+      openApplications.push(app);
+    });
+
+    return openApplications;
   }
 
   public openApplication(process: string) {

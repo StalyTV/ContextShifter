@@ -15,6 +15,7 @@
     "link-modules": "node -r ts-node/register ../../.erb/scripts/link-modules.ts"
   },
   "dependencies": {
+    "active-win": "^8.1.0",
     "better-sqlite3": "^8.2.0",
     "typeorm": "^0.3.12",
     "windows-activity-tracker": "file:PA.WindowsActivityTracker/typescript"

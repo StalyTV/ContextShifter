@@ -23,8 +23,8 @@ export default class TrayManager {
     const menu = Menu.buildFromTemplate([
       {
         label: 'New Snapshot',
-        click: () => {
-          this._taskSnapInstance.createNewSnapshot();
+        click: async () => {
+          await this._taskSnapInstance.createNewSnapshot();
         },
       },
       { type: 'separator' },
