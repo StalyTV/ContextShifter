@@ -18,7 +18,6 @@ import { resolveHtmlPath } from './util';
 import TaskSnap from './TaskSnap';
 import { Database } from './database';
 import Log from './entity/Log';
-import TrayManager from './TrayManager';
 
 class AppUpdater {
   constructor() {
@@ -143,7 +142,6 @@ app
     });
     const taskSnap = TaskSnap.getInstance();
     taskSnap.start();
-    TrayManager.init();
   })
   .catch(console.log);
 

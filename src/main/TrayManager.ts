@@ -8,16 +8,26 @@ import { Menu, Tray, app, shell } from 'electron';
 import isMac from './helpers/isMac';
 import getAssetPath from './helpers/getAssetPath';
 import path from 'path';
+import TaskSnap from './TaskSnap';
 
 export default class TrayManager {
   private static _tray: Tray | null = null;
+  public static _taskSnapInstance: TaskSnap;
 
-  public static async init() {
+  public static async init(taskSnap: TaskSnap) {
+    this._taskSnapInstance = taskSnap;
     const platform = isMac ? 'mac' : 'windows';
     const iconPath = getAssetPath(`trayIcons/${platform}/CameraIcon.png`);
     this._tray = new Tray(iconPath);
 
     const menu = Menu.buildFromTemplate([
+      {
+        label: 'New Snapshot',
+        click: () => {
+          this._taskSnapInstance.createNewSnapshot();
+        },
+      },
+      { type: 'separator' },
       {
         label: 'Open Logs',
         click: () => {

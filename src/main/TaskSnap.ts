@@ -9,6 +9,7 @@ import { info } from 'electron-log';
 import WindowTracker from './trackers/WindowTracker';
 import FileSystemWatcher from './trackers/FileSystemWatcher';
 import isMac from './helpers/isMac';
+import TrayManager from './TrayManager';
 
 /**
  * Main class of the application
@@ -29,6 +30,7 @@ export default class TaskSnap {
 
   public start() {
     info('[TaskSnap] Started');
+    TrayManager.init(this);
 
     this._windowTracker.start();
     this._fileSystemWatcher.start();
@@ -39,6 +41,10 @@ export default class TaskSnap {
 
     this._windowTracker.stop();
     this._fileSystemWatcher.stop();
+  }
+
+  public createNewSnapshot() {
+    info('[TaskSnap] New snapshot created');
   }
 
   public openApplication(process: string) {
