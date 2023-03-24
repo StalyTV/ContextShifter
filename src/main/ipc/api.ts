@@ -8,6 +8,7 @@ import typedIpcMain from './typedIpcMain';
 import Log from '../entity/Log';
 import ActiveWindow from '../entity/ActiveWindow';
 import TaskSnap from '../TaskSnap';
+import SnapshotManager from '../SnapshotManager';
 
 typedIpcMain.handle('get-used-applications', async () => {
   const lastStart = await Log.getLastApplicationStart();
@@ -17,4 +18,8 @@ typedIpcMain.handle('get-used-applications', async () => {
 
 typedIpcMain.handle('open-application', async (e, application) => {
   TaskSnap.getInstance().openApplication(application);
+});
+
+typedIpcMain.handle('get-latest-snapshot', async () => {
+  return await SnapshotManager.getInstance().getLatestSnapshot();
 });

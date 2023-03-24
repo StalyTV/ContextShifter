@@ -4,38 +4,49 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
-import { useState } from 'react';
-import Button from 'renderer/components/Button';
+import SnapshotEntity from 'main/entity/Snapshot';
+import { useEffect, useState } from 'react';
 
 export default function Snapshot() {
-  const [applications, setApplications] = useState<string[]>([]);
+  const [latestSnapshot, setLatestSnapshot] = useState<SnapshotEntity | null>(
+    null
+  );
 
-  const fetchApplications = async () => {
-    const applications = await window.electron.ipcRenderer.invoke(
-      'get-used-applications'
+  const fetchLatestSnapshot = async () => {
+    const snapshot = await window.electron.ipcRenderer.invoke(
+      'get-latest-snapshot'
     );
-    setApplications(applications);
+    setLatestSnapshot(snapshot);
   };
 
   const openApplication = async (app: string) => {
     await window.electron.ipcRenderer.invoke('open-application', app);
   };
 
+  useEffect(() => {
+    fetchLatestSnapshot();
+  }, []);
+
   return (
     <>
-      <h1>Snapshot</h1>
-      <Button onClick={() => fetchApplications()}>Refresh Applications</Button>
-      {applications.map((app) => {
-        return (
-          <div
-            key={app}
-            className="application"
-            onClick={() => openApplication(app)}
-          >
-            {app}
-          </div>
-        );
-      })}
+      {latestSnapshot ? (
+        <>
+          <h1>{latestSnapshot.name}</h1>
+          {latestSnapshot.applications.map((app) => {
+            return (
+              <div
+                key={app.name}
+                className="application"
+                onClick={() => openApplication(app.path)}
+              >
+                {app.name}
+              </div>
+            );
+          })}
+        </>
+      ) : (
+        <p>Error: No Snapshot found</p>
+      )}
     </>
   );
 }

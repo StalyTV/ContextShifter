@@ -4,7 +4,10 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
+import Snapshot from 'main/entity/Snapshot';
+
 type Commands = {
+  'get-latest-snapshot': () => Snapshot | null;
   'get-used-applications': () => string[];
   'open-application': (application: string) => void;
 };
