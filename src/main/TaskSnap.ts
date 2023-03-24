@@ -13,6 +13,7 @@ import TrayManager from './TrayManager';
 import activeWin from 'active-win';
 import Snapshot from './entity/Snapshot';
 import Application from './entity/Application';
+import WindowManager from './WindowManager';
 
 /**
  * Main class of the application
@@ -58,6 +59,8 @@ export default class TaskSnap {
     newSnapshot.name = `Snapshot ${nextId}`;
     newSnapshot.applications = openApplications;
     await Snapshot.save(newSnapshot);
+
+    WindowManager.createSnapshotWindow()
   }
 
   public async getCurrentlyOpenApplications(): Promise<Application[]> {
