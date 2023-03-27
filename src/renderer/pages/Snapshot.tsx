@@ -6,6 +6,7 @@
 
 import SnapshotEntity from 'main/entity/Snapshot';
 import { useEffect, useState } from 'react';
+import File from 'renderer/components/File';
 
 export default function Snapshot() {
   const [latestSnapshot, setLatestSnapshot] = useState<SnapshotEntity | null>(
@@ -40,6 +41,9 @@ export default function Snapshot() {
                 onClick={() => openApplication(app.path)}
               >
                 {app.name}
+                {app.files.map((file) => (
+                  <File path={file.path} />
+                ))}
               </div>
             );
           })}

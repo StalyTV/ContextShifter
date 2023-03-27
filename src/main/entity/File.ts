@@ -10,25 +10,17 @@ import {
   PrimaryGeneratedColumn,
   Column,
   ManyToOne,
-  OneToMany
 } from 'typeorm';
-import File from './File';
-import Snapshot from './Snapshot';
+import Application from './Application';
 
-@Entity({ name: 'application' })
-export default class Application extends BaseEntity {
+@Entity({ name: 'file' })
+export default class File extends BaseEntity {
   @PrimaryGeneratedColumn()
   id!: number;
 
   @Column({ type: 'varchar', nullable: false })
-  name!: string;
-
-  @Column({ type: 'varchar', nullable: false })
   path!: string;
 
-  @ManyToOne(() => Snapshot, (snapshot) => snapshot.applications)
-  snapshot!: Snapshot;
-
-  @OneToMany(() => File, (file) => file.application)
-  files!: File[];
+  @ManyToOne(() => Application, (app) => app.files)
+  application!: Application;
 }

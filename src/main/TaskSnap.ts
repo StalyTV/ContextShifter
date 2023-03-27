@@ -13,7 +13,9 @@ import TrayManager from './TrayManager';
 import activeWin from 'active-win';
 import Snapshot from './entity/Snapshot';
 import Application from './entity/Application';
+import File from './entity/File';
 import WindowManager from './WindowManager';
+import { lsof, Options } from 'list-open-files';
 
 /**
  * Main class of the application
@@ -60,25 +62,54 @@ export default class TaskSnap {
     newSnapshot.applications = openApplications;
     await Snapshot.save(newSnapshot);
 
-    WindowManager.createSnapshotWindow()
+    WindowManager.createSnapshotWindow();
   }
 
   public async getCurrentlyOpenApplications(): Promise<Application[]> {
     const openWindows = await activeWin.getOpenWindows();
+    const pidsOfApplications: number[] = openWindows.map((win) => {
+      return win.owner.processId;
+    });
+    const options: Options = {
+      pids: pidsOfApplications,
+    };
+    const processInfos = await lsof(options);
+
     const openApplications: Application[] = [];
-    openWindows.forEach((win) => {
+    for await (const win of openWindows) {
       const app = new Application();
       app.name = win.owner.name;
       app.path = win.owner.path;
       openApplications.push(app);
-    });
+
+      const associatedFiles: File[] = [];
+      const processInfoOfApplication = processInfos.filter((process) => {
+        return process.process.pid === win.owner.processId;
+      });
+      const filePaths = processInfoOfApplication[0].files.map((f) => f.name);
+      for await (const path of filePaths) {
+        if (path) {
+          const lowerCasePath = path.toLowerCase();
+          if (lowerCasePath.includes(win.title.toLowerCase())) {
+            const file = new File();
+            file.path = path;
+            associatedFiles.push(file);
+          }
+        }
+      }
+      if (associatedFiles.length > 0) {
+        await File.save(associatedFiles);
+      }
+      app.files = associatedFiles;
+    }
 
     return openApplications;
   }
 
+  // TODO [regloff]: Add param to specify application the document should be opened with
   public openApplication(process: string) {
     if (isMac) {
-      exec(`open -a '${process}'`);
+      exec(`open '${process}'`);
     } else {
       exec(`start ${process}`);
     }
