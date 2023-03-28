@@ -92,7 +92,8 @@ export default class TaskSnap {
         if (path) {
           const lowerCasePath = path.toLowerCase();
           if (
-            lowerCasePath.includes(win.title.toLowerCase()) &&
+            (lowerCasePath.includes(win.title.toLowerCase()) ||
+              win.title.toLowerCase().includes(lowerCasePath)) &&
             !lowerCasePath.includes('~$')
           ) {
             const file = new File();
