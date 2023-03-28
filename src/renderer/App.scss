@@ -7,10 +7,11 @@
 
  :root {
   --accent-color: #08C0DD;
-  --bg-dark: #242424;
-  --bg-medium: #777777;
-  --bg-light: #8B8B8B;
-  --bg-lighter: #B1B1B1;
+  --bg-color-1: #3E3E3E;
+  --bg-color-2: #646464;
+  --bg-color-3: #777777;
+  --bg-color-4: #8B8B8B;
+  --bg-color-5: #B1B1B1;
   --border-color: #FFFFFF;
   --text-color: #FFFFFF;
 
@@ -19,42 +20,8 @@
 
 body {
   font-family: 'Montserrat', sans-serif;
-  background: var(--bg-dark);
+  background: var(--bg-color-1);
   color: var(--text-color);
-}
-
-button {
-  background-color: white;
-  padding: 10px 20px;
-  border-radius: 10px;
-  border: none;
-  appearance: none;
-  font-size: 1.3rem;
-  box-shadow: 0px 8px 28px -6px rgba(24, 39, 75, 0.12),
-    0px 18px 88px -4px rgba(24, 39, 75, 0.14);
-  transition: all ease-in 0.1s;
-  cursor: pointer;
-  opacity: 0.9;
-}
-
-button:hover {
-  transform: scale(1.05);
-  opacity: 1;
-}
-
-li {
-  list-style: none;
-}
-
-a {
-  text-decoration: none;
-  height: fit-content;
-  width: fit-content;
-  margin: 10px;
-}
-
-a:hover {
-  opacity: 1;
-  text-decoration: none;
+  margin: 1rem;
 }
 

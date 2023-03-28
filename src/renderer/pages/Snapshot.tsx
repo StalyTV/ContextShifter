@@ -8,6 +8,7 @@ import styles from './Snapshot.module.scss';
 import SnapshotEntity from 'main/entity/Snapshot';
 import { useEffect, useState } from 'react';
 import Application from 'renderer/components/Application';
+import Button from 'renderer/components/Button';
 
 export default function Snapshot() {
   const [latestSnapshot, setLatestSnapshot] = useState<SnapshotEntity | null>(
@@ -30,11 +31,11 @@ export default function Snapshot() {
   const getFormattedDate = (timestamp: string) => {
     const date = new Date(timestamp);
     return date.toLocaleString([], {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit"
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
   };
 
@@ -61,6 +62,9 @@ export default function Snapshot() {
                 <Application app={app} />
               ))}
             </div>
+          </div>
+          <div className={styles.buttonContainer}>
+            <Button isFilled={true}>Save</Button>
           </div>
         </>
       ) : (

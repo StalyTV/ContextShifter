@@ -4,15 +4,23 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
+import styles from './Button.module.scss';
+
 export interface ButtonProps extends React.ComponentPropsWithoutRef<'button'> {
   onClick?: (
     e: React.MouseEvent<HTMLButtonElement, MouseEvent>
   ) => any | Promise<any>;
+  isFilled: boolean;
 }
 
 export default function Button(props: ButtonProps) {
   return (
-    <button className={props.className} onClick={props.onClick}>
+    <button
+      className={`${styles.button} ${
+        props.isFilled ? styles.filled : undefined
+      } ${props.className}`}
+      onClick={props.onClick}
+    >
       {props.children}
     </button>
   );
