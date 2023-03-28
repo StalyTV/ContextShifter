@@ -23,3 +23,7 @@ typedIpcMain.handle('open-artifact', async (e, artifact) => {
 typedIpcMain.handle('get-latest-snapshot', async () => {
   return await SnapshotManager.getInstance().getLatestSnapshot();
 });
+
+typedIpcMain.handle('update-snapshot', async (e, snapshot) => {
+  await SnapshotManager.getInstance().updateSnapshot(snapshot);
+});

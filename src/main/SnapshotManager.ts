@@ -5,6 +5,7 @@
  */
 
 import Snapshot from './entity/Snapshot';
+import { info } from 'electron-log';
 
 export default class SnapshotManager {
   private static _instance: SnapshotManager;
@@ -15,5 +16,14 @@ export default class SnapshotManager {
 
   public async getLatestSnapshot() {
     return await Snapshot.getLatestSnapshot();
+  }
+
+  public async updateSnapshot(updatedSnapshot: Snapshot) {
+    const snapshotInDb = await Snapshot.findOneBy({ id: updatedSnapshot.id });
+    if (snapshotInDb) {
+      snapshotInDb.name = updatedSnapshot.name;
+      await snapshotInDb.save();
+      info(`[SnapshotManager] Updated snapshot "${snapshotInDb.name}"`);
+    }
   }
 }

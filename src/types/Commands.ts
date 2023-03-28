@@ -11,6 +11,7 @@ type Commands = {
   'get-latest-snapshot': () => Snapshot | null;
   'get-used-applications': () => string[];
   'open-artifact': (artifact: Artifact) => void;
+  'update-snapshot': (snapshot: Snapshot) => void;
 };
 
 export default Commands;

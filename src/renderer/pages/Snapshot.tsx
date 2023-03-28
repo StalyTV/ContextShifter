@@ -24,6 +24,17 @@ export default function Snapshot() {
     setSnapshotName(snapshot ? snapshot.name : '');
   };
 
+  const onClickSave = async () => {
+    if (latestSnapshot) {
+      latestSnapshot.name = snapshotName;
+
+      await window.electron.ipcRenderer.invoke(
+        'update-snapshot',
+        latestSnapshot
+      );
+    }
+  };
+
   const onNameChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setSnapshotName(e.target.value);
   };
@@ -64,7 +75,9 @@ export default function Snapshot() {
             </div>
           </div>
           <div className={styles.buttonContainer}>
-            <Button isFilled={true}>Save</Button>
+            <Button isFilled={true} onClick={() => onClickSave()}>
+              Save
+            </Button>
           </div>
         </>
       ) : (
