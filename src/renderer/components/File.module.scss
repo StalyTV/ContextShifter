@@ -1,5 +1,5 @@
 .file {
-  border: solid black 1px;
+  border: solid var(--border-color) 1px;
   padding: 0.3rem;
-  border-radius: 5px;
+  border-radius: var(--border-radius);
 }
