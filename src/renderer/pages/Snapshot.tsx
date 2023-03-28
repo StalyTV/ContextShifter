@@ -7,6 +7,7 @@
 import SnapshotEntity from 'main/entity/Snapshot';
 import { useEffect, useState } from 'react';
 import File from 'renderer/components/File';
+import Artifact from '../../types/Artifact';
 
 export default function Snapshot() {
   const [latestSnapshot, setLatestSnapshot] = useState<SnapshotEntity | null>(
@@ -21,7 +22,8 @@ export default function Snapshot() {
   };
 
   const openApplication = async (app: string) => {
-    await window.electron.ipcRenderer.invoke('open-artifact', app);
+    const artifact: Artifact = { artifact: app };
+    await window.electron.ipcRenderer.invoke('open-artifact', artifact);
   };
 
   useEffect(() => {
@@ -42,7 +44,7 @@ export default function Snapshot() {
               >
                 {app.name}
                 {app.files.map((file) => (
-                  <File path={file.path} />
+                  <File applicationPath={app.path} path={file.path} />
                 ))}
               </div>
             );

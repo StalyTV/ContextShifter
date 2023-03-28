@@ -16,6 +16,7 @@ import Application from './entity/Application';
 import File from './entity/File';
 import WindowManager from './WindowManager';
 import { lsof, Options } from 'list-open-files';
+import Artifact from '../types/Artifact';
 
 /**
  * Main class of the application
@@ -106,12 +107,15 @@ export default class TaskSnap {
     return openApplications;
   }
 
-  // TODO [regloff]: Add param to specify application the document should be opened with
-  public openArtifact(process: string) {
+  public openArtifact(artifact: Artifact) {
     if (isMac) {
-      exec(`open '${process}'`);
+      if (artifact.application) {
+        exec(`open -a '${artifact.application}' '${artifact.artifact}'`);
+      } else {
+        exec(`open '${artifact.artifact}'`);
+      }
     } else {
-      exec(`start ${process}`);
+      exec(`start ${artifact.artifact}`);
     }
   }
 }

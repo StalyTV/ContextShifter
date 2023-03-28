@@ -4,17 +4,24 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
+import Artifact from '../../types/Artifact';
+
 type Props = {
+  applicationPath: string;
   path: string;
 };
 
 export default function File(props: Props) {
-  const openFile = async (file: string) => {
-    await window.electron.ipcRenderer.invoke('open-artifact', file);
+  const openFile = async () => {
+    const artifact: Artifact = {
+      artifact: props.path,
+      application: props.applicationPath,
+    };
+    await window.electron.ipcRenderer.invoke('open-artifact', artifact);
   };
 
   return (
-    <div className={'file'} onClick={() => openFile(props.path)}>
+    <div className={'file'} onClick={() => openFile()}>
       {props.path}
     </div>
   );

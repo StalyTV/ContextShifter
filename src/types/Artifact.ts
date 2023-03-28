@@ -4,13 +4,10 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
-import Snapshot from 'main/entity/Snapshot';
-import Artifact from './Artifact';
-
-type Commands = {
-  'get-latest-snapshot': () => Snapshot | null;
-  'get-used-applications': () => string[];
-  'open-artifact': (artifact: Artifact) => void;
+// "application" specifies the app the artifact should be opened with
+type Artifact = {
+  artifact: string,
+  application?: string,
 };
 
-export default Commands;
+export default Artifact;
