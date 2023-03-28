@@ -1,12 +1,22 @@
-.titleContainer {
-  background-color: var(--bg-medium);
-  padding: 0.5rem 1rem 0.5rem 1rem;
-  border-radius: var(--border-radius);
+.header {
+  .titleContainer {
+    width: 40%;
+    background-color: var(--bg-medium);
+    padding: 0.5rem 1rem 0.5rem 1rem;
+    border-radius: var(--border-radius);
+  }
+
+  input {
+    background: none;
+    border: none;
+    color: var(--text-color);
+    width: 100%;
+    font-size: large;
+  }
 }
 
-input {
-  background: none;
-  border: none;
-  color: var(--text-color);
-  font-size: x-large;
+.mainContainer {
+  display: flex;
+  justify-content: space-between;
 }
+

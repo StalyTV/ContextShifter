@@ -27,6 +27,17 @@ export default function Snapshot() {
     setSnapshotName(e.target.value);
   };
 
+  const getFormattedDate = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleString([], {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  };
+
   useEffect(() => {
     fetchLatestSnapshot();
   }, []);
@@ -35,12 +46,22 @@ export default function Snapshot() {
     <>
       {latestSnapshot ? (
         <>
-          <div className={styles.titleContainer}>
-            <input value={snapshotName} onChange={onNameChange} />
+          <div className={styles.header}>
+            <div className={styles.titleContainer}>
+              <input value={snapshotName} onChange={onNameChange} />
+            </div>
+            <div className={styles.timestamp}>
+              {getFormattedDate(latestSnapshot.created)}
+            </div>
           </div>
-          {latestSnapshot.applications.map((app) => (
-            <Application app={app} />
-          ))}
+          <div className={styles.mainContainer}>
+            <div className={styles.leftContainer}></div>
+            <div className={styles.rightContainer}>
+              {latestSnapshot.applications.map((app) => (
+                <Application app={app} />
+              ))}
+            </div>
+          </div>
         </>
       ) : (
         <p>Error: No Snapshot found</p>
