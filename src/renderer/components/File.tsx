@@ -4,25 +4,27 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
+import styles from "./File.module.scss";
 import Artifact from '../../types/Artifact';
+import FileEntity from "main/entity/File";
 
 type Props = {
   applicationPath: string;
-  path: string;
+  file: FileEntity;
 };
 
 export default function File(props: Props) {
   const openFile = async () => {
     const artifact: Artifact = {
-      artifact: props.path,
+      artifact: props.file.path,
       application: props.applicationPath,
     };
     await window.electron.ipcRenderer.invoke('open-artifact', artifact);
   };
 
   return (
-    <div className={'file'} onClick={() => openFile()}>
-      {props.path}
+    <div className={styles.file} onClick={() => openFile()}>
+      {props.file.path}
     </div>
   );
 }

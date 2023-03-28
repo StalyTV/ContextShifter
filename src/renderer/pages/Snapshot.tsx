@@ -6,8 +6,7 @@
 
 import SnapshotEntity from 'main/entity/Snapshot';
 import { useEffect, useState } from 'react';
-import File from 'renderer/components/File';
-import Artifact from '../../types/Artifact';
+import Application from 'renderer/components/Application';
 
 export default function Snapshot() {
   const [latestSnapshot, setLatestSnapshot] = useState<SnapshotEntity | null>(
@@ -21,11 +20,6 @@ export default function Snapshot() {
     setLatestSnapshot(snapshot);
   };
 
-  const openApplication = async (app: string) => {
-    const artifact: Artifact = { artifact: app };
-    await window.electron.ipcRenderer.invoke('open-artifact', artifact);
-  };
-
   useEffect(() => {
     fetchLatestSnapshot();
   }, []);
@@ -35,20 +29,9 @@ export default function Snapshot() {
       {latestSnapshot ? (
         <>
           <h1>{latestSnapshot.name}</h1>
-          {latestSnapshot.applications.map((app) => {
-            return (
-              <div
-                key={app.name}
-                className="application"
-                onClick={() => openApplication(app.path)}
-              >
-                {app.name}
-                {app.files.map((file) => (
-                  <File applicationPath={app.path} path={file.path} />
-                ))}
-              </div>
-            );
-          })}
+          {latestSnapshot.applications.map((app) => (
+            <Application app={app} />
+          ))}
         </>
       ) : (
         <p>Error: No Snapshot found</p>
