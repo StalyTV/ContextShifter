@@ -9,7 +9,7 @@ import Snapshot from 'main/entity/Snapshot';
 type Commands = {
   'get-latest-snapshot': () => Snapshot | null;
   'get-used-applications': () => string[];
-  'open-application': (application: string) => void;
+  'open-artifact': (artifact: string) => void;
 };
 
 export default Commands;

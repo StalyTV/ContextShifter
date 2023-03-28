@@ -16,8 +16,8 @@ typedIpcMain.handle('get-used-applications', async () => {
   return applications;
 });
 
-typedIpcMain.handle('open-application', async (e, application) => {
-  TaskSnap.getInstance().openApplication(application);
+typedIpcMain.handle('open-artifact', async (e, artifact) => {
+  TaskSnap.getInstance().openArtifact(artifact);
 });
 
 typedIpcMain.handle('get-latest-snapshot', async () => {

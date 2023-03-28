@@ -21,7 +21,7 @@ export default function Snapshot() {
   };
 
   const openApplication = async (app: string) => {
-    await window.electron.ipcRenderer.invoke('open-application', app);
+    await window.electron.ipcRenderer.invoke('open-artifact', app);
   };
 
   useEffect(() => {

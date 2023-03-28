@@ -107,7 +107,7 @@ export default class TaskSnap {
   }
 
   // TODO [regloff]: Add param to specify application the document should be opened with
-  public openApplication(process: string) {
+  public openArtifact(process: string) {
     if (isMac) {
       exec(`open '${process}'`);
     } else {

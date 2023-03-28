@@ -9,8 +9,8 @@ type Props = {
 };
 
 export default function File(props: Props) {
-  const openFile = async (app: string) => {
-    await window.electron.ipcRenderer.invoke('open-application', app);
+  const openFile = async (file: string) => {
+    await window.electron.ipcRenderer.invoke('open-artifact', file);
   };
 
   return (
