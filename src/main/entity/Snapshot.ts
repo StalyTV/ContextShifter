@@ -27,7 +27,7 @@ export default class Snapshot extends BaseEntity {
   @Column({ type: 'varchar', nullable: true })
   edited!: string;
 
-  @Column({ type: 'varchar', nullable: false, default: false })
+  @Column({ type: 'tinyint', nullable: false, default: false })
   isArchived!: boolean;
 
   @OneToMany(() => Application, (app) => app.snapshot)

@@ -10,7 +10,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   ManyToOne,
-  OneToMany
+  OneToMany,
 } from 'typeorm';
 import File from './File';
 import Snapshot from './Snapshot';
@@ -25,6 +25,9 @@ export default class Application extends BaseEntity {
 
   @Column({ type: 'varchar', nullable: false })
   path!: string;
+
+  @Column({ type: 'tinyint', nullable: false, default: true })
+  isSelected!: boolean;
 
   @ManyToOne(() => Snapshot, (snapshot) => snapshot.applications)
   snapshot!: Snapshot;

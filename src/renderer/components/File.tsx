@@ -4,9 +4,9 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
-import styles from "./File.module.scss";
+import styles from './File.module.scss';
 import Artifact from '../../types/Artifact';
-import FileEntity from "main/entity/File";
+import FileEntity from 'main/entity/File';
 
 type Props = {
   applicationPath: string;
@@ -23,7 +23,12 @@ export default function File(props: Props) {
   };
 
   return (
-    <div className={styles.file} onClick={() => openFile()}>
+    <div
+      className={`${styles.file} ${
+        props.file.isSelected ? styles.isSelected : undefined
+      }`}
+      onClick={() => openFile()}
+    >
       {props.file.path}
     </div>
   );

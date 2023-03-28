@@ -22,7 +22,9 @@ export default function Application(props: Props) {
   return (
     <div
       key={props.app.name}
-      className={styles.application}
+      className={`${styles.application} ${
+        props.app.isSelected ? styles.isSelected : undefined
+      }`}
       onClick={() => openApplication(props.app.path)}
     >
       {props.app.name}

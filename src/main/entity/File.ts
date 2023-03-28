@@ -21,6 +21,9 @@ export default class File extends BaseEntity {
   @Column({ type: 'varchar', nullable: false })
   path!: string;
 
+  @Column({ type: 'tinyint', nullable: false, default: true })
+  isSelected!: boolean;
+
   @ManyToOne(() => Application, (app) => app.files)
   application!: Application;
 }
