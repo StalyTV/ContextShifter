@@ -91,7 +91,10 @@ export default class TaskSnap {
       for await (const path of filePaths) {
         if (path) {
           const lowerCasePath = path.toLowerCase();
-          if (lowerCasePath.includes(win.title.toLowerCase())) {
+          if (
+            lowerCasePath.includes(win.title.toLowerCase()) &&
+            !lowerCasePath.includes('~$')
+          ) {
             const file = new File();
             file.path = path;
             associatedFiles.push(file);
