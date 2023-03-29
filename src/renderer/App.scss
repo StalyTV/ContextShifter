@@ -6,17 +6,31 @@
  @import url("https://fonts.googleapis.com/css?family=Montserrat:500,700");
 
  :root {
-  --accent-color: #08C0DD;
-  --bg-color-1: #3E3E3E;
-  --bg-color-2: #646464;
-  --bg-color-3: #777777;
-  --bg-color-4: #8B8B8B;
-  --bg-color-5: #B1B1B1;
-  --border-color: #FFFFFF;
-  --text-color: #FFFFFF;
+  @media (prefers-color-scheme: dark) {
+    --accent-color: #08C0DD;
+    --bg-color-1: #3E3E3E;
+    --bg-color-2: #646464;
+    --bg-color-3: #777777;
+    --bg-color-4: #8B8B8B;
+    --bg-color-5: #B1B1B1;
+    --border-color: #FFFFFF;
+    --text-color: #FFFFFF;
+  }
+  @media (prefers-color-scheme: light) {
+    --accent-color: #08C0DD;
+    --bg-color-1: #fcfcfc;
+    --bg-color-2: #f0f0f0;
+    --bg-color-3: #e0e0e0;
+    --bg-color-4: #c1c1c1;
+    --bg-color-5: #a3a3a3;
+    --border-color: #3E3E3E;
+    --text-color: #3E3E3E;
+
+  }
 
   --postIt-bg-color-1: #FFFF99;
   --postIt-bg-color-2: #fdfdbc;
+  --postIt-border-color: #3E3E3E;
   --postIt-text-color: #3E3E3E;
 
   --border-radius: 5px;
