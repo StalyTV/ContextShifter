@@ -9,6 +9,7 @@ import SnapshotEntity from 'main/entity/Snapshot';
 import { useEffect, useState } from 'react';
 import Application from 'renderer/components/Application';
 import Button from 'renderer/components/Button';
+import PostIt from 'renderer/components/PostIt';
 
 export default function Snapshot() {
   const [latestSnapshot, setLatestSnapshot] = useState<SnapshotEntity | null>(
@@ -67,7 +68,10 @@ export default function Snapshot() {
             </div>
           </div>
           <div className={styles.mainContainer}>
-            <div className={styles.leftContainer}></div>
+            <div className={styles.leftContainer}>
+              <PostIt title={'Now what was I doing?'} content={'lorem ipsum'} />
+              <PostIt title={'What was I about to do?'} content={'lorem ipsum'} />
+            </div>
             <div className={styles.rightContainer}>
               {latestSnapshot.applications.map((app) => (
                 <Application app={app} />

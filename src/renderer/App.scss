@@ -3,7 +3,7 @@
  *        See https://github.com/webpack-contrib/sass-loader#imports
  */
 
- @import url("https://fonts.googleapis.com/css?family=Montserrat");
+ @import url("https://fonts.googleapis.com/css?family=Montserrat:500,700");
 
  :root {
   --accent-color: #08C0DD;
@@ -15,11 +15,16 @@
   --border-color: #FFFFFF;
   --text-color: #FFFFFF;
 
+  --postIt-bg-color-1: #FFFF99;
+  --postIt-bg-color-2: #fdfdbc;
+  --postIt-text-color: #3E3E3E;
+
   --border-radius: 5px;
+  --font-family: 'Montserrat', sans-serif;
 }
 
 body {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-family);
   background: var(--bg-color-1);
   color: var(--text-color);
   margin: 1rem;
