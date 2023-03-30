@@ -16,6 +16,8 @@ export default function Snapshot() {
     null
   );
   const [snapshotName, setSnapshotName] = useState<string>('');
+  const [summary, setSummary] = useState<string>('');
+  const [intent, setIntent] = useState<string>('');
 
   const fetchLatestSnapshot = async () => {
     const snapshot = await window.electron.ipcRenderer.invoke(
@@ -23,11 +25,15 @@ export default function Snapshot() {
     );
     setLatestSnapshot(snapshot);
     setSnapshotName(snapshot ? snapshot.name : '');
+    setSummary(snapshot ? snapshot.summary : '');
+    setIntent(snapshot ? snapshot.intent : '');
   };
 
   const onClickSave = async () => {
     if (latestSnapshot) {
       latestSnapshot.name = snapshotName;
+      latestSnapshot.summary = summary;
+      latestSnapshot.intent = intent;
 
       await window.electron.ipcRenderer.invoke(
         'update-snapshot',
@@ -38,6 +44,14 @@ export default function Snapshot() {
 
   const onNameChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setSnapshotName(e.target.value);
+  };
+
+  const onSummaryChange = async (text: string) => {
+    setSummary(text);
+  };
+
+  const onIntentChange = async (text: string) => {
+    setIntent(text);
   };
 
   const getFormattedDate = (timestamp: string) => {
@@ -69,8 +83,16 @@ export default function Snapshot() {
           </div>
           <div className={styles.mainContainer}>
             <div className={styles.leftContainer}>
-              <PostIt title={'Now what was I doing?'} content={'lorem ipsum'} />
-              <PostIt title={'What was I about to do?'} content={'lorem ipsum'} />
+              <PostIt
+                title={'Now what was I doing?'}
+                content={summary}
+                onTextChange={onSummaryChange}
+              />
+              <PostIt
+                title={'What was I about to do?'}
+                content={intent}
+                onTextChange={onIntentChange}
+              />
             </div>
             <div className={styles.rightContainer}>
               {latestSnapshot.applications.map((app) => (

@@ -21,6 +21,12 @@ export default class Snapshot extends BaseEntity {
   @Column('varchar')
   name!: string;
 
+  @Column({ type: 'text', nullable: true })
+  summary!: string;
+
+  @Column({ type: 'text', nullable: true })
+  intent!: string;
+
   @Column({ type: 'varchar', nullable: false })
   created!: string;
 

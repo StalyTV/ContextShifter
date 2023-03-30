@@ -10,20 +10,37 @@ import Button from 'renderer/components/Button';
 type Props = {
   title: string;
   content: string;
+  onTextChange: (text: string) => {};
 };
 
 export default function PostIt(props: Props) {
+  const onTextChange = async (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    props.onTextChange(e.target.value);
+  };
+
+  const onClickClear = async () => {
+    props.onTextChange('');
+  };
+
   return (
     <div className={styles.postIt}>
       <div className={styles.header}>
         <div className={styles.postItTitle}>{props.title}</div>
         <div className={styles.buttonContainer}>
-          <Button className={styles.clearButton} isFilled={false}>
+          <Button
+            className={styles.clearButton}
+            isFilled={false}
+            onClick={() => {
+              onClickClear();
+            }}
+          >
             Clear
           </Button>
         </div>
       </div>
-      <div className={styles.postItBody}><textarea/></div>
+      <div className={styles.postItBody}>
+        <textarea value={props.content} onChange={onTextChange} />
+      </div>
     </div>
   );
 }

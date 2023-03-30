@@ -22,7 +22,10 @@ export default class SnapshotManager {
     const snapshotInDb = await Snapshot.findOneBy({ id: updatedSnapshot.id });
     if (snapshotInDb) {
       snapshotInDb.name = updatedSnapshot.name;
+      snapshotInDb.summary = updatedSnapshot.summary;
+      snapshotInDb.intent = updatedSnapshot.intent;
       snapshotInDb.edited = new Date().toISOString();
+
       await snapshotInDb.save();
       info(`[SnapshotManager] Updated snapshot "${snapshotInDb.name}"`);
     }
