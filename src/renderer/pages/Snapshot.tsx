@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import Application from 'renderer/components/Application';
 import Button from 'renderer/components/Button';
 import PostIt from 'renderer/components/PostIt';
+import { toast } from 'react-toastify';
 
 export default function Snapshot() {
   const [latestSnapshot, setLatestSnapshot] = useState<SnapshotEntity | null>(
@@ -35,9 +36,17 @@ export default function Snapshot() {
       latestSnapshot.summary = summary;
       latestSnapshot.intent = intent;
 
-      await window.electron.ipcRenderer.invoke(
-        'update-snapshot',
-        latestSnapshot
+      toast.promise(
+        async () =>
+          await window.electron.ipcRenderer.invoke(
+            'update-snapshot',
+            latestSnapshot
+          ),
+        {
+          pending: 'Saving Snapshot...',
+          success: 'Saved Snapshot',
+          error: 'Something went wrong',
+        }
       );
     }
   };
