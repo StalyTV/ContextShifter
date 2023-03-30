@@ -5,6 +5,7 @@
  */
 
 import Snapshot from './entity/Snapshot';
+import Application from './entity/Application';
 import { info } from 'electron-log';
 
 export default class SnapshotManager {
@@ -25,6 +26,14 @@ export default class SnapshotManager {
       snapshotInDb.summary = updatedSnapshot.summary;
       snapshotInDb.intent = updatedSnapshot.intent;
       snapshotInDb.edited = new Date().toISOString();
+
+      for (const app of updatedSnapshot.applications) {
+        const appInDb = await Application.findOneBy({ id: app.id });
+        if (appInDb && appInDb.isSelected !== app.isSelected) {
+          appInDb.isSelected = app.isSelected;
+          appInDb.save();
+        }
+      }
 
       await snapshotInDb.save();
       info(`[SnapshotManager] Updated snapshot "${snapshotInDb.name}"`);

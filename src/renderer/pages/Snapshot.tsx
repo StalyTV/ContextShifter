@@ -6,6 +6,7 @@
 
 import styles from './Snapshot.module.scss';
 import SnapshotEntity from 'main/entity/Snapshot';
+import ApplicationEntity from '../../main/entity/Application';
 import { useEffect, useState } from 'react';
 import Application from 'renderer/components/Application';
 import Button from 'renderer/components/Button';
@@ -20,15 +21,23 @@ export default function Snapshot() {
   const [snapshotName, setSnapshotName] = useState<string>('');
   const [summary, setSummary] = useState<string>('');
   const [intent, setIntent] = useState<string>('');
+  const [applicationMap, setApplicationMap] = useState<
+    Map<number, ApplicationEntity>
+  >(new Map());
 
   const fetchLatestSnapshot = async () => {
     const snapshot = await window.electron.ipcRenderer.invoke(
       'get-latest-snapshot'
     );
+    if (!snapshot) return;
+
     setLatestSnapshot(snapshot);
-    setSnapshotName(snapshot ? snapshot.name : '');
-    setSummary(snapshot ? snapshot.summary : '');
-    setIntent(snapshot ? snapshot.intent : '');
+    setSnapshotName(snapshot.name);
+    setSummary(snapshot.summary);
+    setIntent(snapshot.intent);
+
+    const applicationMap = new Map(snapshot.applications.map((i) => [i.id, i]));
+    setApplicationMap(applicationMap);
   };
 
   const onClickSave = async () => {
@@ -36,6 +45,7 @@ export default function Snapshot() {
       latestSnapshot.name = snapshotName;
       latestSnapshot.summary = summary;
       latestSnapshot.intent = intent;
+      latestSnapshot.applications = [...applicationMap.values()];
 
       toast.promise(
         async () =>
@@ -62,6 +72,15 @@ export default function Snapshot() {
 
   const onIntentChange = async (text: string) => {
     setIntent(text);
+  };
+
+  const toggleApplicationSelection = (appId: number) => {
+    const updatedMap = new Map(applicationMap);
+    const application = updatedMap.get(appId);
+    if (application) {
+      application.isSelected = !application.isSelected;
+      setApplicationMap(updatedMap);
+    }
   };
 
   const getFormattedDate = (timestamp: string) => {
@@ -106,8 +125,11 @@ export default function Snapshot() {
               />
             </div>
             <div className={styles.rightContainer}>
-              {latestSnapshot.applications.map((app) => (
-                <Application app={app} />
+              {[...applicationMap.values()].map((app) => (
+                <Application
+                  app={app}
+                  toggleSelect={toggleApplicationSelection}
+                />
               ))}
             </div>
           </div>

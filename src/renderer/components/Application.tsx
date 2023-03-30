@@ -11,6 +11,7 @@ import File from './File';
 
 type Props = {
   app: ApplicationEntity;
+  toggleSelect: (appId: number) => void;
 };
 
 export default function Application(props: Props) {
@@ -19,13 +20,18 @@ export default function Application(props: Props) {
     await window.electron.ipcRenderer.invoke('open-artifact', artifact);
   };
 
+  const toggleSelect = () => {
+    props.toggleSelect(props.app.id);
+  };
+
   return (
     <div
       key={props.app.name}
       className={`${styles.application} ${
         props.app.isSelected ? styles.isSelected : undefined
       }`}
-      onClick={() => openApplication(props.app.path)}
+      onClick={() => toggleSelect()}
+      onContextMenu={() => openApplication(props.app.path)}
     >
       {props.app.name}
       {props.app.files.map((file) => (

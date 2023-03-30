@@ -27,7 +27,7 @@ export default function File(props: Props) {
       className={`${styles.file} ${
         props.file.isSelected ? styles.isSelected : undefined
       }`}
-      onClick={() => openFile()}
+      onContextMenu={() => openFile()}
     >
       {props.file.path}
     </div>
