@@ -11,6 +11,7 @@ import Application from 'renderer/components/Application';
 import Button from 'renderer/components/Button';
 import PostIt from 'renderer/components/PostIt';
 import { toast } from 'react-toastify';
+import NavBar from '../components/Navigation/NavBar';
 
 export default function Snapshot() {
   const [latestSnapshot, setLatestSnapshot] = useState<SnapshotEntity | null>(
@@ -80,6 +81,7 @@ export default function Snapshot() {
 
   return (
     <>
+      <NavBar />
       {latestSnapshot ? (
         <>
           <div className={styles.header}>

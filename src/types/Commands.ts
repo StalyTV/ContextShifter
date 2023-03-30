@@ -12,6 +12,7 @@ type Commands = {
   'get-used-applications': () => string[];
   'open-artifact': (artifact: Artifact) => void;
   'update-snapshot': (snapshot: Snapshot) => Promise<void>;
+  "toggle-color-theme": () => void;
 };
 
 export default Commands;

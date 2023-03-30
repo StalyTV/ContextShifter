@@ -9,6 +9,7 @@ import Log from '../entity/Log';
 import ActiveWindow from '../entity/ActiveWindow';
 import TaskSnap from '../TaskSnap';
 import SnapshotManager from '../SnapshotManager';
+import { nativeTheme } from 'electron';
 
 typedIpcMain.handle('get-used-applications', async () => {
   const lastStart = await Log.getLastApplicationStart();
@@ -26,4 +27,12 @@ typedIpcMain.handle('get-latest-snapshot', async () => {
 
 typedIpcMain.handle('update-snapshot', async (e, snapshot) => {
   await SnapshotManager.getInstance().updateSnapshot(snapshot);
+});
+
+typedIpcMain.handle('toggle-color-theme', () => {
+  if (nativeTheme.shouldUseDarkColors) {
+    nativeTheme.themeSource = 'light';
+  } else {
+    nativeTheme.themeSource = 'dark';
+  }
 });
