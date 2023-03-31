@@ -8,6 +8,7 @@ import Snapshot from './entity/Snapshot';
 import Application from './entity/Application';
 import File from './entity/File';
 import { info } from 'electron-log';
+import { closeApplication } from './helpers/osCommands';
 
 export default class SnapshotManager {
   private static _instance: SnapshotManager;
@@ -46,6 +47,15 @@ export default class SnapshotManager {
 
       await snapshotInDb.save();
       info(`[SnapshotManager] Updated snapshot "${snapshotInDb.name}"`);
+    }
+  }
+
+  public async saveAndCloseApplications(updatedSnapshot: Snapshot) {
+    await this.saveSnapshot(updatedSnapshot);
+    for (const app of updatedSnapshot.applications) {
+      if (app.isSelected) {
+        closeApplication(app);
+      }
     }
   }
 }

@@ -9,7 +9,7 @@ import Log from '../entity/Log';
 import ActiveWindow from '../entity/ActiveWindow';
 import SnapshotManager from '../SnapshotManager';
 import { nativeTheme } from 'electron';
-import { openArtifact } from 'main/helpers/osCommands';
+import { openArtifact } from '../helpers/osCommands';
 
 typedIpcMain.handle('get-used-applications', async () => {
   const lastStart = await Log.getLastApplicationStart();
@@ -27,6 +27,10 @@ typedIpcMain.handle('get-latest-snapshot', async () => {
 
 typedIpcMain.handle('save-snapshot', async (e, snapshot) => {
   await SnapshotManager.getInstance().saveSnapshot(snapshot);
+});
+
+typedIpcMain.handle('save-snapshot-and-close-applications', async (e, snapshot) => {
+  await SnapshotManager.getInstance().saveAndCloseApplications(snapshot);
 });
 
 typedIpcMain.handle('toggle-color-theme', () => {

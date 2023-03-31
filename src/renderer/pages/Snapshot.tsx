@@ -40,26 +40,48 @@ export default function Snapshot() {
     setApplicationMap(applicationMap);
   };
 
-  const onClickSave = async () => {
-    if (latestSnapshot) {
-      latestSnapshot.name = snapshotName;
-      latestSnapshot.summary = summary;
-      latestSnapshot.intent = intent;
-      latestSnapshot.applications = [...applicationMap.values()];
+  const reapplyChanges = (snapshot: SnapshotEntity) => {
+    snapshot.name = snapshotName;
+    snapshot.summary = summary;
+    snapshot.intent = intent;
+    snapshot.applications = [...applicationMap.values()];
+    return snapshot;
+  };
 
-      toast.promise(
-        async () =>
-          await window.electron.ipcRenderer.invoke(
-            'save-snapshot',
-            latestSnapshot
-          ),
-        {
-          pending: 'Saving Snapshot...',
-          success: 'Saved Snapshot',
-          error: 'Something went wrong',
-        }
-      );
-    }
+  const onClickSave = async () => {
+    if (!latestSnapshot) return;
+
+    const updatedSnapshot = reapplyChanges(latestSnapshot);
+    toast.promise(
+      async () =>
+        await window.electron.ipcRenderer.invoke(
+          'save-snapshot',
+          updatedSnapshot
+        ),
+      {
+        pending: 'Saving Snapshot...',
+        success: 'Saved Snapshot',
+        error: 'Something went wrong',
+      }
+    );
+  };
+
+  const onClickSaveAndClose = async () => {
+    if (!latestSnapshot) return;
+
+    const updatedSnapshot = reapplyChanges(latestSnapshot);
+    toast.promise(
+      async () =>
+        await window.electron.ipcRenderer.invoke(
+          'save-snapshot-and-close-applications',
+          updatedSnapshot
+        ),
+      {
+        pending: 'Saving Snapshot...',
+        success: 'Saved Snapshot, Closed Applications',
+        error: 'Something went wrong',
+      }
+    );
   };
 
   const onNameChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -137,6 +159,9 @@ export default function Snapshot() {
             </div>
           </div>
           <div className={styles.buttonContainer}>
+            <Button isFilled={false} onClick={() => onClickSaveAndClose()}>
+              Save & Close Applications
+            </Button>
             <Button isFilled={true} onClick={() => onClickSave()}>
               Save
             </Button>

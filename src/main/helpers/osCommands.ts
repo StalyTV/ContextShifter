@@ -23,6 +23,6 @@ export function openArtifact(artifact: Artifact) {
 
 export function closeApplication(app: Application) {
   if (isMac) {
-    exec(`osascript -e 'quit app ${app.path}"'`);
+    exec(`osascript -e 'quit app "${app.path}"'`);
   }
 }
