@@ -74,13 +74,10 @@ export default function Snapshot() {
     setIntent(text);
   };
 
-  const toggleApplicationSelection = (appId: number) => {
+  const updateApplication = (updatedApp: ApplicationEntity) => {
     const updatedMap = new Map(applicationMap);
-    const application = updatedMap.get(appId);
-    if (application) {
-      application.isSelected = !application.isSelected;
-      setApplicationMap(updatedMap);
-    }
+    updatedMap.set(updatedApp.id, updatedApp);
+    setApplicationMap(updatedMap);
   };
 
   const getFormattedDate = (timestamp: string) => {
@@ -127,8 +124,9 @@ export default function Snapshot() {
             <div className={styles.rightContainer}>
               {[...applicationMap.values()].map((app) => (
                 <Application
+                  key={app.id}
                   app={app}
-                  toggleSelect={toggleApplicationSelection}
+                  updateApplication={updateApplication}
                 />
               ))}
             </div>

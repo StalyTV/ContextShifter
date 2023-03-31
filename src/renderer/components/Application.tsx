@@ -11,7 +11,7 @@ import File from './File';
 
 type Props = {
   app: ApplicationEntity;
-  toggleSelect: (appId: number) => void;
+  updateApplication: (updatedApp: ApplicationEntity) => void;
 };
 
 export default function Application(props: Props) {
@@ -21,7 +21,9 @@ export default function Application(props: Props) {
   };
 
   const toggleSelect = () => {
-    props.toggleSelect(props.app.id);
+    const updatedApp = props.app;
+    updatedApp.isSelected = !props.app.isSelected;
+    props.updateApplication(updatedApp);
   };
 
   return (
@@ -35,7 +37,7 @@ export default function Application(props: Props) {
     >
       {props.app.name}
       {props.app.files.map((file) => (
-        <File applicationPath={props.app.path} file={file} />
+        <File key={file.id} applicationPath={props.app.path} file={file} />
       ))}
     </div>
   );
