@@ -8,6 +8,7 @@ import styles from './Application.module.scss';
 import Artifact from '../../types/Artifact';
 import ApplicationEntity from '../../main/entity/Application';
 import File from './File';
+import FileEntity from 'main/entity/File';
 
 type Props = {
   app: ApplicationEntity;
@@ -26,6 +27,15 @@ export default function Application(props: Props) {
     props.updateApplication(updatedApp);
   };
 
+  const updateFile = (updatedFile: FileEntity) => {
+    const updatedApp = props.app;
+    const fileToUpdate = updatedApp.files.find((f) => f.id === updatedFile.id);
+    if (fileToUpdate) {
+      fileToUpdate.isSelected = updatedFile.isSelected;
+      props.updateApplication(updatedApp);
+    }
+  };
+
   return (
     <div
       key={props.app.name}
@@ -37,7 +47,12 @@ export default function Application(props: Props) {
     >
       {props.app.name}
       {props.app.files.map((file) => (
-        <File key={file.id} applicationPath={props.app.path} file={file} />
+        <File
+          key={file.id}
+          applicationPath={props.app.path}
+          file={file}
+          updateFile={updateFile}
+        />
       ))}
     </div>
   );

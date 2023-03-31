@@ -11,6 +11,7 @@ import FileEntity from 'main/entity/File';
 type Props = {
   applicationPath: string;
   file: FileEntity;
+  updateFile: (updatedFile: FileEntity) => void;
 };
 
 export default function File(props: Props) {
@@ -22,11 +23,21 @@ export default function File(props: Props) {
     await window.electron.ipcRenderer.invoke('open-artifact', artifact);
   };
 
+  const toggleSelect = (e: React.MouseEvent) => {
+    // makes sure Application is not clicked as well
+    e.stopPropagation();
+
+    const updatedFile = props.file;
+    updatedFile.isSelected = !props.file.isSelected;
+    props.updateFile(updatedFile);
+  };
+
   return (
     <div
       className={`${styles.file} ${
         props.file.isSelected ? styles.isSelected : undefined
       }`}
+      onClick={toggleSelect}
       onContextMenu={() => openFile()}
     >
       {props.file.path}

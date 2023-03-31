@@ -6,6 +6,7 @@
 
 import Snapshot from './entity/Snapshot';
 import Application from './entity/Application';
+import File from './entity/File';
 import { info } from 'electron-log';
 
 export default class SnapshotManager {
@@ -32,6 +33,14 @@ export default class SnapshotManager {
         if (appInDb && appInDb.isSelected !== app.isSelected) {
           appInDb.isSelected = app.isSelected;
           appInDb.save();
+        }
+
+        for (const file of app.files) {
+          const fileInDb = await File.findOneBy({ id: file.id });
+          if (fileInDb && fileInDb.isSelected !== file.isSelected) {
+            fileInDb.isSelected = file.isSelected;
+            fileInDb.save();
+          }
         }
       }
 
