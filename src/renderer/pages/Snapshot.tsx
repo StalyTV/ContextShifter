@@ -33,8 +33,8 @@ export default function Snapshot() {
 
     setLatestSnapshot(snapshot);
     setSnapshotName(snapshot.name);
-    setSummary(snapshot.summary);
-    setIntent(snapshot.intent);
+    setSummary(snapshot.summary || '');
+    setIntent(snapshot.intent || '');
 
     const applicationMap = new Map(snapshot.applications.map((i) => [i.id, i]));
     setApplicationMap(applicationMap);
@@ -122,13 +122,18 @@ export default function Snapshot() {
               />
             </div>
             <div className={styles.rightContainer}>
-              {[...applicationMap.values()].map((app) => (
-                <Application
-                  key={app.id}
-                  app={app}
-                  updateApplication={updateApplication}
-                />
-              ))}
+              <div className={styles.header}>
+                {'Artifacts that I consider relevant for this task snapshot'}
+              </div>
+              <div className={styles.applications}>
+                {[...applicationMap.values()].map((app) => (
+                  <Application
+                    key={app.id}
+                    app={app}
+                    updateApplication={updateApplication}
+                  />
+                ))}
+              </div>
             </div>
           </div>
           <div className={styles.buttonContainer}>

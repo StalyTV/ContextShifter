@@ -31,9 +31,22 @@
     padding-left: 1rem;
     padding-top: 3rem;
   }
+
+  .rightContainer {
+    margin-left: 2rem;
+    border: solid var(--border-color) 1px;
+    border-radius: var(--border-radius);
+    font-size: small;
+
+    .header {
+      padding: 0.5rem 0.5rem 0.5rem 1rem;
+      border-bottom: var(--border-color) solid 1px;
+    }
+  }
 }
 
 .buttonContainer {
+  margin-top: 1rem;
   display: flex;
   justify-content: flex-end;
 }
