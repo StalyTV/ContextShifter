@@ -13,7 +13,10 @@ import Snapshot from './entity/Snapshot';
 import Application from './entity/Application';
 import File from './entity/File';
 import WindowManager from './WindowManager';
+import SnapshotManager from './SnapshotManager';
 import { lsof, Options } from 'list-open-files';
+import Artifact from 'types/Artifact';
+import { openArtifact } from './helpers/osCommands';
 
 /**
  * Main class of the application
@@ -22,10 +25,12 @@ export default class TaskSnap {
   private static _instance: TaskSnap;
   private _windowTracker: WindowTracker;
   private _fileSystemWatcher: FileSystemWatcher;
+  private _snapshotManager: SnapshotManager;
 
   private constructor() {
     this._windowTracker = new WindowTracker();
     this._fileSystemWatcher = new FileSystemWatcher();
+    this._snapshotManager = SnapshotManager.getInstance();
   }
 
   public static getInstance() {
@@ -61,6 +66,29 @@ export default class TaskSnap {
     await Snapshot.save(newSnapshot);
 
     WindowManager.createSnapshotWindow();
+  }
+
+  public async applyLatestSnapshot() {
+    const latestSnapshot = await this._snapshotManager.getLatestSnapshot();
+    if (!latestSnapshot) return;
+
+    for (const app of latestSnapshot.applications) {
+      // If files are present, don't open application but files associated with application
+      if (app.files.length > 0) {
+        for (const file of app.files) {
+          const artifact: Artifact = {
+            artifact: file.path,
+            application: app.path,
+          };
+          openArtifact(artifact);
+        }
+      } else {
+        const artifact: Artifact = {
+          artifact: app.path,
+        };
+        openArtifact(artifact);
+      }
+    }
   }
 
   public async getCurrentlyOpenApplications(): Promise<Application[]> {

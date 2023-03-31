@@ -27,6 +27,12 @@ export default class TrayManager {
           await this._taskSnapInstance.createNewSnapshot();
         },
       },
+      {
+        label: 'Apply Latest Snapshot',
+        click: async () => {
+          await this._taskSnapInstance.applyLatestSnapshot();
+        },
+      },
       { type: 'separator' },
       {
         label: 'Open Logs',
