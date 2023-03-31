@@ -37,6 +37,8 @@
     border: solid var(--border-color) 1px;
     border-radius: var(--border-radius);
     font-size: small;
+    overflow-y: scroll;
+    max-height: 39rem;
 
     .header {
       padding: 0.5rem 0.5rem 0.5rem 1rem;

@@ -42,5 +42,23 @@ body {
   background: var(--bg-color-1);
   color: var(--text-color);
   margin: 1rem;
-}
 
+  ::-webkit-scrollbar {
+    width: 0.4rem;
+    height: 0.4rem;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--bg-color-5);
+    border-radius: var(--border-radius);
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--bg-color-1);
+    border-radius: var(--border-radius);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: var(--bg-color-5);
+  }
+}

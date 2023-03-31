@@ -20,7 +20,7 @@ export default class WindowManager {
     this.snapshotWindow = new BrowserWindow({
       show: false,
       width: 1024,
-      height: 728,
+      height: 800,
       icon: getAssetPath('icon.png'),
       webPreferences: {
         preload: app.isPackaged
