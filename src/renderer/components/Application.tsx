@@ -24,6 +24,13 @@ export default function Application(props: Props) {
   const toggleSelect = () => {
     const updatedApp = props.app;
     updatedApp.isSelected = !props.app.isSelected;
+
+    // if application gets deselected, deselect all associated files
+    if (!updatedApp.isSelected) {
+      for (const file of updatedApp.files) {
+        file.isSelected = false;
+      }
+    }
     props.updateApplication(updatedApp);
   };
 
@@ -32,6 +39,11 @@ export default function Application(props: Props) {
     const fileToUpdate = updatedApp.files.find((f) => f.id === updatedFile.id);
     if (fileToUpdate) {
       fileToUpdate.isSelected = updatedFile.isSelected;
+
+      // if file gets selected, also application is selected
+      if (fileToUpdate.isSelected) {
+        updatedApp.isSelected = true;
+      }
       props.updateApplication(updatedApp);
     }
   };
