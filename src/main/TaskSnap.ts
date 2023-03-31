@@ -4,11 +4,9 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
-import { exec } from 'child_process';
 import { info } from 'electron-log';
 import WindowTracker from './trackers/WindowTracker';
 import FileSystemWatcher from './trackers/FileSystemWatcher';
-import isMac from './helpers/isMac';
 import TrayManager from './TrayManager';
 import activeWin from 'active-win';
 import Snapshot from './entity/Snapshot';
@@ -16,7 +14,6 @@ import Application from './entity/Application';
 import File from './entity/File';
 import WindowManager from './WindowManager';
 import { lsof, Options } from 'list-open-files';
-import Artifact from '../types/Artifact';
 
 /**
  * Main class of the application
@@ -109,17 +106,5 @@ export default class TaskSnap {
     }
 
     return openApplications;
-  }
-
-  public openArtifact(artifact: Artifact) {
-    if (isMac) {
-      if (artifact.application) {
-        exec(`open -a '${artifact.application}' '${artifact.artifact}'`);
-      } else {
-        exec(`open '${artifact.artifact}'`);
-      }
-    } else {
-      exec(`start ${artifact.artifact}`);
-    }
   }
 }

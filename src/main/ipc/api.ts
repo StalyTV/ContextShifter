@@ -7,9 +7,9 @@
 import typedIpcMain from './typedIpcMain';
 import Log from '../entity/Log';
 import ActiveWindow from '../entity/ActiveWindow';
-import TaskSnap from '../TaskSnap';
 import SnapshotManager from '../SnapshotManager';
 import { nativeTheme } from 'electron';
+import { openArtifact } from 'main/helpers/osCommands';
 
 typedIpcMain.handle('get-used-applications', async () => {
   const lastStart = await Log.getLastApplicationStart();
@@ -18,15 +18,15 @@ typedIpcMain.handle('get-used-applications', async () => {
 });
 
 typedIpcMain.handle('open-artifact', async (e, artifact) => {
-  TaskSnap.getInstance().openArtifact(artifact);
+  openArtifact(artifact);
 });
 
 typedIpcMain.handle('get-latest-snapshot', async () => {
   return await SnapshotManager.getInstance().getLatestSnapshot();
 });
 
-typedIpcMain.handle('update-snapshot', async (e, snapshot) => {
-  await SnapshotManager.getInstance().updateSnapshot(snapshot);
+typedIpcMain.handle('save-snapshot', async (e, snapshot) => {
+  await SnapshotManager.getInstance().saveSnapshot(snapshot);
 });
 
 typedIpcMain.handle('toggle-color-theme', () => {

@@ -50,7 +50,7 @@ export default function Snapshot() {
       toast.promise(
         async () =>
           await window.electron.ipcRenderer.invoke(
-            'update-snapshot',
+            'save-snapshot',
             latestSnapshot
           ),
         {

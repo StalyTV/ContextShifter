@@ -20,7 +20,7 @@ export default class SnapshotManager {
     return await Snapshot.getLatestSnapshot();
   }
 
-  public async updateSnapshot(updatedSnapshot: Snapshot) {
+  public async saveSnapshot(updatedSnapshot: Snapshot) {
     const snapshotInDb = await Snapshot.findOneBy({ id: updatedSnapshot.id });
     if (snapshotInDb) {
       snapshotInDb.name = updatedSnapshot.name;
