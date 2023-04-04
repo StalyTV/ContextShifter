@@ -13,6 +13,7 @@ import Button from 'renderer/components/Button';
 import PostIt from 'renderer/components/PostIt';
 import { toast } from 'react-toastify';
 import NavBar from '../components/Navigation/NavBar';
+import SnapshotHeader from 'renderer/components/SnapshotHeader';
 
 export default function Snapshot() {
   const [latestSnapshot, setLatestSnapshot] = useState<SnapshotEntity | null>(
@@ -102,17 +103,6 @@ export default function Snapshot() {
     setApplicationMap(updatedMap);
   };
 
-  const getFormattedDate = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return date.toLocaleString([], {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
   useEffect(() => {
     fetchLatestSnapshot();
   }, []);
@@ -122,14 +112,11 @@ export default function Snapshot() {
       <NavBar />
       {latestSnapshot ? (
         <>
-          <div className={styles.header}>
-            <div className={styles.titleContainer}>
-              <input value={snapshotName} onChange={onNameChange} />
-            </div>
-            <div className={styles.timestamp}>
-              {getFormattedDate(latestSnapshot.created)}
-            </div>
-          </div>
+          <SnapshotHeader
+            snapshotName={snapshotName}
+            timestamp={latestSnapshot.created}
+            onNameChange={onNameChange}
+          />
           <div className={styles.mainContainer}>
             <div className={styles.leftContainer}>
               <PostIt
