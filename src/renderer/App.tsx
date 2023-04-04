@@ -1,16 +1,18 @@
-import { MemoryRouter as Router, Routes, Route } from 'react-router-dom';
+import { Routes, Route, HashRouter } from 'react-router-dom';
 import './App.scss';
 import Toast from './components/Toast/Toast';
 import Snapshot from './pages/Snapshot';
+import InstantCuration from './pages/InstantCuration';
 
 export default function App() {
   return (
     <>
-      <Router>
+      <HashRouter>
         <Routes>
+          <Route path="/instantCuration" element={<InstantCuration />} />
           <Route path="/" element={<Snapshot />} />
         </Routes>
-      </Router>
+      </HashRouter>
       <Toast />
     </>
   );
