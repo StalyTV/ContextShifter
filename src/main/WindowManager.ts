@@ -10,6 +10,7 @@ import { resolveHtmlPath } from './util';
 import getAssetPath from './helpers/getAssetPath';
 import { app } from 'electron';
 import path from 'path';
+import isWindows from './helpers/isWindows';
 
 export default class WindowManager {
   public static snapshotWindow: BrowserWindow | null = null;
@@ -29,6 +30,9 @@ export default class WindowManager {
       },
     });
 
+    if (isWindows) {
+      this.snapshotWindow.removeMenu();
+    }
     this.snapshotWindow.loadURL(resolveHtmlPath('index.html'));
 
     this.snapshotWindow.on('ready-to-show', () => {

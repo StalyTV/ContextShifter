@@ -9,6 +9,7 @@ import isMac from './helpers/isMac';
 import getAssetPath from './helpers/getAssetPath';
 import path from 'path';
 import TaskSnap from './TaskSnap';
+import WindowManager from './WindowManager';
 
 export default class TrayManager {
   private static _tray: Tray | null = null;
@@ -31,6 +32,16 @@ export default class TrayManager {
         label: 'Apply Latest Snapshot',
         click: async () => {
           await this._taskSnapInstance.applyLatestSnapshot();
+        },
+      },
+      {
+        label: 'Open Latest Snapshot',
+        click: async () => {
+          if (WindowManager.snapshotWindow === null) {
+            await WindowManager.createSnapshotWindow();
+          } else {
+            WindowManager.snapshotWindow.show();
+          }
         },
       },
       { type: 'separator' },
