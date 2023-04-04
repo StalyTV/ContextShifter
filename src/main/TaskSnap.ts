@@ -17,6 +17,7 @@ import SnapshotManager from './SnapshotManager';
 import { lsof, Options } from 'list-open-files';
 import Artifact from 'types/Artifact';
 import { openArtifact } from './helpers/osCommands';
+import { getFileNameFromPath } from './helpers/getFileNameFromPath';
 
 /**
  * Main class of the application
@@ -115,11 +116,12 @@ export default class TaskSnap {
       const filePaths = processInfoOfApplication[0].files.map((f) => f.name);
       for await (const path of filePaths) {
         if (path) {
-          const lowerCasePath = path.toLowerCase();
+          const fileName = getFileNameFromPath(path)
+          const lowerCaseFileName = fileName.toLowerCase();
           if (
-            (lowerCasePath.includes(win.title.toLowerCase()) ||
-              win.title.toLowerCase().includes(lowerCasePath)) &&
-            !lowerCasePath.includes('~$')
+            (lowerCaseFileName.includes(win.title.toLowerCase()) ||
+              win.title.toLowerCase().includes(lowerCaseFileName)) &&
+            !lowerCaseFileName.includes('~$')
           ) {
             const file = new File();
             file.path = path;
