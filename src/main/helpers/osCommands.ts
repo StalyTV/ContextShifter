@@ -8,6 +8,7 @@ import Artifact from "types/Artifact";
 import isMac from "./isMac";
 import { exec } from 'child_process';
 import Application from "main/entity/Application";
+import { getFileNameFromPath } from "./getFileNameFromPath";
 
 export function openArtifact(artifact: Artifact) {
   if (isMac) {
@@ -17,12 +18,15 @@ export function openArtifact(artifact: Artifact) {
       exec(`open '${artifact.artifact}'`);
     }
   } else {
-    exec(`start ${artifact.artifact}`);
+    exec(`"${artifact.artifact}"`);
   }
 }
 
 export function closeApplication(app: Application) {
   if (isMac) {
     exec(`osascript -e 'quit app "${app.path}"'`);
+  } else {
+    const exe = getFileNameFromPath(app.path);
+    exec(`taskkill /IM ${exe}`);
   }
 }

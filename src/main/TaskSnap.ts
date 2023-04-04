@@ -14,10 +14,11 @@ import Application from './entity/Application';
 import File from './entity/File';
 import WindowManager from './WindowManager';
 import SnapshotManager from './SnapshotManager';
-import { lsof, Options } from 'list-open-files';
+import { lsof, Options, ProcessInfo } from 'list-open-files';
 import Artifact from 'types/Artifact';
 import { openArtifact } from './helpers/osCommands';
 import { getFileNameFromPath } from './helpers/getFileNameFromPath';
+import isMac from './helpers/isMac';
 
 /**
  * Main class of the application
@@ -92,6 +93,7 @@ export default class TaskSnap {
     }
   }
 
+  // TODO [regloff] refactor this method
   public async getCurrentlyOpenApplications(): Promise<Application[]> {
     const openWindows = await activeWin.getOpenWindows();
     const pidsOfApplications: number[] = openWindows.map((win) => {
@@ -100,7 +102,13 @@ export default class TaskSnap {
     const options: Options = {
       pids: pidsOfApplications,
     };
-    const processInfos = await lsof(options);
+
+    let processInfos: ProcessInfo[] = [];
+    if (isMac) {
+      processInfos = await lsof(options);
+    } else {
+      processInfos = [];
+    }
 
     const openApplications: Application[] = [];
     for await (const win of openWindows) {
@@ -109,30 +117,32 @@ export default class TaskSnap {
       app.path = win.owner.path;
       openApplications.push(app);
 
-      const associatedFiles: File[] = [];
-      const processInfoOfApplication = processInfos.filter((process) => {
-        return process.process.pid === win.owner.processId;
-      });
-      const filePaths = processInfoOfApplication[0].files.map((f) => f.name);
-      for await (const path of filePaths) {
-        if (path) {
-          const fileName = getFileNameFromPath(path)
-          const lowerCaseFileName = fileName.toLowerCase();
-          if (
-            (lowerCaseFileName.includes(win.title.toLowerCase()) ||
-              win.title.toLowerCase().includes(lowerCaseFileName)) &&
-            !lowerCaseFileName.includes('~$')
-          ) {
-            const file = new File();
-            file.path = path;
-            associatedFiles.push(file);
+      if (isMac) {
+        const associatedFiles: File[] = [];
+        const processInfoOfApplication = processInfos.filter((process) => {
+          return process.process.pid === win.owner.processId;
+        });
+        const filePaths = processInfoOfApplication[0].files.map((f) => f.name);
+        for await (const path of filePaths) {
+          if (path) {
+            const fileName = getFileNameFromPath(path)
+            const lowerCaseFileName = fileName.toLowerCase();
+            if (
+              (lowerCaseFileName.includes(win.title.toLowerCase()) ||
+                win.title.toLowerCase().includes(lowerCaseFileName)) &&
+              !lowerCaseFileName.includes('~$')
+            ) {
+              const file = new File();
+              file.path = path;
+              associatedFiles.push(file);
+            }
           }
         }
+        if (associatedFiles.length > 0) {
+          await File.save(associatedFiles);
+        }
+        app.files = associatedFiles;
       }
-      if (associatedFiles.length > 0) {
-        await File.save(associatedFiles);
-      }
-      app.files = associatedFiles;
     }
 
     return openApplications;
