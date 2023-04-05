@@ -13,12 +13,16 @@ type Commands = {
   'open-artifact': (artifact: Artifact) => void;
   'save-snapshot': (snapshot: Snapshot) => Promise<void>;
   'save-snapshot-and-close-applications': (snapshot: Snapshot) => Promise<void>;
-  'postpone-snapshot': (snapshotId: number, timeInMin: number) => void;
+  'postpone-snapshot': (snapshot: Snapshot, timeInMin: number) => void;
   'toggle-color-theme': () => void;
 
   // instant curation
   'instant-curation-curate-now': (snapshotId: number, name: string) => void;
-  'instant-curation-postpone': (snapshotId: number, name: string) => void;
+  'instant-curation-postpone': (
+    snapshotId: number,
+    updatedName: string,
+    timeInMin: number
+  ) => void;
 };
 
 export default Commands;

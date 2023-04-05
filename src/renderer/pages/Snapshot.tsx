@@ -169,7 +169,7 @@ export default function Snapshot() {
           <div className={styles.buttonContainer}>
             <PostponeButton
               isFilled={false}
-              title={'PostponeCuration'}
+              title={'Postpone Curation'}
               onSelect={postponeSnapshot}
             />
             <Button isFilled={false} onClick={() => onClickSaveAndClose()}>

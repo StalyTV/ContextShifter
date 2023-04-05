@@ -37,12 +37,11 @@ typedIpcMain.handle(
   }
 );
 
-typedIpcMain.handle(
-  'postpone-snapshot',
-  async (e, snapshotId, timeInMin) => {
-    await SnapshotManager.getInstance().postponeSnapshot(snapshotId, timeInMin);
-  }
-);
+typedIpcMain.handle('postpone-snapshot', async (e, snapshot, timeInMin) => {
+  await SnapshotManager.getInstance().saveSnapshot(snapshot);
+  await SnapshotManager.getInstance().postponeSnapshot(snapshot.id, timeInMin);
+  WindowManager.snapshotWindow?.close();
+});
 
 typedIpcMain.handle('toggle-color-theme', () => {
   if (nativeTheme.shouldUseDarkColors) {
@@ -59,5 +58,17 @@ typedIpcMain.handle(
     await SnapshotManager.getInstance().updateSnapshotName(snapshotId, name);
     WindowManager.instantCurationWindow?.close();
     WindowManager.createSnapshotWindow();
+  }
+);
+
+typedIpcMain.handle(
+  'instant-curation-postpone',
+  async (e, snapshotId, updatedName, timeInMin) => {
+    await SnapshotManager.getInstance().updateSnapshotName(
+      snapshotId,
+      updatedName
+    );
+    await SnapshotManager.getInstance().postponeSnapshot(snapshotId, timeInMin);
+    WindowManager.instantCurationWindow?.close();
   }
 );

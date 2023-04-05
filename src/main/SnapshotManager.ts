@@ -75,7 +75,6 @@ export default class SnapshotManager {
       await WindowManager.createSnapshotWindow();
       this.resetTimeout();
     }, timeInMin * 60 * 1000);
-    WindowManager.snapshotWindow?.close();
     info(
       `[SnapshotManager] Postponed snapshot with id ${snapshotId} for ${timeInMin} minutes`
     );

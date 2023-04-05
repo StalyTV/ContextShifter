@@ -10,6 +10,7 @@ import SnapshotHeader from 'renderer/components/SnapshotHeader';
 import SnapshotEntity from 'main/entity/Snapshot';
 import Button from 'renderer/components/Button';
 import { toast } from 'react-toastify';
+import PostponeButton from 'renderer/components/PostponeButton';
 
 export default function InstantCuration() {
   const [latestSnapshot, setLatestSnapshot] = useState<SnapshotEntity | null>(
@@ -49,6 +50,25 @@ export default function InstantCuration() {
     );
   };
 
+  const postponeSnapshot = (timeInMin: number) => {
+    if (!latestSnapshot) return;
+
+    toast.promise(
+      async () =>
+        await window.electron.ipcRenderer.invoke(
+          'instant-curation-postpone',
+          latestSnapshot.id,
+          snapshotName,
+          timeInMin
+        ),
+      {
+        pending: 'Postponing Snapshot...',
+        success: 'Postponed Snapshot',
+        error: 'Something went wrong',
+      }
+    );
+  };
+
   useEffect(() => {
     fetchLatestSnapshot();
   }, []);
@@ -65,9 +85,11 @@ export default function InstantCuration() {
             />
           </div>
           <div className={styles.buttonContainer}>
-            <Button isFilled={true} onClick={() => {}}>
-              Postpone Curation
-            </Button>
+            <PostponeButton
+              isFilled={false}
+              title={'PostponeCuration'}
+              onSelect={postponeSnapshot}
+            />
             <Button isFilled={true} onClick={() => onClickCurateNow()}>
               Curate Now
             </Button>
