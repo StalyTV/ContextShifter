@@ -22,6 +22,10 @@ export default function PostponeButton(props: Props) {
     setIsDropDownShown(!isDropDownShown);
   };
 
+  const onClick = (timeInMin: number) => {
+    props.onSelect(timeInMin);
+  };
+
   return (
     <>
       <Button isFilled={props.isFilled} onClick={() => toggleDropDown()}>
@@ -31,10 +35,18 @@ export default function PostponeButton(props: Props) {
       {isDropDownShown ? (
         <div className={styles.dropdown}>
           <div className={styles.dropdownOptions}>
-            <div className={styles.dropdownOption}>5 Minutes</div>
-            <div className={styles.dropdownOption}>15 Minutes</div>
-            <div className={styles.dropdownOption}>30 Minutes</div>
-            <div className={styles.dropdownOption}>60 Minutes</div>
+            <div className={styles.dropdownOption} onClick={() => onClick(5)}>
+              5 Minutes
+            </div>
+            <div className={styles.dropdownOption} onClick={() => onClick(15)}>
+              15 Minutes
+            </div>
+            <div className={styles.dropdownOption} onClick={() => onClick(30)}>
+              30 Minutes
+            </div>
+            <div className={styles.dropdownOption} onClick={() => onClick(60)}>
+              60 Minutes
+            </div>
           </div>
         </div>
       ) : null}

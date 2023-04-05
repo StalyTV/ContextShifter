@@ -13,6 +13,7 @@ type Commands = {
   'open-artifact': (artifact: Artifact) => void;
   'save-snapshot': (snapshot: Snapshot) => Promise<void>;
   'save-snapshot-and-close-applications': (snapshot: Snapshot) => Promise<void>;
+  'postpone-snapshot': (snapshotId: number, timeInMin: number) => void;
   'toggle-color-theme': () => void;
 
   // instant curation

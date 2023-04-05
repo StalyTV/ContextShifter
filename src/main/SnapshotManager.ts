@@ -9,9 +9,11 @@ import Application from './entity/Application';
 import File from './entity/File';
 import { info } from 'electron-log';
 import { closeApplication } from './helpers/osCommands';
+import WindowManager from './WindowManager';
 
 export default class SnapshotManager {
   private static _instance: SnapshotManager;
+  private _postponeTimeoutRef: NodeJS.Timeout | undefined;
 
   public static getInstance() {
     return this._instance || (this._instance = new this());
@@ -65,6 +67,24 @@ export default class SnapshotManager {
       snapshotInDb.name = name;
       snapshotInDb.edited = new Date().toISOString();
       snapshotInDb.save();
+    }
+  }
+
+  public async postponeSnapshot(snapshotId: number, timeInMin: number) {
+    this._postponeTimeoutRef = setTimeout(async () => {
+      await WindowManager.createSnapshotWindow();
+      this.resetTimeout();
+    }, timeInMin * 60 * 1000);
+    WindowManager.snapshotWindow?.close();
+    info(
+      `[SnapshotManager] Postponed snapshot with id ${snapshotId} for ${timeInMin} minutes`
+    );
+  }
+
+  private resetTimeout(): void {
+    if (this._postponeTimeoutRef) {
+      clearTimeout(this._postponeTimeoutRef);
+      this._postponeTimeoutRef = undefined;
     }
   }
 }

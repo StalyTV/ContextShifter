@@ -37,6 +37,13 @@ typedIpcMain.handle(
   }
 );
 
+typedIpcMain.handle(
+  'postpone-snapshot',
+  async (e, snapshotId, timeInMin) => {
+    await SnapshotManager.getInstance().postponeSnapshot(snapshotId, timeInMin);
+  }
+);
+
 typedIpcMain.handle('toggle-color-theme', () => {
   if (nativeTheme.shouldUseDarkColors) {
     nativeTheme.themeSource = 'light';

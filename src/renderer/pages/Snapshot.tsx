@@ -104,6 +104,24 @@ export default function Snapshot() {
     setApplicationMap(updatedMap);
   };
 
+  const postponeSnapshot = (timeInMin: number) => {
+    if (!latestSnapshot) return;
+
+    toast.promise(
+      async () =>
+        await window.electron.ipcRenderer.invoke(
+          'postpone-snapshot',
+          latestSnapshot.id,
+          timeInMin
+        ),
+      {
+        pending: 'Postponing Snapshot...',
+        success: 'Postponed Snapshot',
+        error: 'Something went wrong',
+      }
+    );
+  };
+
   useEffect(() => {
     fetchLatestSnapshot();
   }, []);
@@ -152,7 +170,7 @@ export default function Snapshot() {
             <PostponeButton
               isFilled={false}
               title={'PostponeCuration'}
-              onSelect={(timeInMin) => {}}
+              onSelect={postponeSnapshot}
             />
             <Button isFilled={false} onClick={() => onClickSaveAndClose()}>
               Save & Close Applications
