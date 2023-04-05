@@ -38,14 +38,19 @@ export default function InstantCuration() {
     <>
       {latestSnapshot ? (
         <>
-          <SnapshotHeader
-            snapshotName={snapshotName}
-            onNameChange={onNameChange}
-            timestamp={latestSnapshot.created}
-          />
-          <div>
+          <div className={styles.headerContainer}>
+            <SnapshotHeader
+              snapshotName={snapshotName}
+              onNameChange={onNameChange}
+              timestamp={latestSnapshot.created}
+            />
+          </div>
+          <div className={styles.buttonContainer}>
             <Button isFilled={true} onClick={() => {}}>
-              Save
+              Postpone Curation
+            </Button>
+            <Button isFilled={true} onClick={() => {}}>
+              Curate Now
             </Button>
           </div>
         </>

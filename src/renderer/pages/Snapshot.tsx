@@ -112,11 +112,13 @@ export default function Snapshot() {
       <NavBar />
       {latestSnapshot ? (
         <>
-          <SnapshotHeader
-            snapshotName={snapshotName}
-            timestamp={latestSnapshot.created}
-            onNameChange={onNameChange}
-          />
+          <div className={styles.headerContainer}>
+            <SnapshotHeader
+              snapshotName={snapshotName}
+              timestamp={latestSnapshot.created}
+              onNameChange={onNameChange}
+            />
+          </div>
           <div className={styles.mainContainer}>
             <div className={styles.leftContainer}>
               <PostIt
