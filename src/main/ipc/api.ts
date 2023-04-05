@@ -72,3 +72,8 @@ typedIpcMain.handle(
     WindowManager.instantCurationWindow?.close();
   }
 );
+
+// snapshot gallery
+typedIpcMain.handle('open-snapshot', async (e, snapshotId) => {
+  WindowManager.createSnapshotWindow();
+});

@@ -3,6 +3,7 @@ import './App.scss';
 import Toast from './components/Toast/Toast';
 import Snapshot from './pages/Snapshot';
 import InstantCuration from './pages/InstantCuration';
+import SnapshotGallery from './pages/SnapshotGallery';
 
 export default function App() {
   return (
@@ -10,6 +11,7 @@ export default function App() {
       <HashRouter>
         <Routes>
           <Route path="/instantCuration" element={<InstantCuration />} />
+          <Route path="/snapshotGallery" element={<SnapshotGallery />} />
           <Route path="/" element={<Snapshot />} />
         </Routes>
       </HashRouter>

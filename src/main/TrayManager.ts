@@ -34,13 +34,14 @@ export default class TrayManager {
           await this._taskSnapInstance.applyLatestSnapshot();
         },
       },
+      { type: 'separator' },
       {
-        label: 'Open Latest Snapshot',
+        label: 'Open Snapshot Gallery',
         click: async () => {
-          if (WindowManager.snapshotWindow === null) {
-            await WindowManager.createSnapshotWindow();
+          if (WindowManager.snapshotGalleryWindow === null) {
+            await WindowManager.createSnapshotGalleryWindow();
           } else {
-            WindowManager.snapshotWindow.show();
+            WindowManager.snapshotGalleryWindow.show();
           }
         },
       },

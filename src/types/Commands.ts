@@ -23,6 +23,9 @@ type Commands = {
     updatedName: string,
     timeInMin: number
   ) => void;
+
+  // snapshot gallery
+  'open-snapshot': (snapshotId: number) => void;
 };
 
 export default Commands;

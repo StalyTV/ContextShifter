@@ -15,6 +15,7 @@ import isWindows from './helpers/isWindows';
 export default class WindowManager {
   public static snapshotWindow: BrowserWindow | null = null;
   public static instantCurationWindow: BrowserWindow | null = null;
+  public static snapshotGalleryWindow: BrowserWindow | null = null;
 
   public static async createSnapshotWindow() {
     if (this.snapshotWindow) return;
@@ -100,6 +101,48 @@ export default class WindowManager {
     });
 
     const menuBuilder = new MenuBuilder(this.instantCurationWindow);
+    menuBuilder.buildMenu();
+  }
+
+  public static async createSnapshotGalleryWindow() {
+    if (this.snapshotGalleryWindow) return;
+
+    this.snapshotGalleryWindow = new BrowserWindow({
+      show: false,
+      width: 1024,
+      height: 800,
+      icon: getAssetPath('icon.png'),
+      webPreferences: {
+        preload: app.isPackaged
+          ? path.join(__dirname, 'preload.js')
+          : path.join(__dirname, '../../.erb/dll/preload.js'),
+      },
+    });
+
+    if (isWindows) {
+      this.snapshotGalleryWindow.removeMenu();
+    }
+
+    this.snapshotGalleryWindow.loadURL(
+      resolveHtmlPath('index.html') + `#/snapshotGallery`
+    );
+
+    this.snapshotGalleryWindow.on('ready-to-show', () => {
+      if (!this.snapshotGalleryWindow) {
+        throw new Error('"snapshotGalleryWindow" is not defined');
+      }
+      if (process.env.START_MINIMIZED) {
+        this.snapshotGalleryWindow.minimize();
+      } else {
+        this.snapshotGalleryWindow.show();
+      }
+    });
+
+    this.snapshotGalleryWindow.on('closed', () => {
+      this.snapshotGalleryWindow = null;
+    });
+
+    const menuBuilder = new MenuBuilder(this.snapshotGalleryWindow);
     menuBuilder.buildMenu();
   }
 }

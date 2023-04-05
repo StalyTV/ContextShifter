@@ -67,7 +67,7 @@ export default class TaskSnap {
     newSnapshot.applications = openApplications;
     await Snapshot.save(newSnapshot);
 
-    WindowManager.createSnapshotWindow();
+    WindowManager.createInstantCurationWindow();
   }
 
   public async applyLatestSnapshot() {
