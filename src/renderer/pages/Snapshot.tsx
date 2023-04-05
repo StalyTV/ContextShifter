@@ -111,7 +111,7 @@ export default function Snapshot() {
       async () =>
         await window.electron.ipcRenderer.invoke(
           'postpone-snapshot',
-          latestSnapshot.id,
+          latestSnapshot,
           timeInMin
         ),
       {

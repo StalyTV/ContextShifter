@@ -67,7 +67,7 @@ export default class WindowManager {
     this.instantCurationWindow = new BrowserWindow({
       show: false,
       width: 600,
-      height: 175,
+      height: 210,
       icon: getAssetPath('icon.png'),
       webPreferences: {
         preload: app.isPackaged

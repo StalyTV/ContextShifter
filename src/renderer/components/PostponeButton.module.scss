@@ -1,14 +1,17 @@
+.postponeButton {
+  border: solid var(--accent-color-2) 2px;
+}
+
 .dropdown {
   font-size: small;
   position: relative;
   display: inline-block;
 
   .dropdownOptions {
-    display: block;
+    display: flex;
     position: absolute;
-    left: -6.3rem;
-    bottom: 2.5rem;
-    min-width: 6rem;
+    left: -9.5rem;
+    top: 2.5rem;
     background-color: var(--bg-color-1);
     border-radius: var(--border-radius);
     border: solid var(--border-color) 1px;
@@ -16,6 +19,7 @@
 
     .dropdownOption {
       cursor: pointer;
+      width: 2.9rem;
       padding: 0.5rem 0.5rem;
 
       &:hover {

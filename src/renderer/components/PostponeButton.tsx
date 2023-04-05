@@ -28,7 +28,11 @@ export default function PostponeButton(props: Props) {
 
   return (
     <>
-      <Button isFilled={props.isFilled} onClick={() => toggleDropDown()}>
+      <Button
+        className={styles.postponeButton}
+        isFilled={props.isFilled}
+        onClick={() => toggleDropDown()}
+      >
         {props.title}
         <ArrowIcon />
       </Button>
@@ -36,16 +40,16 @@ export default function PostponeButton(props: Props) {
         <div className={styles.dropdown}>
           <div className={styles.dropdownOptions}>
             <div className={styles.dropdownOption} onClick={() => onClick(5)}>
-              5 Minutes
+              5 min
             </div>
             <div className={styles.dropdownOption} onClick={() => onClick(15)}>
-              15 Minutes
+              15 min
             </div>
             <div className={styles.dropdownOption} onClick={() => onClick(30)}>
-              30 Minutes
+              30 min
             </div>
             <div className={styles.dropdownOption} onClick={() => onClick(60)}>
-              60 Minutes
+              60 min
             </div>
           </div>
         </div>

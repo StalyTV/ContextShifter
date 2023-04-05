@@ -7,7 +7,8 @@
 
  :root {
   @media (prefers-color-scheme: dark) {
-    --accent-color: #08C0DD;
+    --accent-color-1: #08C0DD;
+    --accent-color-2: #DD7A08;
     --bg-color-1: #3E3E3E;
     --bg-color-2: #646464;
     --bg-color-3: #777777;
@@ -17,7 +18,8 @@
     --text-color: #FFFFFF;
   }
   @media (prefers-color-scheme: light) {
-    --accent-color: #08C0DD;
+    --accent-color-1: #08C0DD;
+    --accent-color-2: #DD7A08;
     --bg-color-1: #fcfcfc;
     --bg-color-2: #f0f0f0;
     --bg-color-3: #e0e0e0;

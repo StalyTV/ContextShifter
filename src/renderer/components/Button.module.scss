@@ -3,7 +3,7 @@ button {
   background: none;
   padding: 0.5rem 1rem;
   border-radius: var(--border-radius);
-  border: solid var(--accent-color) 0.15rem;
+  border: solid var(--accent-color-1) 0.15rem;
   appearance: none;
   transition: all ease-in 0.1s;
   cursor: pointer;
@@ -21,7 +21,7 @@ button {
 }
 
 button.filled {
-  background-color: var(--accent-color);
+  background-color: var(--accent-color-1);
 }
 
 button:hover {
