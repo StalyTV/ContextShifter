@@ -1,0 +1,27 @@
+.dropdown {
+  font-size: small;
+  position: relative;
+  display: inline-block;
+
+  .dropdownOptions {
+    display: block;
+    position: absolute;
+    left: -6.3rem;
+    bottom: 2.5rem;
+    min-width: 6rem;
+    background-color: var(--bg-color-1);
+    border-radius: var(--border-radius);
+    border: solid var(--border-color) 1px;
+    z-index: 1;
+
+    .dropdownOption {
+      cursor: pointer;
+      padding: 0.5rem 0.5rem;
+
+      &:hover {
+        background-color: var(--bg-color-2);
+        border-radius: var(--border-radius);
+      }
+    }
+  }
+}

@@ -7,6 +7,15 @@ button {
   appearance: none;
   transition: all ease-in 0.1s;
   cursor: pointer;
+
+  .children {
+    display: flex;
+
+    svg {
+      margin-left: 0.3rem;
+      width: 1rem;
+    }
+  }
 }
 
 button.filled {

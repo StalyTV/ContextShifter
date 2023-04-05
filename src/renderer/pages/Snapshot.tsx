@@ -14,6 +14,7 @@ import PostIt from 'renderer/components/PostIt';
 import { toast } from 'react-toastify';
 import NavBar from '../components/Navigation/NavBar';
 import SnapshotHeader from 'renderer/components/SnapshotHeader';
+import PostponeButton from 'renderer/components/PostponeButton';
 
 export default function Snapshot() {
   const [latestSnapshot, setLatestSnapshot] = useState<SnapshotEntity | null>(
@@ -148,6 +149,11 @@ export default function Snapshot() {
             </div>
           </div>
           <div className={styles.buttonContainer}>
+            <PostponeButton
+              isFilled={false}
+              title={'PostponeCuration'}
+              onSelect={(timeInMin) => {}}
+            />
             <Button isFilled={false} onClick={() => onClickSaveAndClose()}>
               Save & Close Applications
             </Button>
