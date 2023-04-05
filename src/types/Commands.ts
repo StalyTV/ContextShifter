@@ -13,7 +13,11 @@ type Commands = {
   'open-artifact': (artifact: Artifact) => void;
   'save-snapshot': (snapshot: Snapshot) => Promise<void>;
   'save-snapshot-and-close-applications': (snapshot: Snapshot) => Promise<void>;
-  "toggle-color-theme": () => void;
+  'toggle-color-theme': () => void;
+
+  // instant curation
+  'instant-curation-curate-now': (snapshotId: number, name: string) => void;
+  'instant-curation-postpone': (snapshotId: number, name: string) => void;
 };
 
 export default Commands;

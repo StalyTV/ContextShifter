@@ -58,4 +58,13 @@ export default class SnapshotManager {
       }
     }
   }
+
+  public async updateSnapshotName(snapshotId: number, name: string) {
+    const snapshotInDb = await Snapshot.findOneBy({ id: snapshotId });
+    if (snapshotInDb) {
+      snapshotInDb.name = name;
+      snapshotInDb.edited = new Date().toISOString();
+      snapshotInDb.save();
+    }
+  }
 }

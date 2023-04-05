@@ -10,6 +10,7 @@ import ActiveWindow from '../entity/ActiveWindow';
 import SnapshotManager from '../SnapshotManager';
 import { nativeTheme } from 'electron';
 import { openArtifact } from '../helpers/osCommands';
+import WindowManager from '../WindowManager';
 
 typedIpcMain.handle('get-used-applications', async () => {
   const lastStart = await Log.getLastApplicationStart();
@@ -29,9 +30,12 @@ typedIpcMain.handle('save-snapshot', async (e, snapshot) => {
   await SnapshotManager.getInstance().saveSnapshot(snapshot);
 });
 
-typedIpcMain.handle('save-snapshot-and-close-applications', async (e, snapshot) => {
-  await SnapshotManager.getInstance().saveAndCloseApplications(snapshot);
-});
+typedIpcMain.handle(
+  'save-snapshot-and-close-applications',
+  async (e, snapshot) => {
+    await SnapshotManager.getInstance().saveAndCloseApplications(snapshot);
+  }
+);
 
 typedIpcMain.handle('toggle-color-theme', () => {
   if (nativeTheme.shouldUseDarkColors) {
@@ -40,3 +44,13 @@ typedIpcMain.handle('toggle-color-theme', () => {
     nativeTheme.themeSource = 'dark';
   }
 });
+
+// instant curation
+typedIpcMain.handle(
+  'instant-curation-curate-now',
+  async (e, snapshotId, name) => {
+    await SnapshotManager.getInstance().updateSnapshotName(snapshotId, name);
+    WindowManager.instantCurationWindow?.close();
+    WindowManager.createSnapshotWindow();
+  }
+);

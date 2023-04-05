@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import SnapshotHeader from 'renderer/components/SnapshotHeader';
 import SnapshotEntity from 'main/entity/Snapshot';
 import Button from 'renderer/components/Button';
+import { toast } from 'react-toastify';
 
 export default function InstantCuration() {
   const [latestSnapshot, setLatestSnapshot] = useState<SnapshotEntity | null>(
@@ -30,6 +31,24 @@ export default function InstantCuration() {
     setSnapshotName(e.target.value);
   };
 
+  const onClickCurateNow = async () => {
+    if (!latestSnapshot) return;
+
+    toast.promise(
+      async () =>
+        await window.electron.ipcRenderer.invoke(
+          'instant-curation-curate-now',
+          latestSnapshot.id,
+          snapshotName
+        ),
+      {
+        pending: 'Opening Snapshot...',
+        success: 'Snapshot Opened',
+        error: 'Something went wrong',
+      }
+    );
+  };
+
   useEffect(() => {
     fetchLatestSnapshot();
   }, []);
@@ -49,7 +68,7 @@ export default function InstantCuration() {
             <Button isFilled={true} onClick={() => {}}>
               Postpone Curation
             </Button>
-            <Button isFilled={true} onClick={() => {}}>
+            <Button isFilled={true} onClick={() => onClickCurateNow()}>
               Curate Now
             </Button>
           </div>
