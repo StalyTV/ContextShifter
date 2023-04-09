@@ -19,6 +19,7 @@ import Artifact from 'types/Artifact';
 import { openArtifact } from './helpers/osCommands';
 import { getFileNameFromPath } from './helpers/getFileNameFromPath';
 import isMac from './helpers/isMac';
+import BrowserTracker from './trackers/BrowserTracker';
 
 /**
  * Main class of the application
@@ -26,11 +27,13 @@ import isMac from './helpers/isMac';
 export default class TaskSnap {
   private static _instance: TaskSnap;
   private _windowTracker: WindowTracker;
+  private _browserTracker: BrowserTracker;
   private _fileSystemWatcher: FileSystemWatcher;
   private _snapshotManager: SnapshotManager;
 
   private constructor() {
     this._windowTracker = new WindowTracker();
+    this._browserTracker = new BrowserTracker();
     this._fileSystemWatcher = new FileSystemWatcher();
     this._snapshotManager = SnapshotManager.getInstance();
   }
@@ -66,6 +69,9 @@ export default class TaskSnap {
     newSnapshot.name = `Snapshot ${nextId}`;
     newSnapshot.applications = openApplications;
     await Snapshot.save(newSnapshot);
+
+    // send request to get information from the browser. Information will later be attached to the snapshot.
+    this._browserTracker.sendGetAllTabsRequest();
 
     WindowManager.createInstantCurationWindow();
   }

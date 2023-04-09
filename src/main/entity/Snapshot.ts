@@ -12,6 +12,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import Application from './Application';
+import BrowserTab from './BrowserTab';
 
 @Entity({ name: 'snapshot' })
 export default class Snapshot extends BaseEntity {
@@ -38,6 +39,9 @@ export default class Snapshot extends BaseEntity {
 
   @OneToMany(() => Application, (app) => app.snapshot)
   applications!: Application[];
+
+  @OneToMany(() => BrowserTab, (tab) => tab.snapshot)
+  browserTabs!: BrowserTab[];
 
   static async getNextId(): Promise<number> {
     const lastSnapshot = await this.findOne({
