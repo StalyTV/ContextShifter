@@ -64,6 +64,7 @@ export default class Snapshot extends BaseEntity {
       return null;
     } else {
       const snapshot = await this.createQueryBuilder('snapshot')
+        .leftJoinAndSelect('snapshot.browserTabs', 'browserTabs')
         .leftJoinAndSelect('snapshot.applications', 'applications')
         .leftJoinAndSelect('applications.files', 'files')
         .where('snapshot.id = :id', { id: latestSnapshot.id })

@@ -1,0 +1,11 @@
+.tab {
+  margin: 0.2rem;
+  padding: 0.3rem;
+  border-radius: var(--border-radius);
+  background-color: var(--bg-color-4);
+  overflow: hidden;
+}
+
+.isSelected {
+  background-color: var(--bg-color-5);
+}

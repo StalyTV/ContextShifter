@@ -5,9 +5,11 @@
  */
 
 import styles from './Snapshot.module.scss';
+import { useEffect, useState } from 'react';
 import SnapshotEntity from 'main/entity/Snapshot';
 import ApplicationEntity from '../../main/entity/Application';
-import { useEffect, useState } from 'react';
+import BrowserTabEntity from '../../main/entity/BrowserTab';
+import Browser from 'renderer/components/Browser';
 import Application from 'renderer/components/Application';
 import Button from 'renderer/components/Button';
 import PostIt from 'renderer/components/PostIt';
@@ -26,6 +28,7 @@ export default function Snapshot() {
   const [applicationMap, setApplicationMap] = useState<
     Map<number, ApplicationEntity>
   >(new Map());
+  const [browserTabs, setBrowserTabs] = useState<BrowserTabEntity[]>([]);
 
   const fetchLatestSnapshot = async () => {
     const snapshot = await window.electron.ipcRenderer.invoke(
@@ -40,6 +43,7 @@ export default function Snapshot() {
 
     const applicationMap = new Map(snapshot.applications.map((i) => [i.id, i]));
     setApplicationMap(applicationMap);
+    setBrowserTabs(snapshot.browserTabs);
   };
 
   const reapplyChanges = (snapshot: SnapshotEntity) => {
@@ -104,6 +108,10 @@ export default function Snapshot() {
     setApplicationMap(updatedMap);
   };
 
+  const updateBrowserTabs = (updatedTabs: BrowserTabEntity[]): void => {
+    setBrowserTabs([...updatedTabs])
+  };
+
   const postponeSnapshot = (timeInMin: number) => {
     if (!latestSnapshot) return;
 
@@ -154,6 +162,12 @@ export default function Snapshot() {
             <div className={styles.rightContainer}>
               <div className={styles.header}>
                 {'Artifacts that I consider relevant for this task snapshot'}
+              </div>
+              <div>
+                <Browser
+                  browserTabs={browserTabs}
+                  updateTabs={updateBrowserTabs}
+                />
               </div>
               <div className={styles.applications}>
                 {[...applicationMap.values()].map((app) => (
