@@ -158,7 +158,8 @@ export default class TaskSnap {
         });
         const filePaths = processInfoOfApplication[0].files.map((f) => f.name);
         for await (const path of filePaths) {
-          if (path) {
+          // Remove paths that are simply "/"
+          if (path && path.length > 1) {
             const fileName = getFileNameFromPath(path);
             const lowerCaseFileName = fileName.toLowerCase();
             if (

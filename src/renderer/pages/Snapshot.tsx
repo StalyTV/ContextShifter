@@ -164,12 +164,14 @@ export default function Snapshot() {
               <div className={styles.header}>
                 {'Artifacts that I consider relevant for this task snapshot'}
               </div>
-              <div>
-                <Browser
-                  browserTabs={browserTabs}
-                  updateTabs={updateBrowserTabs}
-                />
-              </div>
+              {latestSnapshot.browserTabs.length > 0 ? (
+                <div>
+                  <Browser
+                    browserTabs={browserTabs}
+                    updateTabs={updateBrowserTabs}
+                  />
+                </div>
+              ) : null}
               <div className={styles.applications}>
                 {[...applicationMap.values()].map((app) => (
                   <Application
