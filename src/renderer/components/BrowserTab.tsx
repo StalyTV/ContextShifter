@@ -6,6 +6,7 @@
 
 import styles from './BrowserTab.module.scss';
 import BrowserTabEntity from '../../main/entity/BrowserTab';
+import EyeIcon from './Icons/EyeIcon';
 
 type Props = {
   tab: BrowserTabEntity;
@@ -28,6 +29,7 @@ export default function BrowserTab(props: Props) {
       }`}
       onClick={toggleSelect}
     >
+      {props.tab.isActive ? <EyeIcon className={styles.icon} /> : null}
       <img src={props.tab.favIconUrl} alt="favicon"></img>
       <span>{props.tab.title}</span>
     </div>

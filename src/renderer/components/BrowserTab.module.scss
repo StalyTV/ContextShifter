@@ -6,6 +6,10 @@
   height: 1rem;
   display: flex;
 
+  .icon {
+    fill: var(--border-color);
+  }
+
   img {
     margin-right: 0.7rem;
   }
