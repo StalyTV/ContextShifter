@@ -83,9 +83,12 @@ export default class TaskSnap {
     if (!latestSnapshot) return;
 
     for (const app of latestSnapshot.applications) {
-      // If files are present, don't open application but files associated with application
-      if (app.files.length > 0) {
-        for (const file of app.files) {
+      if (!app.isSelected) continue;
+
+      // If selected files are present, don't open application but files associated with application
+      const selectedFiles = app.files.filter((file) => file.isSelected);
+      if (selectedFiles.length > 0) {
+        for (const file of selectedFiles) {
           const artifact: Artifact = {
             artifact: file.path,
             application: app.path,
@@ -98,6 +101,22 @@ export default class TaskSnap {
         };
         openArtifact(artifact);
       }
+    }
+
+    const browserIncluded = latestSnapshot.applications.find(
+      (app) =>
+        app.name.includes('Google Chrome') ||
+        app.name.includes('Firefox') ||
+        app.name.includes('Edge')
+    );
+    if (browserIncluded) {
+      const urlsToOpen: string[] = [];
+      latestSnapshot.browserTabs.forEach((tab) => {
+        if (tab.isSelected) {
+          urlsToOpen.push(tab.url);
+        }
+      });
+      this._browserTracker.sendTabOpeningRequest(urlsToOpen, latestSnapshot.name);
     }
   }
 
