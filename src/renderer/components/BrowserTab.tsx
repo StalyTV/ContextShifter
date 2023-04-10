@@ -28,7 +28,8 @@ export default function BrowserTab(props: Props) {
       }`}
       onClick={toggleSelect}
     >
-      {props.tab.title}
+      <img src={props.tab.favIconUrl} alt="favicon"></img>
+      <span>{props.tab.title}</span>
     </div>
   );
 }

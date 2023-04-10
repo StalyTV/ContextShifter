@@ -51,6 +51,7 @@ export default function Snapshot() {
     snapshot.summary = summary;
     snapshot.intent = intent;
     snapshot.applications = [...applicationMap.values()];
+    snapshot.browserTabs = browserTabs;
     return snapshot;
   };
 
@@ -109,7 +110,7 @@ export default function Snapshot() {
   };
 
   const updateBrowserTabs = (updatedTabs: BrowserTabEntity[]): void => {
-    setBrowserTabs([...updatedTabs])
+    setBrowserTabs([...updatedTabs]);
   };
 
   const postponeSnapshot = (timeInMin: number) => {

@@ -3,7 +3,18 @@
   padding: 0.3rem;
   border-radius: var(--border-radius);
   background-color: var(--bg-color-4);
-  overflow: hidden;
+  height: 1rem;
+  display: flex;
+
+  img {
+    margin-right: 0.7rem;
+  }
+
+  span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
 }
 
 .isSelected {

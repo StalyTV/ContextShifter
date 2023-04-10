@@ -7,6 +7,7 @@
 import Snapshot from './entity/Snapshot';
 import Application from './entity/Application';
 import File from './entity/File';
+import BrowserTab from './entity/BrowserTab';
 import { info } from 'electron-log';
 import { closeApplication } from './helpers/osCommands';
 import WindowManager from './WindowManager';
@@ -30,6 +31,14 @@ export default class SnapshotManager {
       snapshotInDb.summary = updatedSnapshot.summary;
       snapshotInDb.intent = updatedSnapshot.intent;
       snapshotInDb.edited = new Date().toISOString();
+
+      for (const tab of updatedSnapshot.browserTabs) {
+        const tabInDb = await BrowserTab.findOneBy({ id: tab.id });
+        if (tabInDb && tabInDb.isSelected !== tab.isSelected) {
+          tabInDb.isSelected = tab.isSelected;
+          tabInDb.save();
+        }
+      }
 
       for (const app of updatedSnapshot.applications) {
         const appInDb = await Application.findOneBy({ id: app.id });
