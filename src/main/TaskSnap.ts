@@ -20,6 +20,8 @@ import { openArtifact } from './helpers/osCommands';
 import { getFileNameFromPath } from './helpers/getFileNameFromPath';
 import isMac from './helpers/isMac';
 import BrowserTracker from './trackers/BrowserTracker';
+import BrowserTabEntity from './entity/BrowserTab';
+import { CloseTabClientRequest } from 'context-browser-extension-types';
 
 /**
  * Main class of the application
@@ -99,6 +101,13 @@ export default class TaskSnap {
     }
   }
 
+  public closeBrowserTabs(tabsToClose: BrowserTabEntity[]): void {
+    const closeRequest: CloseTabClientRequest[] = tabsToClose.map((tab) => {
+      return { url: tab.url };
+    });
+    this._browserTracker.sendTabClosingRequest(closeRequest);
+  }
+
   // TODO [regloff] refactor this method
   public async getCurrentlyOpenApplications(): Promise<Application[]> {
     const openWindows = await activeWin.getOpenWindows();
@@ -131,7 +140,7 @@ export default class TaskSnap {
         const filePaths = processInfoOfApplication[0].files.map((f) => f.name);
         for await (const path of filePaths) {
           if (path) {
-            const fileName = getFileNameFromPath(path)
+            const fileName = getFileNameFromPath(path);
             const lowerCaseFileName = fileName.toLowerCase();
             if (
               (lowerCaseFileName.includes(win.title.toLowerCase()) ||

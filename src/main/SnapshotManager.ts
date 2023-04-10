@@ -4,10 +4,11 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
+import TaskSnap from './TaskSnap';
 import Snapshot from './entity/Snapshot';
 import Application from './entity/Application';
 import File from './entity/File';
-import BrowserTab from './entity/BrowserTab';
+import BrowserTabEntity from './entity/BrowserTab';
 import { info } from 'electron-log';
 import { closeApplication } from './helpers/osCommands';
 import WindowManager from './WindowManager';
@@ -33,7 +34,7 @@ export default class SnapshotManager {
       snapshotInDb.edited = new Date().toISOString();
 
       for (const tab of updatedSnapshot.browserTabs) {
-        const tabInDb = await BrowserTab.findOneBy({ id: tab.id });
+        const tabInDb = await BrowserTabEntity.findOneBy({ id: tab.id });
         if (tabInDb && tabInDb.isSelected !== tab.isSelected) {
           tabInDb.isSelected = tab.isSelected;
           tabInDb.save();
@@ -63,6 +64,15 @@ export default class SnapshotManager {
 
   public async saveAndCloseApplications(updatedSnapshot: Snapshot) {
     await this.saveSnapshot(updatedSnapshot);
+
+    const tabsToClose: BrowserTabEntity[] = [];
+    for (const tab of updatedSnapshot.browserTabs) {
+      if (tab.isSelected) {
+        tabsToClose.push(tab);
+      }
+    }
+    TaskSnap.getInstance().closeBrowserTabs(tabsToClose);
+
     for (const app of updatedSnapshot.applications) {
       if (app.isSelected) {
         closeApplication(app);
