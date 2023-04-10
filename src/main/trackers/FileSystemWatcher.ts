@@ -26,6 +26,8 @@ export default class FileSystemWatcher {
       return;
     }
     for (const e of events) {
+      if (e.path.includes('.git')) continue;
+
       await FileSystemEvent.insert({
         ts: new Date().toISOString(),
         path: e.path,
