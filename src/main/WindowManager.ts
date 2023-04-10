@@ -25,6 +25,7 @@ export default class WindowManager {
       width: 1024,
       height: 800,
       icon: getAssetPath('icon.png'),
+      title: "Curate Snapshot",
       webPreferences: {
         preload: app.isPackaged
           ? path.join(__dirname, 'preload.js')
@@ -70,6 +71,7 @@ export default class WindowManager {
       width: 600,
       height: 210,
       icon: getAssetPath('icon.png'),
+      title: "New Snapshot",
       webPreferences: {
         preload: app.isPackaged
           ? path.join(__dirname, 'preload.js')
@@ -112,6 +114,7 @@ export default class WindowManager {
       width: 1024,
       height: 800,
       icon: getAssetPath('icon.png'),
+      title: "Snapshot Gallery",
       webPreferences: {
         preload: app.isPackaged
           ? path.join(__dirname, 'preload.js')
