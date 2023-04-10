@@ -8,7 +8,7 @@ import styles from './Snapshot.module.scss';
 import { useEffect, useState } from 'react';
 import SnapshotEntity from 'main/entity/Snapshot';
 import ApplicationEntity from '../../main/entity/Application';
-import BrowserTabEntity from '../../main/entity/BrowserTab';
+import BrowserEntity from '../../main/entity/Browser';
 import Browser from 'renderer/components/Browser';
 import Application from 'renderer/components/Application';
 import Button from 'renderer/components/Button';
@@ -25,10 +25,12 @@ export default function Snapshot() {
   const [snapshotName, setSnapshotName] = useState<string>('');
   const [summary, setSummary] = useState<string>('');
   const [intent, setIntent] = useState<string>('');
+  const [browserMap, setBrowserMap] = useState<Map<number, BrowserEntity>>(
+    new Map()
+  );
   const [applicationMap, setApplicationMap] = useState<
     Map<number, ApplicationEntity>
   >(new Map());
-  const [browserTabs, setBrowserTabs] = useState<BrowserTabEntity[]>([]);
 
   const fetchLatestSnapshot = async () => {
     const snapshot = await window.electron.ipcRenderer.invoke(
@@ -41,17 +43,18 @@ export default function Snapshot() {
     setSummary(snapshot.summary || '');
     setIntent(snapshot.intent || '');
 
+    const browserMap = new Map(snapshot.browsers.map((i) => [i.id, i]));
+    setBrowserMap(browserMap);
     const applicationMap = new Map(snapshot.applications.map((i) => [i.id, i]));
     setApplicationMap(applicationMap);
-    setBrowserTabs(snapshot.browserTabs.sort((a, b) => a.index - b.index));
   };
 
   const reapplyChanges = (snapshot: SnapshotEntity) => {
     snapshot.name = snapshotName;
     snapshot.summary = summary;
     snapshot.intent = intent;
+    snapshot.browsers = [...browserMap.values()];
     snapshot.applications = [...applicationMap.values()];
-    snapshot.browserTabs = browserTabs;
     return snapshot;
   };
 
@@ -109,8 +112,10 @@ export default function Snapshot() {
     setApplicationMap(updatedMap);
   };
 
-  const updateBrowserTabs = (updatedTabs: BrowserTabEntity[]): void => {
-    setBrowserTabs([...updatedTabs]);
+  const updateBrowser = (updatedBrowser: BrowserEntity) => {
+    const updatedMap = new Map(browserMap);
+    updatedMap.set(updatedBrowser.id, updatedBrowser);
+    setBrowserMap(updatedMap);
   };
 
   const postponeSnapshot = (timeInMin: number) => {
@@ -164,15 +169,16 @@ export default function Snapshot() {
               <div className={styles.header}>
                 {'Artifacts that I consider relevant for this task snapshot'}
               </div>
-              {latestSnapshot.browserTabs.length > 0 ? (
-                <div>
+              <div>
+                {[...browserMap.values()].map((browser) => (
                   <Browser
-                    browserTabs={browserTabs}
-                    updateTabs={updateBrowserTabs}
+                    key={browser.id}
+                    browser={browser}
+                    updateBrowser={updateBrowser}
                   />
-                </div>
-              ) : null}
-              <div className={styles.applications}>
+                ))}
+              </div>
+              <div>
                 {[...applicationMap.values()].map((app) => (
                   <Application
                     key={app.id}

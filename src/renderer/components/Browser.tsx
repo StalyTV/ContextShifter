@@ -5,27 +5,34 @@
  */
 
 import styles from './Browser.module.scss';
+import BrowserEntity from '../../main/entity/Browser';
 import BrowserTabEntity from '../../main/entity/BrowserTab';
 import BrowserTab from './BrowserTab';
 
 type Props = {
-  browserTabs: BrowserTabEntity[];
-  updateTabs: (updatedTabs: BrowserTabEntity[]) => void;
+  browser: BrowserEntity;
+  updateBrowser: (updatedBrowser: BrowserEntity) => void;
 };
 
 export default function Browser(props: Props) {
+  const sortedTabs = props.browser.browserTabs.sort(
+    (a, b) => a.index - b.index
+  );
+
   const updateTab = (updatedTab: BrowserTabEntity) => {
-    const updatedTabs = props.browserTabs;
-    const tabToUpdate = updatedTabs.find((t) => t.id === updatedTab.id);
+    const updatedBrowser = props.browser;
+    const tabToUpdate = updatedBrowser.browserTabs.find(
+      (t) => t.id === updatedTab.id
+    );
     if (tabToUpdate) {
       tabToUpdate.isSelected = updatedTab.isSelected;
-      props.updateTabs(updatedTabs);
+      props.updateBrowser(updatedBrowser);
     }
   };
 
   return (
     <div className={styles.browser}>
-      {props.browserTabs.map((tab) => (
+      {sortedTabs.map((tab) => (
         <BrowserTab key={tab.id} tab={tab} updateTab={updateTab} />
       ))}
     </div>

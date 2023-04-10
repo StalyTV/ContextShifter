@@ -107,7 +107,7 @@ export default class BrowserTracker {
       tabEntity.favIconUrl = tab.favIconUrl;
       tabEntity.index = tab.index;
       tabEntity.isActive = tab.active;
-      tabEntity.snapshot = latestSnapshot;
+      tabEntity.browser = latestSnapshot.browsers[0]; // TODO: Improve this
       tabEntity.save();
     }
     info(

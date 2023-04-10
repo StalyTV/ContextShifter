@@ -5,37 +5,33 @@
  */
 
 import {
-  Column,
-  PrimaryGeneratedColumn,
   Entity,
   BaseEntity,
+  PrimaryGeneratedColumn,
+  Column,
   ManyToOne,
+  OneToMany,
 } from 'typeorm';
-import Browser from './Browser';
+import Snapshot from './Snapshot';
+import BrowserTab from './BrowserTab';
 
-@Entity({ name: 'browser_tab' })
-export default class BrowserTab extends BaseEntity {
+@Entity({ name: 'browser' })
+export default class Browser extends BaseEntity {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ type: 'varchar', nullable: true })
-  title!: string | undefined;
+  @Column({ type: 'varchar', nullable: false })
+  name!: string;
 
   @Column({ type: 'varchar', nullable: false })
-  url!: string;
-
-  @Column({ type: 'varchar', nullable: true })
-  favIconUrl!: string | undefined;
-
-  @Column({ type: 'int', nullable: true })
-  index!: number;
-
-  @Column({ type: 'tinyint', nullable: false })
-  isActive!: boolean;
+  path!: string;
 
   @Column({ type: 'tinyint', nullable: false, default: true })
   isSelected!: boolean;
 
-  @ManyToOne(() => Browser, (browser) => browser.browserTabs)
-  browser!: Browser;
+  @ManyToOne(() => Snapshot, (snapshot) => snapshot.applications)
+  snapshot!: Snapshot;
+
+  @OneToMany(() => BrowserTab, (tab) => tab.browser)
+  browserTabs!: BrowserTab[];
 }

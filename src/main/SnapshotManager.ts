@@ -8,6 +8,7 @@ import TaskSnap from './TaskSnap';
 import Snapshot from './entity/Snapshot';
 import Application from './entity/Application';
 import File from './entity/File';
+import BrowserEntity from './entity/Browser';
 import BrowserTabEntity from './entity/BrowserTab';
 import { info } from 'electron-log';
 import { closeApplication } from './helpers/osCommands';
@@ -33,11 +34,19 @@ export default class SnapshotManager {
       snapshotInDb.intent = updatedSnapshot.intent;
       snapshotInDb.edited = new Date().toISOString();
 
-      for (const tab of updatedSnapshot.browserTabs) {
-        const tabInDb = await BrowserTabEntity.findOneBy({ id: tab.id });
-        if (tabInDb && tabInDb.isSelected !== tab.isSelected) {
-          tabInDb.isSelected = tab.isSelected;
-          tabInDb.save();
+      for (const browser of updatedSnapshot.browsers) {
+        const browserInDb = await BrowserEntity.findOneBy({ id: browser.id });
+        if (browserInDb && browserInDb.isSelected !== browser.isSelected) {
+          browserInDb.isSelected = browser.isSelected;
+          browserInDb.save();
+        }
+
+        for (const tab of browser.browserTabs) {
+          const tabInDb = await BrowserTabEntity.findOneBy({ id: tab.id });
+          if (tabInDb && tabInDb.isSelected !== tab.isSelected) {
+            tabInDb.isSelected = tab.isSelected;
+            tabInDb.save();
+          }
         }
       }
 
@@ -66,11 +75,14 @@ export default class SnapshotManager {
     await this.saveSnapshot(updatedSnapshot);
 
     const tabsToClose: BrowserTabEntity[] = [];
-    for (const tab of updatedSnapshot.browserTabs) {
-      if (tab.isSelected) {
-        tabsToClose.push(tab);
+    for (const browser of updatedSnapshot.browsers) {
+      for (const tab of browser.browserTabs) {
+        if (tab.isSelected) {
+          tabsToClose.push(tab);
+        }
       }
     }
+
     TaskSnap.getInstance().closeBrowserTabs(tabsToClose);
 
     for (const app of updatedSnapshot.applications) {

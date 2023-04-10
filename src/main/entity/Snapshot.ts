@@ -12,7 +12,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import Application from './Application';
-import BrowserTab from './BrowserTab';
+import Browser from './Browser';
 
 @Entity({ name: 'snapshot' })
 export default class Snapshot extends BaseEntity {
@@ -40,8 +40,8 @@ export default class Snapshot extends BaseEntity {
   @OneToMany(() => Application, (app) => app.snapshot)
   applications!: Application[];
 
-  @OneToMany(() => BrowserTab, (tab) => tab.snapshot)
-  browserTabs!: BrowserTab[];
+  @OneToMany(() => Browser, (browser) => browser.snapshot)
+  browsers!: Browser[];
 
   static async getNextId(): Promise<number> {
     const lastSnapshot = await this.findOne({
@@ -64,7 +64,8 @@ export default class Snapshot extends BaseEntity {
       return null;
     } else {
       const snapshot = await this.createQueryBuilder('snapshot')
-        .leftJoinAndSelect('snapshot.browserTabs', 'browserTabs')
+        .leftJoinAndSelect('snapshot.browsers', 'browsers')
+        .leftJoinAndSelect('browsers.browserTabs', 'browserTabs')
         .leftJoinAndSelect('snapshot.applications', 'applications')
         .leftJoinAndSelect('applications.files', 'files')
         .where('snapshot.id = :id', { id: latestSnapshot.id })
