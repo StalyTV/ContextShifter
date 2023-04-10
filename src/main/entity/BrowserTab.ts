@@ -4,7 +4,13 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, April 2023
  */
 
-import { Column, PrimaryGeneratedColumn, Entity, BaseEntity, ManyToOne } from 'typeorm';
+import {
+  Column,
+  PrimaryGeneratedColumn,
+  Entity,
+  BaseEntity,
+  ManyToOne,
+} from 'typeorm';
 import Snapshot from './Snapshot';
 
 @Entity({ name: 'browser_tab' })
@@ -20,6 +26,12 @@ export default class BrowserTab extends BaseEntity {
 
   @Column({ type: 'varchar', nullable: true })
   favIconUrl!: string | undefined;
+
+  @Column({ type: 'int', nullable: true })
+  index!: number;
+
+  @Column({ type: 'tinyint', nullable: false })
+  isActive!: boolean;
 
   @Column({ type: 'tinyint', nullable: false, default: true })
   isSelected!: boolean;

@@ -43,7 +43,7 @@ export default function Snapshot() {
 
     const applicationMap = new Map(snapshot.applications.map((i) => [i.id, i]));
     setApplicationMap(applicationMap);
-    setBrowserTabs(snapshot.browserTabs);
+    setBrowserTabs(snapshot.browserTabs.sort((a, b) => a.index - b.index));
   };
 
   const reapplyChanges = (snapshot: SnapshotEntity) => {
