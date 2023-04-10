@@ -17,6 +17,9 @@ export default function BrowserTab(props: Props) {
   const openTab = async () => {};
 
   const toggleSelect = (e: React.MouseEvent) => {
+    // makes sure Browser is not clicked as well
+    e.stopPropagation();
+
     const updatedTab = props.tab;
     updatedTab.isSelected = !props.tab.isSelected;
     props.updateTab(updatedTab);

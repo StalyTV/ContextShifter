@@ -19,6 +19,19 @@ export default function Browser(props: Props) {
     (a, b) => a.index - b.index
   );
 
+  const toggleSelect = () => {
+    const updatedBrowser = props.browser;
+    updatedBrowser.isSelected = !props.browser.isSelected;
+
+    // if browser gets deselected, deselect all associated tabs
+    if (!updatedBrowser.isSelected) {
+      for (const tab of updatedBrowser.browserTabs) {
+        tab.isSelected = false;
+      }
+    }
+    props.updateBrowser(updatedBrowser);
+  };
+
   const updateTab = (updatedTab: BrowserTabEntity) => {
     const updatedBrowser = props.browser;
     const tabToUpdate = updatedBrowser.browserTabs.find(
@@ -26,12 +39,23 @@ export default function Browser(props: Props) {
     );
     if (tabToUpdate) {
       tabToUpdate.isSelected = updatedTab.isSelected;
+
+      // if tab gets selected, also browser is selected
+      if (tabToUpdate.isSelected) {
+        updatedBrowser.isSelected = true;
+      }
       props.updateBrowser(updatedBrowser);
     }
   };
 
   return (
-    <div className={styles.browser}>
+    <div
+      className={`${styles.browser} ${
+        props.browser.isSelected ? styles.isSelected : undefined
+      }`}
+      onClick={() => toggleSelect()}
+    >
+      {props.browser.name}
       {sortedTabs.map((tab) => (
         <BrowserTab key={tab.id} tab={tab} updateTab={updateTab} />
       ))}
