@@ -26,6 +26,10 @@ export default class SnapshotManager {
     return await Snapshot.getLatestSnapshot();
   }
 
+  public async getLatestNSnapshots(n: number) {
+    return await Snapshot.getLatestNSnapshots(n);
+  }
+
   public async saveSnapshot(updatedSnapshot: Snapshot) {
     const snapshotInDb = await Snapshot.findOneBy({ id: updatedSnapshot.id });
     if (snapshotInDb) {

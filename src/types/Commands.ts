@@ -9,6 +9,7 @@ import Artifact from './Artifact';
 
 type Commands = {
   'get-latest-snapshot': () => Snapshot | null;
+  'get-latest-n-snapshots': (n: number) => Snapshot[];
   'get-used-applications': () => string[];
   'open-artifact': (artifact: Artifact) => void;
   'save-snapshot': (snapshot: Snapshot) => Promise<void>;

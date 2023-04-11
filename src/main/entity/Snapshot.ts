@@ -73,4 +73,27 @@ export default class Snapshot extends BaseEntity {
       return snapshot;
     }
   }
+
+  static async getLatestNSnapshots(n: number): Promise<Snapshot[]> {
+    const lastNSnapshots = await this.find({
+      where: {},
+      order: { id: 'DESC' },
+      take: n,
+    });
+    const snapshotIds = lastNSnapshots.map((snapshot) => snapshot.id);
+    if (lastNSnapshots.length === 0) {
+      return [];
+    } else {
+      const snapshots = await this.createQueryBuilder('snapshot')
+        .leftJoinAndSelect('snapshot.browsers', 'browsers')
+        .leftJoinAndSelect('browsers.browserTabs', 'browserTabs')
+        .leftJoinAndSelect('snapshot.applications', 'applications')
+        .leftJoinAndSelect('applications.files', 'files')
+        .where('snapshot.id IN (:...ids)', {
+          ids: snapshotIds,
+        })
+        .getMany();
+      return snapshots;
+    }
+  }
 }

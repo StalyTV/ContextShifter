@@ -14,12 +14,18 @@ export default function SnapshotGallery() {
   const [snapshots, setSnapshots] = useState<SnapshotEntity[]>([]);
 
   const fetchSnapshots = async () => {
-    const snapshot = await window.electron.ipcRenderer.invoke(
-      'get-latest-snapshot'
+    const snapshots = await window.electron.ipcRenderer.invoke(
+      'get-latest-n-snapshots',
+      10
     );
-    if (!snapshot) return;
 
-    setSnapshots([snapshot]);
+    snapshots.sort((a, b) => {
+      const dateA = new Date(a.created).getTime();
+      const dateB = new Date(b.created).getTime();
+      return dateB - dateA;
+    });
+
+    setSnapshots(snapshots);
   };
 
   const onClickSnapshot = async (snapshotId: number) => {

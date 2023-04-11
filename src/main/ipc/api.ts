@@ -26,6 +26,10 @@ typedIpcMain.handle('get-latest-snapshot', async () => {
   return await SnapshotManager.getInstance().getLatestSnapshot();
 });
 
+typedIpcMain.handle('get-latest-n-snapshots', async (e, n) => {
+  return await SnapshotManager.getInstance().getLatestNSnapshots(n);
+});
+
 typedIpcMain.handle('save-snapshot', async (e, snapshot) => {
   await SnapshotManager.getInstance().saveSnapshot(snapshot);
 });
