@@ -23,6 +23,7 @@ import BrowserTracker from './trackers/BrowserTracker';
 import BrowserTabEntity from './entity/BrowserTab';
 import { CloseTabClientRequest } from 'context-browser-extension-types';
 import Browser from './entity/Browser';
+import VSCodeTracker from './trackers/VSCodeTracker';
 
 /**
  * Main class of the application
@@ -32,12 +33,14 @@ export default class TaskSnap {
   private _windowTracker: WindowTracker;
   private _browserTracker: BrowserTracker;
   private _fileSystemWatcher: FileSystemWatcher;
+  private _vscodeTracker: VSCodeTracker;
   private _snapshotManager: SnapshotManager;
 
   private constructor() {
     this._windowTracker = new WindowTracker();
     this._browserTracker = new BrowserTracker();
     this._fileSystemWatcher = new FileSystemWatcher();
+    this._vscodeTracker = new VSCodeTracker();
     this._snapshotManager = SnapshotManager.getInstance();
   }
 

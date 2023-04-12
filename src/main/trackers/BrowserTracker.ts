@@ -37,7 +37,7 @@ export default class BrowserTracker {
     this._server.on('connection', function (socket) {
       let runtimeInfo: RuntimeInfo | undefined;
 
-      // acually establishing the socket
+      // actually establishing the socket
       socket.on('open', function () {
         self._lastUsedSocket = socket;
         debug('[BrowserTracker] Socket opened');
