@@ -17,11 +17,11 @@ import { toast } from 'react-toastify';
 import NavBar from '../components/Navigation/NavBar';
 import SnapshotHeader from 'renderer/components/SnapshotHeader';
 import PostponeButton from 'renderer/components/PostponeButton';
+import LoadingAnimation from 'renderer/components/LoadingAnimation';
 
 export default function Snapshot() {
-  const [latestSnapshot, setLatestSnapshot] = useState<SnapshotEntity | null>(
-    null
-  );
+  const [selectedSnapshot, setSelectedSnapshot] =
+    useState<SnapshotEntity | null>(null);
   const [snapshotName, setSnapshotName] = useState<string>('');
   const [summary, setSummary] = useState<string>('');
   const [intent, setIntent] = useState<string>('');
@@ -47,7 +47,7 @@ export default function Snapshot() {
     );
     if (!snapshot) return;
 
-    setLatestSnapshot(snapshot);
+    setSelectedSnapshot(snapshot);
     setSnapshotName(snapshot.name);
     setSummary(snapshot.summary || '');
     setIntent(snapshot.intent || '');
@@ -68,9 +68,9 @@ export default function Snapshot() {
   };
 
   const onClickSave = async () => {
-    if (!latestSnapshot) return;
+    if (!selectedSnapshot) return;
 
-    const updatedSnapshot = reapplyChanges(latestSnapshot);
+    const updatedSnapshot = reapplyChanges(selectedSnapshot);
     toast.promise(
       async () =>
         await window.electron.ipcRenderer.invoke(
@@ -86,9 +86,9 @@ export default function Snapshot() {
   };
 
   const onClickSaveAndClose = async () => {
-    if (!latestSnapshot) return;
+    if (!selectedSnapshot) return;
 
-    const updatedSnapshot = reapplyChanges(latestSnapshot);
+    const updatedSnapshot = reapplyChanges(selectedSnapshot);
     toast.promise(
       async () =>
         await window.electron.ipcRenderer.invoke(
@@ -128,13 +128,13 @@ export default function Snapshot() {
   };
 
   const postponeSnapshot = (timeInMin: number) => {
-    if (!latestSnapshot) return;
+    if (!selectedSnapshot) return;
 
     toast.promise(
       async () =>
         await window.electron.ipcRenderer.invoke(
           'postpone-snapshot',
-          latestSnapshot,
+          selectedSnapshot,
           timeInMin
         ),
       {
@@ -156,12 +156,14 @@ export default function Snapshot() {
   return (
     <>
       <NavBar />
-      {latestSnapshot ? (
+      {!selectedSnapshot ? (
+        <LoadingAnimation />
+      ) : (
         <>
           <div className={styles.headerContainer}>
             <SnapshotHeader
               snapshotName={snapshotName}
-              timestamp={latestSnapshot.created}
+              timestamp={selectedSnapshot.created}
               onNameChange={onNameChange}
             />
           </div>
@@ -216,8 +218,6 @@ export default function Snapshot() {
             </Button>
           </div>
         </>
-      ) : (
-        <p>Error: No Snapshot found</p>
       )}
     </>
   );
