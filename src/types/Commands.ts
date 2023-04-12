@@ -8,6 +8,7 @@ import Snapshot from 'main/entity/Snapshot';
 import Artifact from './Artifact';
 
 type Commands = {
+  'get-snapshot-by-id': (id: number) => Snapshot | null;
   'get-latest-snapshot': () => Snapshot | null;
   'get-latest-n-snapshots': (n: number) => Snapshot[];
   'get-used-applications': () => string[];

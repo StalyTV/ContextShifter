@@ -4,6 +4,8 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
-type Events = {};
+type Events = {
+  "snapshot-selected": (id: number) => void;
+};
 
 export default Events;

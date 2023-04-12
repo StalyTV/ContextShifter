@@ -63,12 +63,21 @@ export default class Snapshot extends BaseEntity {
     if (!latestSnapshot) {
       return null;
     } else {
+      return await this.getSnapshotById(latestSnapshot.id);
+    }
+  }
+
+  static async getSnapshotById(id: number): Promise<Snapshot | null> {
+    const snapshot = await this.findOneBy({ id: id });
+    if (!snapshot) {
+      return null;
+    } else {
       const snapshot = await this.createQueryBuilder('snapshot')
         .leftJoinAndSelect('snapshot.browsers', 'browsers')
         .leftJoinAndSelect('browsers.browserTabs', 'browserTabs')
         .leftJoinAndSelect('snapshot.applications', 'applications')
         .leftJoinAndSelect('applications.files', 'files')
-        .where('snapshot.id = :id', { id: latestSnapshot.id })
+        .where('snapshot.id = :id', { id: id })
         .getOne();
       return snapshot;
     }

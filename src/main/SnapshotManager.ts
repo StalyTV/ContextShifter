@@ -13,6 +13,8 @@ import BrowserTabEntity from './entity/BrowserTab';
 import { info } from 'electron-log';
 import { closeApplication } from './helpers/osCommands';
 import WindowManager from './WindowManager';
+import { TypedWebContents } from './ipc/types/electron-typed-ipc';
+import Events from 'types/Events';
 
 export default class SnapshotManager {
   private static _instance: SnapshotManager;
@@ -20,6 +22,10 @@ export default class SnapshotManager {
 
   public static getInstance() {
     return this._instance || (this._instance = new this());
+  }
+
+  public async getSnapshotById(id: number) {
+    return await Snapshot.getSnapshotById(id);
   }
 
   public async getLatestSnapshot() {
@@ -107,12 +113,27 @@ export default class SnapshotManager {
 
   public async postponeSnapshot(snapshotId: number, timeInMin: number) {
     this._postponeTimeoutRef = setTimeout(async () => {
-      await WindowManager.createSnapshotWindow();
+      await this.openSnapshotInSnapshotWindow(snapshotId);
       this.resetTimeout();
     }, timeInMin * 60 * 1000);
     info(
       `[SnapshotManager] Postponed snapshot with id ${snapshotId} for ${timeInMin} minutes`
     );
+  }
+
+  public async openSnapshotInSnapshotWindow(snapshotId: number) {
+    if (!WindowManager.snapshotWindow) {
+      await WindowManager.createSnapshotWindow(() => {
+        const destination = WindowManager.snapshotWindow
+          ?.webContents as TypedWebContents<Events>;
+        destination?.send('snapshot-selected', snapshotId);
+      });
+    } else {
+      WindowManager.snapshotWindow.show();
+      const destination = WindowManager.snapshotWindow
+        .webContents as TypedWebContents<Events>;
+      destination?.send('snapshot-selected', snapshotId);
+    }
   }
 
   private resetTimeout(): void {

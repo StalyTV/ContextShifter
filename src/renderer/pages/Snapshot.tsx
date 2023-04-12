@@ -32,9 +32,18 @@ export default function Snapshot() {
     Map<number, ApplicationEntity>
   >(new Map());
 
-  const fetchLatestSnapshot = async () => {
+  const registerEventListeners = () => {
+    window.electron.onSnapshotSelected(fetchSnapshot);
+  };
+
+  const unRegisterEventListeners = () => {
+    window.electron.removeOnSnapshotSelected();
+  };
+
+  const fetchSnapshot = async (e: Electron.IpcRendererEvent, id: number) => {
     const snapshot = await window.electron.ipcRenderer.invoke(
-      'get-latest-snapshot'
+      'get-snapshot-by-id',
+      id
     );
     if (!snapshot) return;
 
@@ -137,7 +146,11 @@ export default function Snapshot() {
   };
 
   useEffect(() => {
-    fetchLatestSnapshot();
+    registerEventListeners();
+
+    return () => {
+      unRegisterEventListeners();
+    };
   }, []);
 
   return (

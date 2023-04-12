@@ -22,6 +22,10 @@ typedIpcMain.handle('open-artifact', async (e, artifact) => {
   openArtifact(artifact);
 });
 
+typedIpcMain.handle('get-snapshot-by-id', async (e, id) => {
+  return await SnapshotManager.getInstance().getSnapshotById(id);
+});
+
 typedIpcMain.handle('get-latest-snapshot', async () => {
   return await SnapshotManager.getInstance().getLatestSnapshot();
 });
@@ -61,7 +65,7 @@ typedIpcMain.handle(
   async (e, snapshotId, name) => {
     await SnapshotManager.getInstance().updateSnapshotName(snapshotId, name);
     WindowManager.instantCurationWindow?.close();
-    WindowManager.createSnapshotWindow();
+    SnapshotManager.getInstance().openSnapshotInSnapshotWindow(snapshotId);
   }
 );
 
@@ -79,5 +83,5 @@ typedIpcMain.handle(
 
 // snapshot gallery
 typedIpcMain.handle('open-snapshot', async (e, snapshotId) => {
-  WindowManager.createSnapshotWindow();
+  SnapshotManager.getInstance().openSnapshotInSnapshotWindow(snapshotId);
 });

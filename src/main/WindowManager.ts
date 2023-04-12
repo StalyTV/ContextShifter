@@ -17,7 +17,7 @@ export default class WindowManager {
   public static instantCurationWindow: BrowserWindow | null = null;
   public static snapshotGalleryWindow: BrowserWindow | null = null;
 
-  public static async createSnapshotWindow() {
+  public static async createSnapshotWindow(onDomReady: () => void = () => {}) {
     if (this.snapshotWindow) return;
 
     this.snapshotWindow = new BrowserWindow({
@@ -25,7 +25,7 @@ export default class WindowManager {
       width: 1024,
       height: 800,
       icon: getAssetPath('icon.png'),
-      title: "Curate Snapshot",
+      title: 'Curate Snapshot',
       webPreferences: {
         preload: app.isPackaged
           ? path.join(__dirname, 'preload.js')
@@ -53,6 +53,8 @@ export default class WindowManager {
       this.snapshotWindow = null;
     });
 
+    this.snapshotWindow.webContents.once('dom-ready', onDomReady);
+
     const menuBuilder = new MenuBuilder(this.snapshotWindow);
     menuBuilder.buildMenu();
 
@@ -71,7 +73,7 @@ export default class WindowManager {
       width: 600,
       height: 210,
       icon: getAssetPath('icon.png'),
-      title: "New Snapshot",
+      title: 'New Snapshot',
       webPreferences: {
         preload: app.isPackaged
           ? path.join(__dirname, 'preload.js')
@@ -114,7 +116,7 @@ export default class WindowManager {
       width: 1024,
       height: 800,
       icon: getAssetPath('icon.png'),
-      title: "Snapshot Gallery",
+      title: 'Snapshot Gallery',
       webPreferences: {
         preload: app.isPackaged
           ? path.join(__dirname, 'preload.js')
