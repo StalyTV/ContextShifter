@@ -25,6 +25,7 @@ import BrowserTabEntity from './entity/BrowserTab';
 import { CloseTabClientRequest } from 'context-browser-extension-types';
 import Browser from './entity/Browser';
 import VSCodeTracker from './trackers/VSCodeTracker';
+import { excludedApplications } from './config';
 
 /**
  * Main class of the application
@@ -167,6 +168,9 @@ export default class TaskSnap {
     for await (const win of openWindows) {
       const appName = win.owner.name;
       const appPath = win.owner.path;
+
+      if (excludedApplications.includes(appName)) continue;
+
       // browsers get stored separately, as handling of urls different than handling of files
       if (
         appName.includes('Google Chrome') ||
