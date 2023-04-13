@@ -5,6 +5,11 @@
   padding: 1rem;
   border-radius: var(--border-radius);
   margin: 0.5rem 0.5rem;
+
+  .fileContainer {
+    display: flex;
+    flex-wrap: wrap;
+  }
 }
 
 .isSelected {

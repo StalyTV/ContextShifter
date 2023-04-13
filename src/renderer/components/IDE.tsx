@@ -52,9 +52,11 @@ export default function IDE(props: Props) {
       onClick={() => toggleSelect()}
     >
       {props.ide.name}
-      {props.ide.ideFiles.map((file) => (
-        <IDEFile key={file.id} file={file} updateFile={updateFile} />
-      ))}
+      <div className={styles.fileContainer}>
+        {props.ide.ideFiles.map((file) => (
+          <IDEFile key={file.id} file={file} updateFile={updateFile} />
+        ))}
+      </div>
     </div>
   );
 }
