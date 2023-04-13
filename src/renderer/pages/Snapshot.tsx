@@ -9,7 +9,9 @@ import { useEffect, useState } from 'react';
 import SnapshotEntity from 'main/entity/Snapshot';
 import ApplicationEntity from '../../main/entity/Application';
 import BrowserEntity from '../../main/entity/Browser';
+import IDEEntity from '../../main/entity/IDE';
 import Browser from 'renderer/components/Browser';
+import IDE from '../components/IDE';
 import Application from 'renderer/components/Application';
 import Button from 'renderer/components/Button';
 import PostIt from 'renderer/components/PostIt';
@@ -28,6 +30,7 @@ export default function Snapshot() {
   const [browserMap, setBrowserMap] = useState<Map<number, BrowserEntity>>(
     new Map()
   );
+  const [ideMap, setIDEMap] = useState<Map<number, IDEEntity>>(new Map());
   const [applicationMap, setApplicationMap] = useState<
     Map<number, ApplicationEntity>
   >(new Map());
@@ -54,6 +57,8 @@ export default function Snapshot() {
 
     const browserMap = new Map(snapshot.browsers.map((i) => [i.id, i]));
     setBrowserMap(browserMap);
+    const ideMap = new Map(snapshot.ides.map((i) => [i.id, i]));
+    setIDEMap(ideMap);
     const applicationMap = new Map(snapshot.applications.map((i) => [i.id, i]));
     setApplicationMap(applicationMap);
   };
@@ -127,6 +132,12 @@ export default function Snapshot() {
     setBrowserMap(updatedMap);
   };
 
+  const updateIDE = (updatedIDE: IDEEntity) => {
+    const updatedMap = new Map(ideMap);
+    updatedMap.set(updatedIDE.id, updatedIDE);
+    setIDEMap(updatedMap);
+  };
+
   const postponeSnapshot = (timeInMin: number) => {
     if (!selectedSnapshot) return;
 
@@ -191,6 +202,11 @@ export default function Snapshot() {
                     browser={browser}
                     updateBrowser={updateBrowser}
                   />
+                ))}
+              </div>
+              <div>
+                {[...ideMap.values()].map((ide) => (
+                  <IDE key={ide.id} ide={ide} updateIDE={updateIDE} />
                 ))}
               </div>
               <div>

@@ -1,0 +1,22 @@
+.ideFile {
+  margin: 0.2rem;
+  padding: 0.3rem;
+  border-radius: var(--border-radius);
+  background-color: var(--bg-color-4);
+  height: 1rem;
+  display: flex;
+
+  .icon {
+    fill: var(--border-color);
+  }
+
+  span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}
+
+.isSelected {
+  background-color: var(--bg-color-5);
+}

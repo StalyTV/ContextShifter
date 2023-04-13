@@ -1,0 +1,12 @@
+.ide {
+  cursor: pointer;
+  background-color: var(--bg-color-3);
+  border: solid var(--bg-color-1) 2px;
+  padding: 1rem;
+  border-radius: var(--border-radius);
+  margin: 0.5rem 0.5rem;
+}
+
+.isSelected {
+  border: solid var(--accent-color-1) 2px;
+}
