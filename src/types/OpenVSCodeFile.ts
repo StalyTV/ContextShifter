@@ -5,6 +5,7 @@
  */
 
 export type OpenVSCodeFile = {
+  name: string;
   path: string;
   isActive: boolean;
 };

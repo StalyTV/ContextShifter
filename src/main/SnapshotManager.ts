@@ -10,6 +10,8 @@ import Application from './entity/Application';
 import File from './entity/File';
 import BrowserEntity from './entity/Browser';
 import BrowserTabEntity from './entity/BrowserTab';
+import IDEEntity from './entity/IDE';
+import IDEFileEntity from './entity/IDEFile';
 import { info } from 'electron-log';
 import { closeApplication } from './helpers/osCommands';
 import WindowManager from './WindowManager';
@@ -56,6 +58,22 @@ export default class SnapshotManager {
           if (tabInDb && tabInDb.isSelected !== tab.isSelected) {
             tabInDb.isSelected = tab.isSelected;
             tabInDb.save();
+          }
+        }
+      }
+
+      for (const ide of updatedSnapshot.ides) {
+        const ideInDb = await IDEEntity.findOneBy({ id: ide.id });
+        if (ideInDb && ideInDb.isSelected !== ide.isSelected) {
+          ideInDb.isSelected = ide.isSelected;
+          ideInDb.save();
+        }
+
+        for (const file of ide.ideFiles) {
+          const fileInDb = await IDEFileEntity.findOneBy({ id: file.id });
+          if (fileInDb && fileInDb.isSelected !== file.isSelected) {
+            fileInDb.isSelected = file.isSelected;
+            fileInDb.save();
           }
         }
       }

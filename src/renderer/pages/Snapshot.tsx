@@ -68,6 +68,7 @@ export default function Snapshot() {
     snapshot.summary = summary;
     snapshot.intent = intent;
     snapshot.browsers = [...browserMap.values()];
+    snapshot.ides = [...ideMap.values()];
     snapshot.applications = [...applicationMap.values()];
     return snapshot;
   };

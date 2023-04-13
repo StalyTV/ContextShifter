@@ -31,7 +31,7 @@ export default function IDEFile(props: Props) {
       onClick={toggleSelect}
     >
       {props.file.isActive ? <EyeIcon className={styles.icon} /> : null}
-      <span>{props.file.path}</span>
+      <span>{props.file.name}</span>
     </div>
   );
 }

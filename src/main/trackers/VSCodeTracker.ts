@@ -65,6 +65,7 @@ export default class VSCodeTracker {
 
     for await (const openFile of openFiles) {
       const ideFile = new IDEFile();
+      ideFile.name = openFile.name;
       ideFile.path = openFile.path;
       ideFile.isActive = openFile.isActive;
       ideFile.ide = latestSnapshot.ides[0]; // TODO: Improve this

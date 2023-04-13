@@ -19,6 +19,9 @@ export default class IDEFile extends BaseEntity {
   id!: number;
 
   @Column({ type: 'varchar', nullable: false })
+  name!: string;
+
+  @Column({ type: 'varchar', nullable: false })
   path!: string;
 
   @Column({ type: 'tinyint', nullable: false })
@@ -30,4 +33,3 @@ export default class IDEFile extends BaseEntity {
   @ManyToOne(() => IDE, (ide) => ide.ideFiles)
   ide!: IDE;
 }
-
