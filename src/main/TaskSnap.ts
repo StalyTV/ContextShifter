@@ -114,6 +114,18 @@ export default class TaskSnap {
       );
     }
 
+    for (const ide of latestSnapshot.ides) {
+      if (!ide.isSelected) continue;
+
+      const filesToOpen: string[] = [];
+      ide.ideFiles.forEach((file) => {
+        if (file.isSelected) {
+          filesToOpen.push(file.path);
+        }
+      });
+      this._vscodeTracker.sendOpenFilesRequest(filesToOpen);
+    }
+
     for (const app of latestSnapshot.applications) {
       if (!app.isSelected) continue;
 

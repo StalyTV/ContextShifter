@@ -59,6 +59,14 @@ export default class VSCodeTracker {
     }
   }
 
+  public sendOpenFilesRequest(files: string[]) {
+    if (this._lastUsedSocket) {
+      return this._lastUsedSocket.send(
+        JSON.stringify({ data: files, endpoint: 'open-files' })
+      );
+    }
+  }
+
   private async handleOpenFiles(openFiles: OpenVSCodeFile[]) {
     const latestSnapshot = await Snapshot.getLatestSnapshot();
     if (!latestSnapshot) return;
