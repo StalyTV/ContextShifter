@@ -111,7 +111,7 @@ export default class BrowserTracker {
       tabEntity.save();
     }
     info(
-      `[BrowserTracker] received ${tabs.length} tabs and attached them to snapshot with id ${latestSnapshot?.id}`
+      `[BrowserTracker] received ${tabs.length} tabs and attached them to snapshot with id ${latestSnapshot.id}`
     );
   }
 

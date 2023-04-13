@@ -13,6 +13,7 @@ import {
 } from 'typeorm';
 import Application from './Application';
 import Browser from './Browser';
+import IDE from './IDE';
 
 @Entity({ name: 'snapshot' })
 export default class Snapshot extends BaseEntity {
@@ -42,6 +43,9 @@ export default class Snapshot extends BaseEntity {
 
   @OneToMany(() => Browser, (browser) => browser.snapshot)
   browsers!: Browser[];
+
+  @OneToMany(() => IDE, (ide) => ide.snapshot)
+  ides!: IDE[];
 
   static async getNextId(): Promise<number> {
     const lastSnapshot = await this.findOne({
@@ -75,6 +79,8 @@ export default class Snapshot extends BaseEntity {
       const snapshot = await this.createQueryBuilder('snapshot')
         .leftJoinAndSelect('snapshot.browsers', 'browsers')
         .leftJoinAndSelect('browsers.browserTabs', 'browserTabs')
+        .leftJoinAndSelect('snapshot.ides', 'ides')
+        .leftJoinAndSelect('ides.ideFiles', 'ideFiles')
         .leftJoinAndSelect('snapshot.applications', 'applications')
         .leftJoinAndSelect('applications.files', 'files')
         .where('snapshot.id = :id', { id: id })
@@ -96,6 +102,8 @@ export default class Snapshot extends BaseEntity {
       const snapshots = await this.createQueryBuilder('snapshot')
         .leftJoinAndSelect('snapshot.browsers', 'browsers')
         .leftJoinAndSelect('browsers.browserTabs', 'browserTabs')
+        .leftJoinAndSelect('snapshot.ides', 'ides')
+        .leftJoinAndSelect('ides.ideFiles', 'ideFiles')
         .leftJoinAndSelect('snapshot.applications', 'applications')
         .leftJoinAndSelect('applications.files', 'files')
         .where('snapshot.id IN (:...ids)', {

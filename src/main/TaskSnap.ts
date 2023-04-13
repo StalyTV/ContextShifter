@@ -12,6 +12,7 @@ import activeWin from 'active-win';
 import Snapshot from './entity/Snapshot';
 import Application from './entity/Application';
 import File from './entity/File';
+import IDE from './entity/IDE';
 import WindowManager from './WindowManager';
 import SnapshotManager from './SnapshotManager';
 import { lsof, Options, ProcessInfo } from 'list-open-files';
@@ -68,9 +69,11 @@ export default class TaskSnap {
 
     const res = await this.getCurrentlyOpenApplications();
     const openBrowsers = res[0];
-    const openApplications = res[1];
+    const openIDEs = res[1];
+    const openApplications = res[2];
 
     await Browser.save(openBrowsers);
+    await IDE.save(openIDEs);
     await Application.save(openApplications);
 
     const nextId = await Snapshot.getNextId();
@@ -78,11 +81,15 @@ export default class TaskSnap {
     newSnapshot.created = new Date().toISOString();
     newSnapshot.name = `Snapshot ${nextId}`;
     newSnapshot.browsers = openBrowsers;
+    newSnapshot.ides = openIDEs;
     newSnapshot.applications = openApplications;
     await Snapshot.save(newSnapshot);
 
     // send request to get information from the browser. Information will later be attached to the snapshot.
     this._browserTracker.sendGetAllTabsRequest();
+
+    // same for vscode
+    this._vscodeTracker.sendGetAllFilesRequest();
 
     WindowManager.createInstantCurationWindow();
   }
@@ -137,7 +144,7 @@ export default class TaskSnap {
 
   // TODO [regloff] refactor this method
   public async getCurrentlyOpenApplications(): Promise<
-    [Browser[], Application[]]
+    [Browser[], IDE[], Application[]]
   > {
     const openWindows = await activeWin.getOpenWindows();
     const pidsOfApplications: number[] = openWindows.map((win) => {
@@ -155,6 +162,7 @@ export default class TaskSnap {
     }
 
     const openBrowsers: Browser[] = [];
+    const openIDEs: IDE[] = [];
     const openApplications: Application[] = [];
     for await (const win of openWindows) {
       const appName = win.owner.name;
@@ -169,6 +177,13 @@ export default class TaskSnap {
         browser.name = appName;
         browser.path = appPath;
         openBrowsers.push(browser);
+
+        // ide
+      } else if (appName === 'Visual Studio Code') {
+        const ide = new IDE();
+        ide.name = appName;
+        ide.path = appPath;
+        openIDEs.push(ide);
 
         // regular application case
       } else {
@@ -209,6 +224,6 @@ export default class TaskSnap {
       }
     }
 
-    return [openBrowsers, openApplications];
+    return [openBrowsers, openIDEs, openApplications];
   }
 }

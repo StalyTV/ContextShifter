@@ -15,6 +15,8 @@ import Log from './entity/Log';
 import Snapshot from './entity/Snapshot';
 import Browser from './entity/Browser';
 import BrowserTab from './entity/BrowserTab';
+import IDE from './entity/IDE';
+import IDEFile from './entity/IDEFile';
 
 const dbPath = path.join(
   app.getPath('appData'),
@@ -25,6 +27,17 @@ const dbPath = path.join(
 export const Database = new DataSource({
   database: dbPath,
   type: 'better-sqlite3',
-  entities: [ActiveWindow, Log, FileSystemEvent, Snapshot, Application, File, Browser, BrowserTab],
+  entities: [
+    ActiveWindow,
+    Log,
+    FileSystemEvent,
+    Snapshot,
+    Application,
+    File,
+    Browser,
+    BrowserTab,
+    IDE,
+    IDEFile,
+  ],
   synchronize: true,
 });
