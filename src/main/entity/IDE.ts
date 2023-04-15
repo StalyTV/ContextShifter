@@ -26,6 +26,12 @@ export default class IDE extends BaseEntity {
   @Column({ type: 'varchar', nullable: false })
   path!: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  branch!: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  lastCommitMessage!: string;
+
   @Column({ type: 'tinyint', nullable: false, default: true })
   isSelected!: boolean;
 

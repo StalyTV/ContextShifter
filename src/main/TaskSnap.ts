@@ -90,7 +90,7 @@ export default class TaskSnap {
     this._browserTracker.sendGetAllTabsRequest();
 
     // same for vscode
-    this._vscodeTracker.sendGetAllFilesRequest();
+    this._vscodeTracker.sendGetVSCodeSnapshotRequest();
 
     WindowManager.createInstantCurationWindow();
   }
@@ -195,7 +195,7 @@ export default class TaskSnap {
         openBrowsers.push(browser);
 
         // ide
-      } else if (appName === 'Visual Studio Code') {
+      } else if (appName === 'Code') {
         const ide = new IDE();
         ide.name = appName;
         ide.path = appPath;

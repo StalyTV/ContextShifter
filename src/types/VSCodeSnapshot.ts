@@ -4,6 +4,12 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, April 2023
  */
 
+export type VSCodeSnapshot = {
+  openFiles: OpenVSCodeFile[];
+  branch: string | undefined;
+  lastCommitMessage: string | undefined;
+}
+
 export type OpenVSCodeFile = {
   name: string;
   path: string;

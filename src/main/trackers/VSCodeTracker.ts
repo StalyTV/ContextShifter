@@ -6,7 +6,7 @@
 
 import WebSocket from 'ws';
 import { info, debug, error } from 'electron-log';
-import { OpenVSCodeFile } from 'types/OpenVSCodeFile';
+import { VSCodeSnapshot } from 'types/VSCodeSnapshot';
 import Snapshot from '../entity/Snapshot';
 import IDEFile from '../entity/IDEFile';
 
@@ -43,18 +43,18 @@ export default class VSCodeTracker {
           data: unknown;
         };
 
-        if (obj.endpoint === 'get-open-files') {
-          const openFiles = obj.data as OpenVSCodeFile[];
-          self.handleOpenFiles(openFiles);
+        if (obj.endpoint === 'get-vscode-snapshot') {
+          const vscodeSnapshot = obj.data as VSCodeSnapshot;
+          self.handleVSCodeSnapshot(vscodeSnapshot);
         }
       });
     });
   }
 
-  public sendGetAllFilesRequest() {
+  public sendGetVSCodeSnapshotRequest() {
     if (this._lastUsedSocket) {
       return this._lastUsedSocket.send(
-        JSON.stringify({ endpoint: 'get-open-files' })
+        JSON.stringify({ endpoint: 'get-vscode-snapshot' })
       );
     }
   }
@@ -67,20 +67,30 @@ export default class VSCodeTracker {
     }
   }
 
-  private async handleOpenFiles(openFiles: OpenVSCodeFile[]) {
+  private async handleVSCodeSnapshot(data: VSCodeSnapshot) {
     const latestSnapshot = await Snapshot.getLatestSnapshot();
     if (!latestSnapshot) return;
 
-    for await (const openFile of openFiles) {
+    const ide = latestSnapshot.ides[0]; // TODO: Improve this
+
+    for await (const openFile of data.openFiles) {
       const ideFile = new IDEFile();
       ideFile.name = openFile.name;
       ideFile.path = openFile.path;
       ideFile.isActive = openFile.isActive;
-      ideFile.ide = latestSnapshot.ides[0]; // TODO: Improve this
+      ideFile.ide = ide;
       ideFile.save();
     }
     info(
-      `[VSCodeTracker] received ${openFiles.length} files and attached them to snapshot with id ${latestSnapshot.id}`
+      `[VSCodeTracker] received ${data.openFiles.length} files and attached them to snapshot with id ${latestSnapshot.id}`
     );
+
+    if (data.branch) {
+      ide.branch = data.branch;
+    }
+    if (data.lastCommitMessage) {
+      ide.lastCommitMessage = data.lastCommitMessage;
+    }
+    ide.save();
   }
 }
