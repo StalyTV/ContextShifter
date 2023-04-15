@@ -8,6 +8,7 @@ import styles from './IDE.module.scss';
 import IDEEntity from '../../main/entity/IDE';
 import IDEFileEntity from '../../main/entity/IDEFile';
 import IDEFile from './IDEFile';
+import GitInfo from './GitInfo';
 
 type Props = {
   ide: IDEEntity;
@@ -51,7 +52,14 @@ export default function IDE(props: Props) {
       }`}
       onClick={() => toggleSelect()}
     >
-      {props.ide.name}
+      <div className={styles.info}>
+        <span>{props.ide.name}</span>
+        <GitInfo
+          branch={props.ide.branch}
+          lastCommitMessage={props.ide.lastCommitMessage}
+        />
+      </div>
+
       <div className={styles.fileContainer}>
         {props.ide.ideFiles.map((file) => (
           <IDEFile key={file.id} file={file} updateFile={updateFile} />

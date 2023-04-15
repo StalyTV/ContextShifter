@@ -6,6 +6,11 @@
   border-radius: var(--border-radius);
   margin: 0.5rem 0.5rem;
 
+  .info {
+    display: flex;
+    justify-content: space-between;
+  }
+
   .fileContainer {
     display: flex;
     flex-wrap: wrap;
