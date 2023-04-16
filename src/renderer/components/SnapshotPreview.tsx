@@ -8,6 +8,8 @@ import { useState } from 'react';
 import EditIcon from './Icons/EditIcon';
 import styles from './SnapshotPreview.module.scss';
 import SnapshotEntity from 'main/entity/Snapshot';
+import Button from './Button';
+import ArrowRightIcon from './Icons/ArrowRightIcon';
 
 type Props = {
   snapshot: SnapshotEntity;
@@ -27,8 +29,18 @@ export default function SnapshotPreview(props: Props) {
     });
   };
 
-  const onClickSnapshot = async (snapshotId: number) => {
-    await window.electron.ipcRenderer.invoke('open-snapshot', snapshotId);
+  const onClickEdit = async () => {
+    await window.electron.ipcRenderer.invoke(
+      'open-snapshot',
+      props.snapshot.id
+    );
+  };
+
+  const onClickRestore = async () => {
+    await window.electron.ipcRenderer.invoke(
+      'apply-snapshot',
+      props.snapshot.id
+    );
   };
 
   return (
@@ -46,13 +58,23 @@ export default function SnapshotPreview(props: Props) {
         <div>{getFormattedDate(props.snapshot.created)}</div>
       </div>
       {isHovering ? (
-        <div
-          className={styles.dot}
-          onClick={() => {
-            onClickSnapshot(props.snapshot.id);
-          }}
-        >
-          <EditIcon className={styles.icon} />
+        <div className={styles.buttonBox}>
+          <div
+            className={styles.dot}
+            onClick={() => {
+              onClickEdit();
+            }}
+          >
+            <EditIcon className={styles.icon} />
+          </div>
+          <Button
+            className={styles.restore}
+            isFilled={true}
+            onClick={() => onClickRestore()}
+          >
+            {'Restore'}
+            <ArrowRightIcon />
+          </Button>
         </div>
       ) : null}
     </div>

@@ -28,6 +28,7 @@ type Commands = {
 
   // snapshot gallery
   'open-snapshot': (snapshotId: number) => void;
+  'apply-snapshot': (snapshotId: number) => void;
 };
 
 export default Commands;

@@ -99,7 +99,11 @@ export default class TaskSnap {
     const latestSnapshot = await this._snapshotManager.getLatestSnapshot();
     if (!latestSnapshot) return;
 
-    for (const browser of latestSnapshot.browsers) {
+    await this.applySnapshot(latestSnapshot);
+  }
+
+  public async applySnapshot(snapshot: Snapshot) {
+    for (const browser of snapshot.browsers) {
       if (!browser.isSelected) continue;
 
       const urlsToOpen: string[] = [];
@@ -108,13 +112,10 @@ export default class TaskSnap {
           urlsToOpen.push(tab.url);
         }
       });
-      this._browserTracker.sendTabOpeningRequest(
-        urlsToOpen,
-        latestSnapshot.name
-      );
+      this._browserTracker.sendTabOpeningRequest(urlsToOpen, snapshot.name);
     }
 
-    for (const ide of latestSnapshot.ides) {
+    for (const ide of snapshot.ides) {
       if (!ide.isSelected) continue;
 
       const filesToOpen: string[] = [];
@@ -126,7 +127,7 @@ export default class TaskSnap {
       this._vscodeTracker.sendOpenFilesRequest(filesToOpen);
     }
 
-    for (const app of latestSnapshot.applications) {
+    for (const app of snapshot.applications) {
       if (!app.isSelected) continue;
 
       // If selected files are present, don't open application but files associated with application

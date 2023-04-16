@@ -11,6 +11,8 @@ import SnapshotManager from '../SnapshotManager';
 import { nativeTheme } from 'electron';
 import { openArtifact } from '../helpers/osCommands';
 import WindowManager from '../WindowManager';
+import SnapshotEntity from '../entity/Snapshot';
+import TaskSnap from '../TaskSnap';
 
 typedIpcMain.handle('get-used-applications', async () => {
   const lastStart = await Log.getLastApplicationStart();
@@ -84,4 +86,11 @@ typedIpcMain.handle(
 // snapshot gallery
 typedIpcMain.handle('open-snapshot', async (e, snapshotId) => {
   SnapshotManager.getInstance().openSnapshotInSnapshotWindow(snapshotId);
+});
+
+typedIpcMain.handle('apply-snapshot', async (e, snapshotId) => {
+  const snapshot = await SnapshotEntity.getSnapshotById(snapshotId);
+  if (snapshot) {
+    await TaskSnap.getInstance().applySnapshot(snapshot);
+  }
 });
