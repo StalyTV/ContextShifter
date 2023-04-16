@@ -28,10 +28,6 @@ export default function SnapshotGallery() {
     setSnapshots(snapshots);
   };
 
-  const onClickSnapshot = async (snapshotId: number) => {
-    await window.electron.ipcRenderer.invoke('open-snapshot', snapshotId);
-  };
-
   useEffect(() => {
     fetchSnapshots();
   }, []);
@@ -41,16 +37,7 @@ export default function SnapshotGallery() {
       <NavBar />
       <h1>Snapshot Gallery</h1>
       {snapshots.map((snapshot) => {
-        return (
-          <div
-            key={snapshot.id}
-            onClick={() => {
-              onClickSnapshot(snapshot.id);
-            }}
-          >
-            <SnapshotPreview snapshot={snapshot} />
-          </div>
-        );
+        return <SnapshotPreview snapshot={snapshot} />;
       })}
     </>
   );

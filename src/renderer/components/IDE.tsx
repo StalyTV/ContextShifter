@@ -9,6 +9,7 @@ import IDEEntity from '../../main/entity/IDE';
 import IDEFileEntity from '../../main/entity/IDEFile';
 import IDEFile from './IDEFile';
 import GitInfo from './GitInfo';
+import { useState } from 'react';
 
 type Props = {
   ide: IDEEntity;
@@ -16,6 +17,8 @@ type Props = {
 };
 
 export default function IDE(props: Props) {
+  const [isHovering, setIsHovering] = useState<boolean>(false);
+
   const toggleSelect = () => {
     const updatedIDE = props.ide;
     updatedIDE.isSelected = !props.ide.isSelected;
@@ -51,13 +54,21 @@ export default function IDE(props: Props) {
         props.ide.isSelected ? styles.isSelected : undefined
       }`}
       onClick={() => toggleSelect()}
+      onMouseEnter={() => {
+        setIsHovering(true);
+      }}
+      onMouseLeave={() => {
+        setIsHovering(false);
+      }}
     >
       <div className={styles.info}>
         <span>{props.ide.name}</span>
-        <GitInfo
-          branch={props.ide.branch}
-          lastCommitMessage={props.ide.lastCommitMessage}
-        />
+        {isHovering ? (
+          <GitInfo
+            branch={props.ide.branch}
+            lastCommitMessage={props.ide.lastCommitMessage}
+          />
+        ) : null}
       </div>
 
       <div className={styles.fileContainer}>

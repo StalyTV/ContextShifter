@@ -4,6 +4,8 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, April 2023
  */
 
+import { useState } from 'react';
+import EditIcon from './Icons/EditIcon';
 import styles from './SnapshotPreview.module.scss';
 import SnapshotEntity from 'main/entity/Snapshot';
 
@@ -12,6 +14,8 @@ type Props = {
 };
 
 export default function SnapshotPreview(props: Props) {
+  const [isHovering, setIsHovering] = useState<boolean>(false);
+
   const getFormattedDate = (timestamp: string) => {
     const date = new Date(timestamp);
     return date.toLocaleString([], {
@@ -23,10 +27,34 @@ export default function SnapshotPreview(props: Props) {
     });
   };
 
+  const onClickSnapshot = async (snapshotId: number) => {
+    await window.electron.ipcRenderer.invoke('open-snapshot', snapshotId);
+  };
+
   return (
-    <div className={styles.snapshotPreviewContainer}>
-      <div>{props.snapshot.name}</div>
-      <div>{getFormattedDate(props.snapshot.created)}</div>
+    <div
+      className={styles.singleSnapshot}
+      onMouseEnter={() => {
+        setIsHovering(true);
+      }}
+      onMouseLeave={() => {
+        setIsHovering(false);
+      }}
+    >
+      <div className={styles.snapshotPreviewContainer}>
+        <div>{props.snapshot.name}</div>
+        <div>{getFormattedDate(props.snapshot.created)}</div>
+      </div>
+      {isHovering ? (
+        <div
+          className={styles.dot}
+          onClick={() => {
+            onClickSnapshot(props.snapshot.id);
+          }}
+        >
+          <EditIcon className={styles.icon} />
+        </div>
+      ) : null}
     </div>
   );
 }

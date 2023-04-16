@@ -1,7 +1,33 @@
-.snapshotPreviewContainer {
-  background-color: var(--bg-color-3);
-  padding: 1rem;
-  border: solid var(--bg-color-1) 2px;
-  border-radius: var(--border-radius);
-  cursor: pointer;
+.singleSnapshot {
+  display: flex;
+  align-items: center;
+  width: 100%;
+
+  .snapshotPreviewContainer {
+    width: 50rem;
+    background-color: var(--bg-color-3);
+    padding: 1rem;
+    border: solid var(--bg-color-1) 2px;
+    border-radius: var(--border-radius);
+  }
+
+  .dot {
+    margin-left: 1.5rem;
+    background-color: var(--accent-color-1);
+    border-radius: 50%;
+    width: 2rem;
+    height: 2rem;
+    cursor: pointer;
+    transition: all ease-in 0.1s;
+
+
+    .icon {
+      height: 1rem;
+      margin: 0.5rem;
+    }
+  }
+
+  .dot:hover {
+    transform: scale(1.05);
+  }
 }
