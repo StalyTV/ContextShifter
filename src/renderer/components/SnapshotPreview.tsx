@@ -10,9 +10,12 @@ import styles from './SnapshotPreview.module.scss';
 import SnapshotEntity from 'main/entity/Snapshot';
 import Button from './Button';
 import ArrowRightIcon from './Icons/ArrowRightIcon';
+import TrashIcon from './Icons/TrashIcon';
+import { toast } from 'react-toastify';
 
 type Props = {
   snapshot: SnapshotEntity;
+  onDelete: () => void;
 };
 
 export default function SnapshotPreview(props: Props) {
@@ -34,6 +37,32 @@ export default function SnapshotPreview(props: Props) {
       'open-snapshot',
       props.snapshot.id
     );
+  };
+
+  const onClickDelete = async () => {
+    if (
+      confirm(
+        `Are you sure that you want to delete "${props.snapshot.name}"?`
+      ) === true
+    ) {
+      try {
+        toast.promise(
+          async () =>
+            await window.electron.ipcRenderer.invoke(
+              'delete-snapshot',
+              props.snapshot.id
+            ),
+          {
+            pending: 'Deleting Snapshot...',
+            success: 'Snapshot Deleted',
+            error: 'Something went wrong',
+          }
+        );
+        props.onDelete();
+      } catch (err) {
+        console.error(err);
+      }
+    }
   };
 
   const onClickRestore = async () => {
@@ -66,6 +95,14 @@ export default function SnapshotPreview(props: Props) {
             }}
           >
             <EditIcon className={styles.icon} />
+          </div>
+          <div
+            className={styles.dot}
+            onClick={() => {
+              onClickDelete();
+            }}
+          >
+            <TrashIcon className={styles.icon} />
           </div>
           <Button
             className={styles.restore}

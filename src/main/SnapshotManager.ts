@@ -129,6 +129,14 @@ export default class SnapshotManager {
     }
   }
 
+  public async deleteSnapshot(snapshotId: number) {
+    const snapshotInDb = await Snapshot.findOneBy({ id: snapshotId });
+    if (snapshotInDb) {
+      snapshotInDb.remove();
+      info`[SnapshotManager] Deleted snapshot "${snapshotInDb.name}"`
+    }
+  }
+
   public async postponeSnapshot(snapshotId: number, timeInMin: number) {
     this._postponeTimeoutRef = setTimeout(async () => {
       await this.openSnapshotInSnapshotWindow(snapshotId);

@@ -28,6 +28,10 @@ export default function SnapshotGallery() {
     setSnapshots(snapshots);
   };
 
+  const onDelete = () => {
+    fetchSnapshots();
+  };
+
   useEffect(() => {
     fetchSnapshots();
   }, []);
@@ -37,7 +41,7 @@ export default function SnapshotGallery() {
       <NavBar />
       <h1>Snapshot Gallery</h1>
       {snapshots.map((snapshot) => {
-        return <SnapshotPreview snapshot={snapshot} />;
+        return <SnapshotPreview snapshot={snapshot} onDelete={onDelete} />;
       })}
     </>
   );

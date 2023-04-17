@@ -47,6 +47,10 @@ typedIpcMain.handle(
   }
 );
 
+typedIpcMain.handle('delete-snapshot', async (e, snapshotId) => {
+  await SnapshotManager.getInstance().deleteSnapshot(snapshotId);
+});
+
 typedIpcMain.handle('postpone-snapshot', async (e, snapshot, timeInMin) => {
   await SnapshotManager.getInstance().saveSnapshot(snapshot);
   await SnapshotManager.getInstance().postponeSnapshot(snapshot.id, timeInMin);

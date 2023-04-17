@@ -24,6 +24,8 @@ export default class File extends BaseEntity {
   @Column({ type: 'tinyint', nullable: false, default: true })
   isSelected!: boolean;
 
-  @ManyToOne(() => Application, (app) => app.files)
+  @ManyToOne(() => Application, (app) => app.files, {
+    onDelete: 'CASCADE',
+  })
   application!: Application;
 }

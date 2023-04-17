@@ -36,6 +36,8 @@ export default class BrowserTab extends BaseEntity {
   @Column({ type: 'tinyint', nullable: false, default: true })
   isSelected!: boolean;
 
-  @ManyToOne(() => Browser, (browser) => browser.browserTabs)
+  @ManyToOne(() => Browser, (browser) => browser.browserTabs, {
+    onDelete: 'CASCADE',
+  })
   browser!: Browser;
 }

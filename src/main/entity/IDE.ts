@@ -35,7 +35,9 @@ export default class IDE extends BaseEntity {
   @Column({ type: 'tinyint', nullable: false, default: true })
   isSelected!: boolean;
 
-  @ManyToOne(() => Snapshot, (snapshot) => snapshot.applications)
+  @ManyToOne(() => Snapshot, (snapshot) => snapshot.applications, {
+    onDelete: 'CASCADE',
+  })
   snapshot!: Snapshot;
 
   @OneToMany(() => IDEFile, (file) => file.ide)

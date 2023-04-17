@@ -15,6 +15,7 @@ type Commands = {
   'open-artifact': (artifact: Artifact) => void;
   'save-snapshot': (snapshot: Snapshot) => Promise<void>;
   'save-snapshot-and-close-applications': (snapshot: Snapshot) => Promise<void>;
+  'delete-snapshot': (snapshotId: number) => Promise<void>;
   'postpone-snapshot': (snapshot: Snapshot, timeInMin: number) => void;
   'toggle-color-theme': () => void;
 

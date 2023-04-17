@@ -29,7 +29,9 @@ export default class Browser extends BaseEntity {
   @Column({ type: 'tinyint', nullable: false, default: true })
   isSelected!: boolean;
 
-  @ManyToOne(() => Snapshot, (snapshot) => snapshot.applications)
+  @ManyToOne(() => Snapshot, (snapshot) => snapshot.applications, {
+    onDelete: 'CASCADE',
+  })
   snapshot!: Snapshot;
 
   @OneToMany(() => BrowserTab, (tab) => tab.browser)

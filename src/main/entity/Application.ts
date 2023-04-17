@@ -29,7 +29,9 @@ export default class Application extends BaseEntity {
   @Column({ type: 'tinyint', nullable: false, default: true })
   isSelected!: boolean;
 
-  @ManyToOne(() => Snapshot, (snapshot) => snapshot.applications)
+  @ManyToOne(() => Snapshot, (snapshot) => snapshot.applications, {
+    onDelete: 'CASCADE',
+  })
   snapshot!: Snapshot;
 
   @OneToMany(() => File, (file) => file.application)
