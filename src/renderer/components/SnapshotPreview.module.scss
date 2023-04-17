@@ -28,7 +28,12 @@
       .icon {
         height: 1rem;
         margin: 0.5rem;
+        fill: var(--border-color);
       }
+    }
+
+    .dot.delete {
+      background-color: red;
     }
 
     .dot:hover {

@@ -97,7 +97,7 @@ export default function SnapshotPreview(props: Props) {
             <EditIcon className={styles.icon} />
           </div>
           <div
-            className={styles.dot}
+            className={`${styles.dot} ${styles.delete}`}
             onClick={() => {
               onClickDelete();
             }}
