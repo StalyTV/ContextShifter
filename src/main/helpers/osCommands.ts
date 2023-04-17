@@ -4,11 +4,17 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
-import Artifact from "types/Artifact";
-import isMac from "./isMac";
+import Artifact from 'types/Artifact';
+import { error } from 'electron-log';
+import isMac from './isMac';
 import { exec } from 'child_process';
-import Application from "main/entity/Application";
-import { getFileNameFromPath } from "./getFileNameFromPath";
+import Application from 'main/entity/Application';
+import { getFileNameFromPath } from './getFileNameFromPath';
+import path from 'path';
+import { app } from 'electron';
+import { promisify } from 'util';
+
+const asyncExec = promisify(exec);
 
 export function openArtifact(artifact: Artifact) {
   if (isMac) {
@@ -28,5 +34,47 @@ export function closeApplication(app: Application) {
   } else {
     const exe = getFileNameFromPath(app.path);
     exec(`taskkill /IM ${exe}`);
+  }
+}
+
+export async function getRecentlyOpenedFilePaths(): Promise<string[]> {
+  const recentlyAccessedFilePaths: string[] = [];
+  try {
+    const recentFolderPath: string = path.join(
+      app.getPath('appData'),
+      'Microsoft',
+      'Windows',
+      'Recent'
+    );
+    const command = `ls ${recentFolderPath} | sort LastWriteTime -Descending`;
+    const res = await asyncExec(command, { shell: 'powershell.exe' });
+    const stdout = res.stdout;
+
+    // extract links from stdout
+    const regex = /\S*\.lnk/g;
+    const links = stdout.match(regex);
+    if (!links) return [];
+
+    for await (const link of links) {
+      const linkPath = path.join(recentFolderPath, link);
+      const resolvedLink = await resolveLink(linkPath);
+      if (resolvedLink) {
+        recentlyAccessedFilePaths.push(resolvedLink);
+      }
+    }
+  } catch (err) {
+    error(err);
+  }
+
+  return recentlyAccessedFilePaths;
+}
+
+async function resolveLink(linkPath: string) {
+  try {
+    const command = `(New-Object -ComObject WScript.Shell).CreateShortcut('${linkPath}').TargetPath`;
+    const res = await asyncExec(command, { shell: 'powershell.exe' });
+    return res.stdout;
+  } catch (err) {
+    error(err);
   }
 }
