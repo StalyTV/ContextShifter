@@ -9,7 +9,7 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import './ipc/api';
-import { app, BrowserWindow, shell, ipcMain } from 'electron';
+import { app, globalShortcut } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import TaskSnap from './TaskSnap';
@@ -88,6 +88,10 @@ app
     });
     const taskSnap = TaskSnap.getInstance();
     taskSnap.start();
+
+    // create shortcut
+    const keys = 'Ctrl+Shift+S';
+    globalShortcut.register(keys, () => taskSnap.createNewSnapshot());
   })
   .catch(console.log);
 

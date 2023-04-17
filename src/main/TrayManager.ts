@@ -27,6 +27,7 @@ export default class TrayManager {
         click: async () => {
           await this._taskSnapInstance.createNewSnapshot();
         },
+        accelerator: 'Ctrl+Shift+S',
       },
       {
         label: 'Apply Latest Snapshot',
