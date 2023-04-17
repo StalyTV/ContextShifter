@@ -39,6 +39,11 @@ export function closeApplication(app: Application) {
 
 export async function getRecentlyOpenedFilePaths(): Promise<string[]> {
   const recentlyAccessedFilePaths: string[] = [];
+  if (isMac) {
+    error('[osCommands] getRecentlyOpenedFilePaths() is not supported on Mac');
+    return [];
+  }
+
   try {
     const recentFolderPath: string = path.join(
       app.getPath('appData'),
