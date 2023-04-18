@@ -37,7 +37,9 @@ export function closeApplication(app: Application) {
   }
 }
 
-export async function getRecentlyOpenedFilePaths(): Promise<string[]> {
+export async function getRecentlyOpenedFilePaths(
+  since: Date
+): Promise<string[]> {
   const recentlyAccessedFilePaths: string[] = [];
   if (isMac) {
     error('[osCommands] getRecentlyOpenedFilePaths() is not supported on Mac');
@@ -51,7 +53,7 @@ export async function getRecentlyOpenedFilePaths(): Promise<string[]> {
       'Windows',
       'Recent'
     );
-    const command = `ls ${recentFolderPath} | sort LastWriteTime -Descending`;
+    const command = `ls ${recentFolderPath} | where{$_.LastWriteTime -ge [DateTime]"${since.toISOString()}"}`;
     const res = await asyncExec(command, { shell: 'powershell.exe' });
     const stdout = res.stdout;
 
