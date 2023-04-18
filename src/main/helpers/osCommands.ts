@@ -53,14 +53,13 @@ export async function getRecentlyOpenedFilePaths(
       'Windows',
       'Recent'
     );
-    const command = `ls ${recentFolderPath} | where{$_.LastWriteTime -ge [DateTime]"${since.toISOString()}"}`;
+    const command = `ls ${recentFolderPath} | where{$_.LastWriteTime -ge [DateTime]"${since.toISOString()}"} | select -expand Name`;
     const res = await asyncExec(command, { shell: 'powershell.exe' });
     const stdout = res.stdout;
 
     // extract links from stdout
-    const regex = /\S*\.lnk/g;
-    const links = stdout.match(regex);
-    if (!links) return [];
+    const lines = stdout.split(/\r?\n/);
+    const links = lines.filter((line) => line.endsWith('.lnk'));
 
     for await (const link of links) {
       const linkPath = path.join(recentFolderPath, link);

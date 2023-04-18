@@ -6,10 +6,19 @@
 
 import isMac from './isMac';
 
-export function getFileNameFromPath(filePath: string): string {
+export function getFileNameFromPath(
+  filePath: string,
+  excludeType: boolean = false
+): string {
+  let fileName: string;
   if (isMac) {
-    return filePath.split('/').reverse()[0];
+    fileName = filePath.split('/').reverse()[0];
   } else {
-    return filePath.split('\\').reverse()[0];
+    fileName = filePath.split('\\').reverse()[0];
+  }
+  if (excludeType) {
+    return fileName.split('.')[0];
+  } else {
+    return fileName;
   }
 }

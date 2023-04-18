@@ -17,7 +17,7 @@ import WindowManager from './WindowManager';
 import SnapshotManager from './SnapshotManager';
 import { lsof, Options, ProcessInfo } from 'list-open-files';
 import Artifact from 'types/Artifact';
-import { openArtifact } from './helpers/osCommands';
+import { getRecentlyOpenedFilePaths, openArtifact } from './helpers/osCommands';
 import { getFileNameFromPath } from './helpers/getFileNameFromPath';
 import isMac from './helpers/isMac';
 import BrowserTracker from './trackers/BrowserTracker';
@@ -169,10 +169,12 @@ export default class TaskSnap {
     };
 
     let processInfos: ProcessInfo[] = [];
+    let recentlyOpenedFiles: string[] = [];
     if (isMac) {
       processInfos = await lsof(options);
     } else {
-      processInfos = [];
+      const searchStart = new Date(new Date().setHours(0));
+      recentlyOpenedFiles = await getRecentlyOpenedFilePaths(searchStart);
     }
 
     const openBrowsers: Browser[] = [];
@@ -220,7 +222,7 @@ export default class TaskSnap {
           for await (const path of filePaths) {
             // Remove paths that are simply "/"
             if (path && path.length > 1) {
-              const fileName = getFileNameFromPath(path);
+              const fileName = getFileNameFromPath(path, true);
               const lowerCaseFileName = fileName.toLowerCase();
               if (
                 (lowerCaseFileName.includes(win.title.toLowerCase()) ||
@@ -231,6 +233,26 @@ export default class TaskSnap {
                 file.path = path;
                 associatedFiles.push(file);
               }
+            }
+          }
+          if (associatedFiles.length > 0) {
+            await File.save(associatedFiles);
+          }
+          app.files = associatedFiles;
+
+          // Windows case
+        } else {
+          const associatedFiles: File[] = [];
+          for await (const path of recentlyOpenedFiles) {
+            const fileName = getFileNameFromPath(path, true);
+            const lowerCaseFileName = fileName.toLowerCase();
+            if (
+              lowerCaseFileName.includes(win.title.toLowerCase()) ||
+              win.title.toLowerCase().includes(lowerCaseFileName)
+            ) {
+              const file = new File();
+              file.path = path;
+              associatedFiles.push(file);
             }
           }
           if (associatedFiles.length > 0) {
