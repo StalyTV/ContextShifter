@@ -24,8 +24,8 @@ export default function ArrowRightIcon(props: Props) {
       viewBox="0 0 16 16"
     >
       <path
-        fill-rule="evenodd"
-        clip-rule="evenodd"
+        fillRule="evenodd"
+        clipRule="evenodd"
         d="M9.00001 13.8871L14 8.8871L14 8.17999L9.00001 3.17999L8.2929 3.8871L12.4393 8.03354L2 8.03354L2 9.03354L12.4393 9.03354L8.2929 13.18L9.00001 13.8871Z"
       />
     </svg>

@@ -4,6 +4,8 @@
   width: 100%;
 
   .snapshotPreviewContainer {
+    display: flex;
+    justify-content: space-between;
     width: 43rem;
     background-color: var(--bg-color-3);
     padding: 1rem;
@@ -21,6 +23,13 @@
       .name {
         font-weight: 700;
       }
+    }
+
+    .summary {
+      height: 5rem;
+      width: 15rem;
+      padding: 0.5rem;
+      font-size: small;
     }
   }
 

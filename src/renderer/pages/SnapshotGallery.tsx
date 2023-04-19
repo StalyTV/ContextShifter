@@ -63,11 +63,15 @@ export default function SnapshotGallery() {
       <h1>Snapshot Gallery</h1>
       {[...snapshotMap.keys()].map((key) => {
         return (
-          <div className={styles.groupOfSnapshots}>
+          <div key={key} className={styles.groupOfSnapshots}>
             {getFormattedDateFromKey(key)}
             {snapshotMap.get(key)!.map((snapshot) => {
               return (
-                <SnapshotPreview snapshot={snapshot} onDelete={onDelete} />
+                <SnapshotPreview
+                  key={snapshot.id}
+                  snapshot={snapshot}
+                  onDelete={onDelete}
+                />
               );
             })}
           </div>

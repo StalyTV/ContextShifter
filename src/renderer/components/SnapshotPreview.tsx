@@ -86,6 +86,7 @@ export default function SnapshotPreview(props: Props) {
           </div>
           <div className={styles.name}>{props.snapshot.name}</div>
         </div>
+        <div className={styles.summary}>{props.snapshot.summary}</div>
       </div>
       {isHovering ? (
         <div className={styles.buttonBox}>
