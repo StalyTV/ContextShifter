@@ -5,9 +5,20 @@
     border-radius: var(--border-radius);
   }
 
-  .timestamp {
-    padding-top: 0.1rem;
-    padding-left: 1rem;
-    font-size: small;
+  .timestamps {
+    display: flex;
+
+    .timestamp {
+      padding-top: 0.1rem;
+      padding-left: 1rem;
+      font-size: small;
+      display: flex;
+      align-items: center;
+
+      .icon {
+        height: 1rem;
+        margin-right: 0.2rem;
+      }
+    }
   }
 }

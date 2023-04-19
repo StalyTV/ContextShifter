@@ -4,12 +4,15 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, April 2023
  */
 
+import CameraIcon from './Icons/CameraIcon';
+import EditIcon from './Icons/EditIcon';
 import Input from './Input';
 import styles from './SnapshotHeader.module.scss';
 
 type Props = {
   snapshotName: string;
-  timestamp: string;
+  createTimestamp: string;
+  editTimestamp: string;
   onNameChange: (e: React.ChangeEvent<HTMLInputElement>) => {};
 };
 
@@ -30,8 +33,17 @@ export default function SnapshotHeader(props: Props) {
       <div className={styles.titleContainer}>
         <Input value={props.snapshotName} onChange={props.onNameChange} />
       </div>
-      <div className={styles.timestamp}>
-        {getFormattedDate(props.timestamp)}
+      <div className={styles.timestamps}>
+        <div className={styles.timestamp}>
+          <CameraIcon className={styles.icon} />
+          {getFormattedDate(props.createTimestamp)}
+        </div>
+        {props.editTimestamp ? (
+          <div className={styles.timestamp}>
+            <EditIcon className={styles.icon} />
+            {getFormattedDate(props.editTimestamp)}
+          </div>
+        ) : null}
       </div>
     </div>
   );

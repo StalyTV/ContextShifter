@@ -175,7 +175,8 @@ export default function Snapshot() {
           <div className={styles.headerContainer}>
             <SnapshotHeader
               snapshotName={snapshotName}
-              timestamp={selectedSnapshot.created}
+              createTimestamp={selectedSnapshot.created}
+              editTimestamp={selectedSnapshot.edited}
               onNameChange={onNameChange}
             />
           </div>
