@@ -11,7 +11,9 @@ import SnapshotPreview from 'renderer/components/SnapshotPreview';
 import NavBar from 'renderer/components/Navigation/NavBar';
 
 export default function SnapshotGallery() {
-  const [snapshots, setSnapshots] = useState<SnapshotEntity[]>([]);
+  const [snapshotMap, setSnapshotMap] = useState<Map<number, SnapshotEntity[]>>(
+    new Map()
+  );
 
   const fetchSnapshots = async () => {
     const snapshots = await window.electron.ipcRenderer.invoke(
@@ -25,11 +27,30 @@ export default function SnapshotGallery() {
       return dateB - dateA;
     });
 
-    setSnapshots(snapshots);
+    const initialMap: Map<number, SnapshotEntity[]> = new Map();
+    snapshots.forEach((snapshot) => {
+      const creationDate = new Date(snapshot.created);
+      const key: number = creationDate.setHours(0, 0, 0, 0);
+      if (initialMap.has(key)) {
+        initialMap.get(key)!.push(snapshot);
+      } else {
+        initialMap.set(key, [snapshot]);
+      }
+    });
+    setSnapshotMap(initialMap);
   };
 
   const onDelete = () => {
     fetchSnapshots();
+  };
+
+  const getFormattedDateFromKey = (key: number): string => {
+    const date = new Date(key);
+    return date.toLocaleString([], {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
   };
 
   useEffect(() => {
@@ -40,8 +61,17 @@ export default function SnapshotGallery() {
     <>
       <NavBar />
       <h1>Snapshot Gallery</h1>
-      {snapshots.map((snapshot) => {
-        return <SnapshotPreview snapshot={snapshot} onDelete={onDelete} />;
+      {[...snapshotMap.keys()].map((key) => {
+        return (
+          <div className={styles.groupOfSnapshots}>
+            {getFormattedDateFromKey(key)}
+            {snapshotMap.get(key)!.map((snapshot) => {
+              return (
+                <SnapshotPreview snapshot={snapshot} onDelete={onDelete} />
+              );
+            })}
+          </div>
+        );
       })}
     </>
   );
