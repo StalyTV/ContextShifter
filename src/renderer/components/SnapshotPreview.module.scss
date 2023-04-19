@@ -9,6 +9,19 @@
     padding: 1rem;
     border: solid var(--bg-color-1) 2px;
     border-radius: var(--border-radius);
+
+    .timeAndName {
+      display: flex;
+
+      .time {
+        margin-right: 0.8rem;
+        font-weight: 300;
+      }
+
+      .name {
+        font-weight: 700;
+      }
+    }
   }
 
   .buttonBox {

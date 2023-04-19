@@ -21,12 +21,9 @@ type Props = {
 export default function SnapshotPreview(props: Props) {
   const [isHovering, setIsHovering] = useState<boolean>(false);
 
-  const getFormattedDate = (timestamp: string) => {
+  const getFormattedTime = (timestamp: string) => {
     const date = new Date(timestamp);
     return date.toLocaleString([], {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
     });
@@ -83,8 +80,12 @@ export default function SnapshotPreview(props: Props) {
       }}
     >
       <div className={styles.snapshotPreviewContainer}>
-        <div>{props.snapshot.name}</div>
-        <div>{getFormattedDate(props.snapshot.created)}</div>
+        <div className={styles.timeAndName}>
+          <div className={styles.time}>
+            {getFormattedTime(props.snapshot.created)}
+          </div>
+          <div className={styles.name}>{props.snapshot.name}</div>
+        </div>
       </div>
       {isHovering ? (
         <div className={styles.buttonBox}>
