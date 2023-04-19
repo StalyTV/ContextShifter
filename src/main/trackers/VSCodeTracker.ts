@@ -9,6 +9,7 @@ import { info, debug, error } from 'electron-log';
 import { VSCodeSnapshot } from 'types/VSCodeSnapshot';
 import Snapshot from '../entity/Snapshot';
 import IDEFile from '../entity/IDEFile';
+import { getFileNameFromPath } from '../helpers/getFileNameFromPath';
 
 export default class VSCodeTracker {
   private _port = 8084;
@@ -92,5 +93,14 @@ export default class VSCodeTracker {
       ide.lastCommitMessage = data.lastCommitMessage;
     }
     ide.save();
+
+    // convert TODOs to intent string
+    let intent: string = '';
+    data.toDos.forEach((toDo) => {
+      const fileName = getFileNameFromPath(toDo.filePath);
+      intent += `[${fileName}] ${toDo.text}\n\n`;
+    });
+    latestSnapshot.intent = intent;
+    latestSnapshot.save();
   }
 }

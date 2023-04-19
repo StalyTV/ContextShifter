@@ -8,10 +8,17 @@ export type VSCodeSnapshot = {
   openFiles: OpenVSCodeFile[];
   branch: string | undefined;
   lastCommitMessage: string | undefined;
-}
+  toDos: VSCodeTODO[];
+};
 
 export type OpenVSCodeFile = {
   name: string;
   path: string;
   isActive: boolean;
+};
+
+export type VSCodeTODO = {
+  filePath: string;
+  line: number;
+  text: string;
 };
