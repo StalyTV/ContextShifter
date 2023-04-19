@@ -37,7 +37,7 @@ export default class VSCodeTracker {
 
       socket.on('message', (msg: string) => {
         self._lastUsedSocket = socket;
-        debug('received: %s', msg);
+        debug('[VSCodeTracker] Received: %s', msg);
         const obj = JSON.parse(msg) as {
           endpoint: string;
           data: unknown;

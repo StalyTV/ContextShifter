@@ -26,6 +26,9 @@ export default function InstantCuration() {
 
     setLatestSnapshot(snapshot);
     setSnapshotName(snapshot.name);
+    toast("Saved Snapshot", {
+      type: "success",
+    });
   };
 
   const onNameChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
