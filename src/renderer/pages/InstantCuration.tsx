@@ -26,8 +26,8 @@ export default function InstantCuration() {
 
     setLatestSnapshot(snapshot);
     setSnapshotName(snapshot.name);
-    toast("Saved Snapshot", {
-      type: "success",
+    toast('Saved Snapshot', {
+      type: 'success',
     });
   };
 
@@ -84,7 +84,8 @@ export default function InstantCuration() {
             <SnapshotHeader
               snapshotName={snapshotName}
               onNameChange={onNameChange}
-              timestamp={latestSnapshot.created}
+              createTimestamp={latestSnapshot.created}
+              editTimestamp={latestSnapshot.edited}
             />
           </div>
           <div className={styles.buttonContainer}>

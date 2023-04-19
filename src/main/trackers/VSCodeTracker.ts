@@ -73,6 +73,13 @@ export default class VSCodeTracker {
     if (!latestSnapshot) return;
 
     const ide = latestSnapshot.ides[0]; // TODO: Improve this
+    if (data.branch) {
+      ide.branch = data.branch;
+    }
+    if (data.lastCommitMessage) {
+      ide.lastCommitMessage = data.lastCommitMessage;
+    }
+    ide.save();
 
     for await (const openFile of data.openFiles) {
       const ideFile = new IDEFile();
@@ -85,14 +92,6 @@ export default class VSCodeTracker {
     info(
       `[VSCodeTracker] received ${data.openFiles.length} files and attached them to snapshot with id ${latestSnapshot.id}`
     );
-
-    if (data.branch) {
-      ide.branch = data.branch;
-    }
-    if (data.lastCommitMessage) {
-      ide.lastCommitMessage = data.lastCommitMessage;
-    }
-    ide.save();
 
     // convert TODOs to intent string
     let intent: string = '';
