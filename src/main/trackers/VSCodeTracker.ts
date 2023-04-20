@@ -93,6 +93,14 @@ export default class VSCodeTracker {
       `[VSCodeTracker] received ${data.openFiles.length} files and attached them to snapshot with id ${latestSnapshot.id}`
     );
 
+    // add last edit to summary
+    const editedFunction = data.lastEditedFunction;
+    if (editedFunction) {
+      latestSnapshot.summary = `Just edited ${
+        editedFunction.name
+      } in ${getFileNameFromPath(editedFunction.filePath)}`;
+    }
+
     // convert TODOs to intent string
     let intent: string = '';
     data.toDos.forEach((toDo) => {
@@ -100,6 +108,7 @@ export default class VSCodeTracker {
       intent += `[${fileName}] ${toDo.text}\n\n`;
     });
     latestSnapshot.intent = intent;
+
     latestSnapshot.save();
   }
 }

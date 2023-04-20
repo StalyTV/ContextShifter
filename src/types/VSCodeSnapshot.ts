@@ -9,6 +9,7 @@ export type VSCodeSnapshot = {
   branch: string | undefined;
   lastCommitMessage: string | undefined;
   toDos: VSCodeTODO[];
+  lastEditedFunction: EditedFunction | undefined;
 };
 
 export type OpenVSCodeFile = {
@@ -21,4 +22,10 @@ export type VSCodeTODO = {
   filePath: string;
   line: number;
   text: string;
+};
+
+export type EditedFunction = {
+  name: string;
+  filePath: string;
+  timestamp: Date;
 };
