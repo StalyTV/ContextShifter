@@ -2,13 +2,18 @@
   cursor: pointer;
   background-color: var(--bg-color-3);
   border: solid var(--bg-color-1) 2px;
-  padding: 1rem;
+  padding: 0.3rem;
   border-radius: var(--border-radius);
   margin: 0.5rem 0.5rem;
 
   .info {
     display: flex;
-    justify-content: space-between;
+    align-items: center;
+
+    .icon {
+      height: 1.5rem;
+      margin-right: 0.6rem;
+    }
   }
 
   .fileContainer {

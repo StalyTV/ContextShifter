@@ -57,7 +57,11 @@ export default function Application(props: Props) {
       onClick={() => toggleSelect()}
       onContextMenu={() => openApplication(props.app.path)}
     >
-      {props.app.name}
+      <div className={styles.header}>
+        <img className={styles.icon} src={props.app.icon} />
+        <span>{props.app.name}</span>
+      </div>
+
       {props.app.files.map((file) => (
         <File
           key={file.id}

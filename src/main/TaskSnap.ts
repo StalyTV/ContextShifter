@@ -26,6 +26,7 @@ import { CloseTabClientRequest } from 'context-browser-extension-types';
 import Browser from './entity/Browser';
 import VSCodeTracker from './trackers/VSCodeTracker';
 import { excludedApplications } from './config';
+const fileIcon = require('extract-file-icon');
 
 /**
  * Main class of the application
@@ -195,6 +196,7 @@ export default class TaskSnap {
         const browser = new Browser();
         browser.name = appName;
         browser.path = appPath;
+        browser.icon = this.getApplicationIcon(appPath);
         openBrowsers.push(browser);
 
         // ide
@@ -202,6 +204,7 @@ export default class TaskSnap {
         const ide = new IDE();
         ide.name = appName;
         ide.path = appPath;
+        ide.icon = this.getApplicationIcon(appPath);
         openIDEs.push(ide);
 
         // regular application case
@@ -209,6 +212,7 @@ export default class TaskSnap {
         const app = new Application();
         app.name = appName;
         app.path = appPath;
+        app.icon = this.getApplicationIcon(appPath);
         openApplications.push(app);
 
         if (isMac) {
@@ -264,5 +268,12 @@ export default class TaskSnap {
     }
 
     return [openBrowsers, openIDEs, openApplications];
+  }
+
+  public getApplicationIcon(path: string): string {
+    const iconBuffer = fileIcon(path, 16);
+    const iconString = Buffer.from(iconBuffer).toString('base64');
+    const dataUrl = `data:image/png;base64,${iconString}`;
+    return dataUrl;
   }
 }

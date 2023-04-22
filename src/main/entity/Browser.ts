@@ -26,6 +26,9 @@ export default class Browser extends BaseEntity {
   @Column({ type: 'varchar', nullable: false })
   path!: string;
 
+  @Column({ type: 'text', nullable: false })
+  icon!: string;
+
   @Column({ type: 'tinyint', nullable: false, default: true })
   isSelected!: boolean;
 

@@ -55,7 +55,11 @@ export default function Browser(props: Props) {
       }`}
       onClick={() => toggleSelect()}
     >
-      {props.browser.name}
+      <div className={styles.header}>
+        <img className={styles.icon} src={props.browser.icon} />
+        <span>{props.browser.name}</span>
+      </div>
+
       {sortedTabs.map((tab) => (
         <BrowserTab key={tab.id} tab={tab} updateTab={updateTab} />
       ))}

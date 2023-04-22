@@ -26,6 +26,9 @@ export default class IDE extends BaseEntity {
   @Column({ type: 'varchar', nullable: false })
   path!: string;
 
+  @Column({ type: 'text', nullable: false })
+  icon!: string;
+
   @Column({ type: 'varchar', nullable: true })
   branch!: string;
 

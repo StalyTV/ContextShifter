@@ -17,6 +17,7 @@
   "dependencies": {
     "active-win": "^8.1.0",
     "better-sqlite3": "^8.2.0",
+    "extract-file-icon": "^0.3.2",
     "typeorm": "^0.3.12",
     "windows-activity-tracker": "file:PA.WindowsActivityTracker/typescript"
   }
