@@ -86,6 +86,11 @@ export default function SnapshotPreview(props: Props) {
           </div>
           <div className={styles.name}>{props.snapshot.name}</div>
         </div>
+        <div className={styles.applications}>
+          {props.snapshot.applications.map((app) => {
+            return <img className={styles.icon} src={app.icon} />;
+          })}
+        </div>
         <div className={styles.summary}>{props.snapshot.summary}</div>
       </div>
       {isHovering ? (

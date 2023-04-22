@@ -25,10 +25,15 @@
       }
     }
 
+    .applications {
+      .icon {
+        height: 1.5rem;
+      }
+    }
+
     .summary {
       height: 5rem;
       width: 15rem;
-      padding: 0.5rem;
       font-size: small;
     }
   }
