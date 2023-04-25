@@ -12,6 +12,7 @@ import Button from './Button';
 import ArrowRightIcon from './Icons/ArrowRightIcon';
 import TrashIcon from './Icons/TrashIcon';
 import { toast } from 'react-toastify';
+import BrowserPreview from './BrowserPreview';
 
 type Props = {
   snapshot: SnapshotEntity;
@@ -20,6 +21,14 @@ type Props = {
 
 export default function SnapshotPreview(props: Props) {
   const [isHovering, setIsHovering] = useState<boolean>(false);
+
+  const getSelectedApplications = () => {
+    return props.snapshot.applications.filter((app) => app.isSelected);
+  };
+
+  const getSelectedBrowsers = () => {
+    return props.snapshot.browsers.filter((browser) => browser.isSelected);
+  };
 
   const getFormattedTime = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -80,17 +89,32 @@ export default function SnapshotPreview(props: Props) {
       }}
     >
       <div className={styles.snapshotPreviewContainer}>
-        <div className={styles.timeAndName}>
-          <div className={styles.time}>
-            {getFormattedTime(props.snapshot.created)}
+        <div className={styles.left}>
+          <div className={styles.upper}>
+            <div className={styles.timeAndName}>
+              <div className={styles.time}>
+                {getFormattedTime(props.snapshot.created)}
+              </div>
+              <div className={styles.name}>{props.snapshot.name}</div>
+            </div>
+            <div className={styles.applications}>
+              {getSelectedApplications().map((app) => {
+                return (
+                  <img key={app.id} className={styles.icon} src={app.icon} />
+                );
+              })}
+            </div>
           </div>
-          <div className={styles.name}>{props.snapshot.name}</div>
+
+          <div className={styles.lower}>
+            <div className={styles.browsers}>
+              {getSelectedBrowsers().map((browser) => {
+                return <BrowserPreview key={browser.id} browser={browser} />;
+              })}
+            </div>
+          </div>
         </div>
-        <div className={styles.applications}>
-          {props.snapshot.applications.map((app) => {
-            return <img className={styles.icon} src={app.icon} />;
-          })}
-        </div>
+
         <div className={styles.summary}>{props.snapshot.summary}</div>
       </div>
       {isHovering ? (

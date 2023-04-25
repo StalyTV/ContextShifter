@@ -12,22 +12,36 @@
     border: solid var(--bg-color-1) 2px;
     border-radius: var(--border-radius);
 
-    .timeAndName {
-      display: flex;
+    .left {
+      width: 30rem;
 
-      .time {
-        margin-right: 0.8rem;
-        font-weight: 300;
+      .upper {
+        display: flex;
+        justify-content: space-between;
+
+        .timeAndName {
+          display: flex;
+
+          .time {
+            margin-right: 0.8rem;
+            font-weight: 300;
+          }
+
+          .name {
+            font-weight: 700;
+          }
+        }
+
+        .applications {
+          .icon {
+            height: 1.5rem;
+          }
+        }
+
       }
 
-      .name {
-        font-weight: 700;
-      }
-    }
-
-    .applications {
-      .icon {
-        height: 1.5rem;
+      .browsers {
+        display: flex;
       }
     }
 
@@ -35,6 +49,7 @@
       height: 5rem;
       width: 15rem;
       font-size: small;
+      margin-left: 1rem;
     }
   }
 

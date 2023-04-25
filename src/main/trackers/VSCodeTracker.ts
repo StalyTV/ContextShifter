@@ -73,6 +73,10 @@ export default class VSCodeTracker {
     if (!latestSnapshot) return;
 
     const ide = latestSnapshot.ides[0]; // TODO: Improve this
+
+    // might be the case if IDE is hidden
+    if (!ide) return;
+
     if (data.branch) {
       ide.branch = data.branch;
     }

@@ -1,0 +1,18 @@
+.previewContainer {
+  display: flex;
+  align-items: center;
+  border: solid var(--bg-color-1) 1px;
+  border-radius: var(--border-radius);
+  padding: 0.2rem;
+
+  .browserIcon {
+    height: 1.7rem;
+    margin-right: 0.5rem;
+  }
+
+  .tabIcon {
+    height: 1rem;
+    margin: 0.1rem;
+  }
+}
+
