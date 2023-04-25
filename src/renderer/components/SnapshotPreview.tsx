@@ -21,6 +21,7 @@ type Props = {
 
 export default function SnapshotPreview(props: Props) {
   const [isHovering, setIsHovering] = useState<boolean>(false);
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
   const getSelectedApplications = () => {
     return props.snapshot.applications.filter((app) => app.isSelected);
@@ -88,7 +89,10 @@ export default function SnapshotPreview(props: Props) {
         setIsHovering(false);
       }}
     >
-      <div className={styles.snapshotPreviewContainer}>
+      <div
+        className={styles.snapshotPreviewContainer}
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
         <div className={styles.left}>
           <div className={styles.upper}>
             <div className={styles.timeAndName}>
@@ -115,7 +119,12 @@ export default function SnapshotPreview(props: Props) {
           </div>
         </div>
 
-        <div className={styles.summary}>{props.snapshot.summary}</div>
+        <div className={styles.right}>
+          <div className={styles.postIt}>⏪ {props.snapshot.summary}</div>
+          {isExpanded ? (
+            <div className={`${styles.postIt} ${styles.intent}`}>💭 {props.snapshot.intent}</div>
+          ) : null}
+        </div>
       </div>
       {isHovering ? (
         <div className={styles.buttonBox}>

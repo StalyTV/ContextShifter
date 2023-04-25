@@ -45,15 +45,23 @@
       }
     }
 
-    .summary {
-      background-color: var(--postIt-bg-color-2);
-      border-radius: var(--border-radius);
-      padding: 0.2rem;
-      height: 5rem;
-      width: 15rem;
-      font-size: small;
-      margin-left: 1rem;
+    .right {
+      .postIt {
+        background-color: var(--postIt-bg-color-2);
+        border-radius: var(--border-radius);
+        padding: 0.2rem;
+        height: 5rem;
+        width: 15rem;
+        font-size: small;
+        margin-left: 1rem;
+        color: var(--postIt-text-color);
+      }
+
+      .intent {
+        margin-top: 1rem;
+      }
     }
+
   }
 
   .buttonBox {
