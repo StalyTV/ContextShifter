@@ -10,6 +10,7 @@ import getAssetPath from './helpers/getAssetPath';
 import path from 'path';
 import TaskSnap from './TaskSnap';
 import WindowManager from './WindowManager';
+import AppConfig from './AppConfig';
 
 export default class TrayManager {
   private static _tray: Tray | null = null;
@@ -27,7 +28,7 @@ export default class TrayManager {
         click: async () => {
           await this._taskSnapInstance.createNewSnapshot();
         },
-        accelerator: 'Ctrl+Shift+S',
+        accelerator: AppConfig.getSnapshotShortcut(),
       },
       {
         label: 'Apply Latest Snapshot',

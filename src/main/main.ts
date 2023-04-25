@@ -94,7 +94,7 @@ app
     taskSnap.start();
 
     // create shortcut
-    const keys = 'Ctrl+Shift+S';
+    const keys = AppConfig.getSnapshotShortcut();
     globalShortcut.register(keys, () => taskSnap.createNewSnapshot());
   })
   .catch(console.log);
@@ -102,4 +102,5 @@ app
 app.on('before-quit', async (e) => {
   const taskSnap = TaskSnap.getInstance();
   taskSnap.stop();
+  globalShortcut.unregisterAll();
 });
