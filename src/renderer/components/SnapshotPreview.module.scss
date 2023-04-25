@@ -46,6 +46,9 @@
     }
 
     .summary {
+      background-color: var(--postIt-bg-color-2);
+      border-radius: var(--border-radius);
+      padding: 0.2rem;
       height: 5rem;
       width: 15rem;
       font-size: small;
