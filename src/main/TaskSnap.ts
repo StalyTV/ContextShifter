@@ -25,7 +25,7 @@ import BrowserTabEntity from './entity/BrowserTab';
 import { CloseTabClientRequest } from 'context-browser-extension-types';
 import Browser from './entity/Browser';
 import VSCodeTracker from './trackers/VSCodeTracker';
-import { excludedApplications } from './config';
+import AppConfig from './AppConfig';
 const fileIcon = require('extract-file-icon');
 
 /**
@@ -185,7 +185,7 @@ export default class TaskSnap {
       const appName = win.owner.name;
       const appPath = win.owner.path;
 
-      if (excludedApplications.includes(appName)) continue;
+      if (AppConfig.getExcludedApplications().includes(appName)) continue;
 
       // browsers get stored separately, as handling of urls different than handling of files
       if (

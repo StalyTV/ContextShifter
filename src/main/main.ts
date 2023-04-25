@@ -16,6 +16,7 @@ import TaskSnap from './TaskSnap';
 import { Database } from './database';
 import Log from './entity/Log';
 import WindowManager from './WindowManager';
+import AppConfig from './AppConfig';
 
 class AppUpdater {
   constructor() {
@@ -80,6 +81,9 @@ app
 
     // create connection with database
     await Database.initialize();
+
+    // load config file
+    await AppConfig.loadConfig();
   })
   .then(() => {
     Database.manager.save(Log, {
