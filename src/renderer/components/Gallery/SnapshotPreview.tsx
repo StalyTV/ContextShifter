@@ -5,12 +5,12 @@
  */
 
 import { useState } from 'react';
-import EditIcon from './Icons/EditIcon';
+import EditIcon from '../Icons/EditIcon';
 import styles from './SnapshotPreview.module.scss';
 import SnapshotEntity from 'main/entity/Snapshot';
-import Button from './Button';
-import ArrowRightIcon from './Icons/ArrowRightIcon';
-import TrashIcon from './Icons/TrashIcon';
+import Button from '../Button';
+import ArrowRightIcon from '../Icons/ArrowRightIcon';
+import TrashIcon from '../Icons/TrashIcon';
 import { toast } from 'react-toastify';
 import BrowserPreview from './BrowserPreview';
 

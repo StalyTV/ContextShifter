@@ -6,9 +6,9 @@
 
 import styles from './SnapshotGallery.module.scss';
 import { useEffect, useState } from 'react';
-import SnapshotEntity from 'main/entity/Snapshot';
-import SnapshotPreview from 'renderer/components/SnapshotPreview';
-import NavBar from 'renderer/components/Navigation/NavBar';
+import SnapshotEntity from '../../main/entity/Snapshot';
+import SnapshotPreview from '../components/Gallery/SnapshotPreview';
+import NavBar from '../components/Navigation/NavBar';
 
 export default function SnapshotGallery() {
   const [snapshotMap, setSnapshotMap] = useState<Map<number, SnapshotEntity[]>>(

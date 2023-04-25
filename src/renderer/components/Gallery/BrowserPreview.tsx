@@ -5,7 +5,7 @@
  */
 
 import styles from './BrowserPreview.module.scss';
-import BrowserEntity from '../../main/entity/Browser';
+import BrowserEntity from '../../../main/entity/Browser';
 
 type Props = {
   browser: BrowserEntity;
