@@ -29,6 +29,9 @@ export default class Application extends BaseEntity {
   @Column({ type: 'text', nullable: false })
   icon!: string;
 
+  @Column({ type: 'text', nullable: false })
+  title!: string;
+
   @Column({ type: 'tinyint', nullable: false, default: true })
   isSelected!: boolean;
 

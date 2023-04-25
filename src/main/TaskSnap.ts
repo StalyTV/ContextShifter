@@ -197,6 +197,7 @@ export default class TaskSnap {
         browser.name = appName;
         browser.path = appPath;
         browser.icon = this.getApplicationIcon(appPath);
+        browser.title = win.title;
         openBrowsers.push(browser);
 
         // ide
@@ -205,6 +206,7 @@ export default class TaskSnap {
         ide.name = appName;
         ide.path = appPath;
         ide.icon = this.getApplicationIcon(appPath);
+        ide.title = win.title;
         openIDEs.push(ide);
 
         // regular application case
@@ -213,6 +215,7 @@ export default class TaskSnap {
         app.name = appName;
         app.path = appPath;
         app.icon = this.getApplicationIcon(appPath);
+        app.title = win.title;
         openApplications.push(app);
 
         if (isMac) {

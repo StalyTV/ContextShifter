@@ -59,7 +59,7 @@ export default function Application(props: Props) {
     >
       <div className={styles.header}>
         <img className={styles.icon} src={props.app.icon} />
-        <span>{props.app.name}</span>
+        <span>{props.app.title}</span>
       </div>
 
       {props.app.files.map((file) => (

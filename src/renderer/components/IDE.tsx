@@ -63,7 +63,7 @@ export default function IDE(props: Props) {
     >
       <div className={styles.info}>
         <img className={styles.icon} src={props.ide.icon} />
-        <span>{props.ide.name}</span>
+        <span>{props.ide.title}</span>
         {isHovering ? (
           <GitInfo
             branch={props.ide.branch}

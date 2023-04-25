@@ -57,7 +57,7 @@ export default function Browser(props: Props) {
     >
       <div className={styles.header}>
         <img className={styles.icon} src={props.browser.icon} />
-        <span>{props.browser.name}</span>
+        <span>{props.browser.title}</span>
       </div>
 
       {sortedTabs.map((tab) => (
