@@ -9,8 +9,11 @@ import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import getAssetPath from './helpers/getAssetPath';
 import { app } from 'electron';
+import ElectronPositioner from 'electron-positioner';
 import path from 'path';
 import isWindows from './helpers/isWindows';
+import isMac from './helpers/isMac';
+import TrayManager from './TrayManager';
 
 export default class WindowManager {
   public static snapshotWindow: BrowserWindow | null = null;
@@ -80,6 +83,16 @@ export default class WindowManager {
           : path.join(__dirname, '../../.erb/dll/preload.js'),
       },
     });
+
+    const positioner = new ElectronPositioner(this.instantCurationWindow);
+    if (isMac) {
+      const trayBounds = TrayManager.getBounds();
+      if (trayBounds) {
+        positioner.move('trayCenter', trayBounds);
+      }
+    } else {
+      positioner.move('bottomRight');
+    }
 
     if (isWindows) {
       this.instantCurationWindow.removeMenu();

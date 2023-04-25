@@ -73,4 +73,9 @@ export default class TrayManager {
     this._tray.setContextMenu(menu);
     this._tray.setToolTip('TaskSnap');
   }
+
+  // needed for positioning of instantCurationWindow
+  public static getBounds(): Electron.Rectangle | undefined {
+    return this._tray?.getBounds();
+  }
 }
