@@ -15,6 +15,7 @@ import { toast } from 'react-toastify';
 import BrowserPreview from './BrowserPreview';
 import IDEPreview from './IDEPreview';
 import ApplicationPreview from './ApplicationPreview';
+import Artifact from 'types/Artifact';
 
 type Props = {
   snapshot: SnapshotEntity;
@@ -59,6 +60,16 @@ export default function SnapshotPreview(props: Props) {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const onClickApplication = async (e: React.MouseEvent, path: string) => {
+    // makes sure Preview is not expanded
+    e.stopPropagation();
+
+    const artifact: Artifact = {
+      artifact: path,
+    };
+    await window.electron.ipcRenderer.invoke('open-artifact', artifact);
   };
 
   const onClickEdit = async () => {
@@ -126,7 +137,12 @@ export default function SnapshotPreview(props: Props) {
             <div className={styles.applications}>
               {getSelectedApplicationsWithoutFiles().map((app) => {
                 return (
-                  <img key={app.id} className={styles.icon} src={app.icon} />
+                  <img
+                    key={app.id}
+                    className={styles.icon}
+                    src={app.icon}
+                    onClick={(e) => onClickApplication(e, app.path)}
+                  />
                 );
               })}
             </div>
