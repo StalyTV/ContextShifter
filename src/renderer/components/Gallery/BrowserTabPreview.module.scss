@@ -1,0 +1,22 @@
+.container {
+  display: flex;
+  align-items: center;
+  font-size: x-small;
+  max-width: 10rem;
+  margin: 0.1rem;
+  background-color: var(--bg-color-4);
+  border-radius: var(--border-radius);
+  padding: 0.2rem;
+
+  .tabIcon {
+    height: 1rem;
+    margin: 0.1rem;
+  }
+
+  span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}
+

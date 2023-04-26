@@ -6,42 +6,25 @@
 
 import styles from './BrowserPreview.module.scss';
 import BrowserEntity from '../../../main/entity/Browser';
+import BrowserTabPreview from './BrowserTabPreview';
 
 type Props = {
   browser: BrowserEntity;
+  isExpanded: boolean;
 };
 
 export default function BrowserPreview(props: Props) {
-  const getActiveTabs = () => {
-    return props.browser.browserTabs.filter(
-      (tab) => tab.isSelected && tab.isActive
-    );
-  };
-  const getOtherTabs = () => {
-    return props.browser.browserTabs.filter(
-      (tab) => tab.isSelected && !tab.isActive
-    );
+  const getSelectedTabs = () => {
+    return props.browser.browserTabs.filter((tab) => tab.isSelected);
   };
 
   return (
     <div className={styles.previewContainer}>
       <img className={styles.browserIcon} src={props.browser.icon} />
-      <div>
-        {getActiveTabs().map((tab) => {
-          return (
-            <div key={tab.id} className={styles.activeTab}>
-              <img className={styles.tabIcon} src={tab.favIconUrl} />
-              <span>{tab.title}</span>
-            </div>
-          );
-        })}
-      </div>
-      <div className={styles.otherTabs}>
-        {getOtherTabs().map((tab) => {
-          return (
-            <img key={tab.id} className={styles.tabIcon} src={tab.favIconUrl} />
-          );
-        })}
+      <div className={styles.tabs}>
+        {getSelectedTabs().map((tab) => (
+          <BrowserTabPreview tab={tab} isExpanded={props.isExpanded} />
+        ))}
       </div>
     </div>
   );

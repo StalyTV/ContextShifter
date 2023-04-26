@@ -1,10 +1,9 @@
 .previewContainer {
   display: flex;
   align-items: center;
-  border: solid var(--border-color) 1px;
   border-radius: var(--border-radius);
   padding: 0.2rem 0.4rem 0.2rem 0.2rem;
-  font-size: small;
+  font-size: x-small;
 
   .appIcon {
     height: 1.7rem;
@@ -13,5 +12,9 @@
 
   .file {
     cursor: pointer;
+    background-color: var(--bg-color-4);
+    border-radius: var(--border-radius);
+    padding: 0.2rem;
+    margin-right: 0.3rem;
   }
 }
