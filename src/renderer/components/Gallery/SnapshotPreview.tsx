@@ -13,6 +13,7 @@ import ArrowRightIcon from '../Icons/ArrowRightIcon';
 import TrashIcon from '../Icons/TrashIcon';
 import { toast } from 'react-toastify';
 import BrowserPreview from './BrowserPreview';
+import IDEPreview from './IDEPreview';
 
 type Props = {
   snapshot: SnapshotEntity;
@@ -29,6 +30,10 @@ export default function SnapshotPreview(props: Props) {
 
   const getSelectedBrowsers = () => {
     return props.snapshot.browsers.filter((browser) => browser.isSelected);
+  };
+
+  const getSelectedIDEs = () => {
+    return props.snapshot.ides.filter((ide) => ide.isSelected);
   };
 
   const getFormattedTime = (timestamp: string) => {
@@ -111,9 +116,14 @@ export default function SnapshotPreview(props: Props) {
           </div>
 
           <div className={styles.lower}>
-            <div className={styles.browsers}>
+            <div className={styles.applicationsWithMoreContext}>
               {getSelectedBrowsers().map((browser) => {
                 return <BrowserPreview key={browser.id} browser={browser} />;
+              })}
+            </div>
+            <div className={styles.applicationsWithMoreContext}>
+              {getSelectedIDEs().map((ide) => {
+                return <IDEPreview key={ide.id} ide={ide} />;
               })}
             </div>
           </div>
@@ -122,7 +132,9 @@ export default function SnapshotPreview(props: Props) {
         <div className={styles.right}>
           <div className={styles.postIt}>⏪ {props.snapshot.summary}</div>
           {isExpanded ? (
-            <div className={`${styles.postIt} ${styles.intent}`}>💭 {props.snapshot.intent}</div>
+            <div className={`${styles.postIt} ${styles.intent}`}>
+              💭 {props.snapshot.intent}
+            </div>
           ) : null}
         </div>
       </div>
