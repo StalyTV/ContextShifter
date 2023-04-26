@@ -238,6 +238,7 @@ export default class TaskSnap {
               ) {
                 const file = new File();
                 file.path = path;
+                file.name = getFileNameFromPath(path);
                 associatedFiles.push(file);
               }
             }
@@ -259,6 +260,7 @@ export default class TaskSnap {
             ) {
               const file = new File();
               file.path = path;
+              file.name = getFileNameFromPath(path);
               associatedFiles.push(file);
             }
           }

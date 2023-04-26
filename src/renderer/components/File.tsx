@@ -40,7 +40,7 @@ export default function File(props: Props) {
       onClick={toggleSelect}
       onContextMenu={() => openFile()}
     >
-      {props.file.path}
+      {props.file.name}
     </div>
   );
 }

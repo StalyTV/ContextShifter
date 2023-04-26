@@ -19,6 +19,9 @@ export default class File extends BaseEntity {
   id!: number;
 
   @Column({ type: 'varchar', nullable: false })
+  name!: string;
+
+  @Column({ type: 'varchar', nullable: false })
   path!: string;
 
   @Column({ type: 'tinyint', nullable: false, default: true })

@@ -14,6 +14,7 @@ import TrashIcon from '../Icons/TrashIcon';
 import { toast } from 'react-toastify';
 import BrowserPreview from './BrowserPreview';
 import IDEPreview from './IDEPreview';
+import ApplicationPreview from './ApplicationPreview';
 
 type Props = {
   snapshot: SnapshotEntity;
@@ -24,8 +25,24 @@ export default function SnapshotPreview(props: Props) {
   const [isHovering, setIsHovering] = useState<boolean>(false);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
-  const getSelectedApplications = () => {
-    return props.snapshot.applications.filter((app) => app.isSelected);
+  const getSelectedApplicationsWithoutFiles = () => {
+    return props.snapshot.applications.filter((app) => {
+      if (!app.isSelected) {
+        return false;
+      } else {
+        return !app.files.some((file) => file.isSelected);
+      }
+    });
+  };
+
+  const getSelectedApplicationsWithFiles = () => {
+    return props.snapshot.applications.filter((app) => {
+      if (!app.isSelected) {
+        return false;
+      } else {
+        return app.files.some((file) => file.isSelected);
+      }
+    });
   };
 
   const getSelectedBrowsers = () => {
@@ -107,7 +124,7 @@ export default function SnapshotPreview(props: Props) {
               <div className={styles.name}>{props.snapshot.name}</div>
             </div>
             <div className={styles.applications}>
-              {getSelectedApplications().map((app) => {
+              {getSelectedApplicationsWithoutFiles().map((app) => {
                 return (
                   <img key={app.id} className={styles.icon} src={app.icon} />
                 );
@@ -120,10 +137,11 @@ export default function SnapshotPreview(props: Props) {
               {getSelectedBrowsers().map((browser) => {
                 return <BrowserPreview key={browser.id} browser={browser} />;
               })}
-            </div>
-            <div className={styles.applicationsWithMoreContext}>
               {getSelectedIDEs().map((ide) => {
                 return <IDEPreview key={ide.id} ide={ide} />;
+              })}
+              {getSelectedApplicationsWithFiles().map((app) => {
+                return <ApplicationPreview key={app.id} app={app} />;
               })}
             </div>
           </div>
