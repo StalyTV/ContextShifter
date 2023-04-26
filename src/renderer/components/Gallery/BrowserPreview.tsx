@@ -12,6 +12,11 @@ type Props = {
 };
 
 export default function BrowserPreview(props: Props) {
+  const getActiveTabs = () => {
+    return props.browser.browserTabs.filter(
+      (tab) => tab.isSelected && tab.isActive
+    );
+  };
   const getSelectedTabs = () => {
     return props.browser.browserTabs.filter((tab) => tab.isSelected);
   };
@@ -19,11 +24,23 @@ export default function BrowserPreview(props: Props) {
   return (
     <div className={styles.previewContainer}>
       <img className={styles.browserIcon} src={props.browser.icon} />
-      {getSelectedTabs().map((tab) => {
-        return (
-          <img key={tab.id} className={styles.tabIcon} src={tab.favIconUrl} />
-        );
-      })}
+      <div>
+        {getActiveTabs().map((tab) => {
+          return (
+            <div key={tab.id} className={styles.activeTab}>
+              <img className={styles.tabIcon} src={tab.favIconUrl} />
+              <span>{tab.title}</span>
+            </div>
+          );
+        })}
+      </div>
+      <div className={styles.otherTabs}>
+        {getSelectedTabs().map((tab) => {
+          return (
+            <img key={tab.id} className={styles.tabIcon} src={tab.favIconUrl} />
+          );
+        })}
+      </div>
     </div>
   );
 }

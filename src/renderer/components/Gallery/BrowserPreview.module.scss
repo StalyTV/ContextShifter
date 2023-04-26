@@ -14,5 +14,19 @@
     height: 1rem;
     margin: 0.1rem;
   }
+
+  .activeTab {
+    display: flex;
+    align-items: center;
+    font-size: x-small;
+    max-width: 10rem;
+    margin-right: 0.8rem;
+
+    span {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+  }
 }
 
