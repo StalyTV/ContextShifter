@@ -23,11 +23,16 @@ export default class BrowserTracker {
   private _port = 8083;
   private _server: WebSocket.Server;
   private _lastUsedSocket: WebSocket | undefined;
+  private _connectionListeners: Array<() => void> = [];
 
   constructor() {
     info(`[BrowserTracker] listening on port ${this._port}`);
     this._server = new WebSocket.Server({ port: this._port });
     this.initEventListeners();
+  }
+
+  public subscribeToConnection(fn: () => void) {
+    this._connectionListeners.push(fn);
   }
 
   private initEventListeners() {
@@ -50,6 +55,7 @@ export default class BrowserTracker {
 
       socket.on('message', function (msg: string) {
         self._lastUsedSocket = socket;
+        self.notifyConnectionListeners();
         const obj = JSON.parse(msg) as {
           endpoint: ServerEndpoints;
           data: unknown;
@@ -147,5 +153,16 @@ export default class BrowserTracker {
         client.send(JSON.stringify({ endpoint: 'close-tabs', data }));
       }
     });
+  }
+
+  public isSocketOpen(): boolean {
+    return this._lastUsedSocket?.readyState === WebSocket.OPEN;
+  }
+
+  private notifyConnectionListeners() {
+    for (const fn of this._connectionListeners) {
+      fn();
+    }
+    this._connectionListeners = [];
   }
 }
