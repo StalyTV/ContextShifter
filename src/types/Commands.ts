@@ -6,6 +6,8 @@
 
 import Snapshot from 'main/entity/Snapshot';
 import Artifact from './Artifact';
+import Browser from '../main/entity/Browser';
+import BrowserTab from '../main/entity/BrowserTab';
 
 type Commands = {
   'get-snapshot-by-id': (id: number) => Snapshot | null;
@@ -30,6 +32,7 @@ type Commands = {
   // snapshot gallery
   'open-snapshot': (snapshotId: number) => void;
   'apply-snapshot': (snapshotId: number) => void;
+  'open-browser-tab': (browser: Browser, tab: BrowserTab) => void;
 };
 
 export default Commands;

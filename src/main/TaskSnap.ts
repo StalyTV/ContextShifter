@@ -109,27 +109,13 @@ export default class TaskSnap {
     for (const browser of snapshot.browsers) {
       if (!browser.isSelected) continue;
 
-      // open browser
-      const artifact: Artifact = {
-        artifact: browser.path,
-      };
-      openArtifact(artifact);
-
       const urlsToOpen: string[] = [];
       browser.browserTabs.forEach((tab) => {
         if (tab.isSelected) {
           urlsToOpen.push(tab.url);
         }
       });
-
-      // if websocket is not open, wait until browser is ready (sends any kind of message)
-      if (this._browserTracker.isSocketOpen()) {
-        this._browserTracker.sendTabOpeningRequest(urlsToOpen, snapshot.name);
-      } else {
-        this._browserTracker.subscribeToConnection(() => {
-          this._browserTracker.sendTabOpeningRequest(urlsToOpen, snapshot.name);
-        });
-      }
+      this.openBrowserTabs(browser, urlsToOpen, snapshot.name);
     }
 
     for (const ide of snapshot.ides) {
@@ -163,6 +149,27 @@ export default class TaskSnap {
         };
         openArtifact(artifact);
       }
+    }
+  }
+
+  public openBrowserTabs(
+    browser: Browser,
+    urlsToOpen: string[],
+    label?: string
+  ): void {
+    // open browser
+    const artifact: Artifact = {
+      artifact: browser.path,
+    };
+    openArtifact(artifact);
+
+    // if websocket is not open, wait until browser is ready (sends any kind of message)
+    if (this._browserTracker.isSocketOpen()) {
+      this._browserTracker.sendTabOpeningRequest(urlsToOpen, label);
+    } else {
+      this._browserTracker.subscribeToConnection(() => {
+        this._browserTracker.sendTabOpeningRequest(urlsToOpen, label);
+      });
     }
   }
 

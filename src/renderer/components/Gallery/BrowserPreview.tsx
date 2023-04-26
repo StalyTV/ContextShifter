@@ -23,7 +23,12 @@ export default function BrowserPreview(props: Props) {
       <img className={styles.browserIcon} src={props.browser.icon} />
       <div className={styles.tabs}>
         {getSelectedTabs().map((tab) => (
-          <BrowserTabPreview key={tab.id} tab={tab} isExpanded={props.isExpanded} />
+          <BrowserTabPreview
+            key={tab.id}
+            browser={props.browser}
+            tab={tab}
+            isExpanded={props.isExpanded}
+          />
         ))}
       </div>
     </div>

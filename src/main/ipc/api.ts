@@ -98,3 +98,7 @@ typedIpcMain.handle('apply-snapshot', async (e, snapshotId) => {
     await TaskSnap.getInstance().applySnapshot(snapshot);
   }
 });
+
+typedIpcMain.handle('open-browser-tab', async (e, browser, browserTab) => {
+  TaskSnap.getInstance().openBrowserTabs(browser, [browserTab.url]);
+});

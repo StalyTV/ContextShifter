@@ -5,16 +5,24 @@
  */
 
 import styles from './BrowserTabPreview.module.scss';
+import BrowserEntity from '../../../main/entity/Browser';
 import BrowserTabEntity from '../../../main/entity/BrowserTab';
 
 type Props = {
+  browser: BrowserEntity;
   tab: BrowserTabEntity;
   isExpanded: boolean;
 };
 
 export default function BrowserTabPreview(props: Props) {
+  const onClickTab = async (e: React.MouseEvent) => {
+    // makes sure Preview is not expanded
+    e.stopPropagation();
+    await window.electron.ipcRenderer.invoke('open-browser-tab', props.browser, props.tab);
+  };
+
   return (
-    <div className={styles.container}>
+    <div className={styles.container} onClick={onClickTab}>
       <img className={styles.tabIcon} src={props.tab.favIconUrl} />
       {props.isExpanded || props.tab.isActive || !props.tab.favIconUrl ? (
         <span>{props.tab.title}</span>
