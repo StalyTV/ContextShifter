@@ -1,7 +1,8 @@
 .previewContainer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  border: solid var(--bg-color-1) 1px;
+  border: solid var(--border-color) 1px;
   border-radius: var(--border-radius);
   padding: 0.2rem 0.4rem 0.2rem 0.2rem;
   font-size: small;
@@ -9,5 +10,12 @@
   .ideIcon {
     height: 1.7rem;
     margin-right: 0.5rem;
+  }
+
+  .file {
+    background-color: var(--bg-color-4);
+    border-radius: var(--border-radius);
+    padding: 0.2rem;
+    margin-right: 0.3rem;
   }
 }

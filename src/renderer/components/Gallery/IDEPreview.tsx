@@ -9,18 +9,29 @@ import IDEEntity from '../../../main/entity/IDE';
 
 type Props = {
   ide: IDEEntity;
+  isExpanded: boolean;
 };
 
 export default function IDEPreview(props: Props) {
-  const getActiveFiles = () => {
-    return props.ide.ideFiles.filter((file) => file.isActive);
+  const getFiles = () => {
+    if (props.isExpanded) {
+      return props.ide.ideFiles.filter((file) => file.isSelected);
+    } else {
+      return props.ide.ideFiles.filter(
+        (file) => file.isSelected && file.isActive
+      );
+    }
   };
 
   return (
     <div className={styles.previewContainer}>
       <img className={styles.ideIcon} src={props.ide.icon} />
-      {getActiveFiles().map((file) => {
-        return <div key={file.id}>{file.name}</div>;
+      {getFiles().map((file) => {
+        return (
+          <div key={file.id} className={styles.file}>
+            {file.name}
+          </div>
+        );
       })}
     </div>
   );

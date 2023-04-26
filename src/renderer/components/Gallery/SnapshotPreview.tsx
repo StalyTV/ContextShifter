@@ -137,11 +137,13 @@ export default function SnapshotPreview(props: Props) {
               {getSelectedBrowsers().map((browser) => {
                 return <BrowserPreview key={browser.id} browser={browser} />;
               })}
-              {getSelectedIDEs().map((ide) => {
-                return <IDEPreview key={ide.id} ide={ide} />;
-              })}
               {getSelectedApplicationsWithFiles().map((app) => {
                 return <ApplicationPreview key={app.id} app={app} />;
+              })}
+              {getSelectedIDEs().map((ide) => {
+                return (
+                  <IDEPreview key={ide.id} ide={ide} isExpanded={isExpanded} />
+                );
               })}
             </div>
           </div>

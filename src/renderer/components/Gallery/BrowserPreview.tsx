@@ -17,8 +17,10 @@ export default function BrowserPreview(props: Props) {
       (tab) => tab.isSelected && tab.isActive
     );
   };
-  const getSelectedTabs = () => {
-    return props.browser.browserTabs.filter((tab) => tab.isSelected);
+  const getOtherTabs = () => {
+    return props.browser.browserTabs.filter(
+      (tab) => tab.isSelected && !tab.isActive
+    );
   };
 
   return (
@@ -35,7 +37,7 @@ export default function BrowserPreview(props: Props) {
         })}
       </div>
       <div className={styles.otherTabs}>
-        {getSelectedTabs().map((tab) => {
+        {getOtherTabs().map((tab) => {
           return (
             <img key={tab.id} className={styles.tabIcon} src={tab.favIconUrl} />
           );
