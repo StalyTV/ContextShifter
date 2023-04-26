@@ -6,6 +6,7 @@
 
 type Events = {
   "snapshot-selected": (id: number) => void;
+  "snapshots-updated": () => void;
 };
 
 export default Events;

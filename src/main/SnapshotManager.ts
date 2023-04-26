@@ -96,6 +96,9 @@ export default class SnapshotManager {
 
       await snapshotInDb.save();
       info(`[SnapshotManager] Updated snapshot "${snapshotInDb.name}"`);
+
+      // update snapshot gallery window
+      this.updateSnapshotGalleryWindow();
     }
   }
 
@@ -133,7 +136,7 @@ export default class SnapshotManager {
     const snapshotInDb = await Snapshot.findOneBy({ id: snapshotId });
     if (snapshotInDb) {
       snapshotInDb.remove();
-      info`[SnapshotManager] Deleted snapshot "${snapshotInDb.name}"`
+      info`[SnapshotManager] Deleted snapshot "${snapshotInDb.name}"`;
     }
   }
 
@@ -166,6 +169,14 @@ export default class SnapshotManager {
     if (this._postponeTimeoutRef) {
       clearTimeout(this._postponeTimeoutRef);
       this._postponeTimeoutRef = undefined;
+    }
+  }
+
+  public updateSnapshotGalleryWindow(): void {
+    if (WindowManager.snapshotGalleryWindow) {
+      const destination = WindowManager.snapshotGalleryWindow
+        .webContents as TypedWebContents<Events>;
+      destination?.send('snapshots-updated');
     }
   }
 }

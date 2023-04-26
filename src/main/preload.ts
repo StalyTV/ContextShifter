@@ -10,6 +10,10 @@ const electronHandler = {
   ) => typedIpcRenderer.on('snapshot-selected', callback),
   removeOnSnapshotSelected: () =>
     typedIpcRenderer.removeAllListeners('snapshot-selected'),
+  onSnapshotsUpdated: (callback: (event: IpcRendererEvent) => void) =>
+    typedIpcRenderer.on('snapshots-updated', callback),
+  removeOnSnapshotsUpdated: () =>
+    typedIpcRenderer.removeAllListeners('snapshots-updated'),
 };
 
 contextBridge.exposeInMainWorld('electron', electronHandler);

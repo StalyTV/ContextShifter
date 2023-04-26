@@ -94,6 +94,9 @@ export default class TaskSnap {
     this._vscodeTracker.sendGetVSCodeSnapshotRequest();
 
     WindowManager.createInstantCurationWindow();
+
+    // update snapshot gallery window
+    this._snapshotManager.updateSnapshotGalleryWindow();
   }
 
   public async applyLatestSnapshot() {

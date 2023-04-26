@@ -15,6 +15,14 @@ export default function SnapshotGallery() {
     new Map()
   );
 
+  const registerEventListeners = () => {
+    window.electron.onSnapshotsUpdated(fetchSnapshots);
+  };
+
+  const unRegisterEventListeners = () => {
+    window.electron.removeOnSnapshotsUpdated();
+  };
+
   const fetchSnapshots = async () => {
     const snapshots = await window.electron.ipcRenderer.invoke(
       'get-latest-n-snapshots',
@@ -55,6 +63,11 @@ export default function SnapshotGallery() {
 
   useEffect(() => {
     fetchSnapshots();
+    registerEventListeners();
+
+    return () => {
+      unRegisterEventListeners();
+    };
   }, []);
 
   return (
