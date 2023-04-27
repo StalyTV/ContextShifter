@@ -6,6 +6,9 @@
 
 import styles from './IDEPreview.module.scss';
 import IDEEntity from '../../../main/entity/IDE';
+import ReactDOMServer from 'react-dom/server';
+import BranchIcon from '../Icons/BranchIcon';
+import CommitIcon from '../Icons/CommitIcon';
 
 type Props = {
   ide: IDEEntity;
@@ -23,8 +26,25 @@ export default function IDEPreview(props: Props) {
     }
   };
 
+  const tooltip = (
+    <>
+      <div className={`${styles.gitInfo} ${styles.first}`}>
+        <BranchIcon className={styles.gitIcon} />
+        <span>{props.ide.branch}</span>
+      </div>
+      <div className={styles.gitInfo}>
+        <CommitIcon className={styles.gitIcon} />
+        <span>{props.ide.lastCommitMessage}</span>
+      </div>
+    </>
+  );
+
   return (
-    <div className={styles.previewContainer}>
+    <div
+      className={styles.previewContainer}
+      data-tooltip-id={'task-snap'}
+      data-tooltip-html={ReactDOMServer.renderToStaticMarkup(tooltip)}
+    >
       <img className={styles.ideIcon} src={props.ide.icon} />
       {getFiles().map((file) => {
         return (
