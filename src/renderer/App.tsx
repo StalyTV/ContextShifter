@@ -4,6 +4,7 @@ import Toast from './components/Toast/Toast';
 import Snapshot from './pages/Snapshot';
 import InstantCuration from './pages/InstantCuration';
 import SnapshotGallery from './pages/SnapshotGallery';
+import TaskSnapTooltip from './components/Tooltip/TaskSnapTooltip';
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
         </Routes>
       </HashRouter>
       <Toast />
+      <TaskSnapTooltip />
     </>
   );
 }

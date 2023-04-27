@@ -18,11 +18,20 @@ export default function BrowserTabPreview(props: Props) {
   const onClickTab = async (e: React.MouseEvent) => {
     // makes sure Preview is not expanded
     e.stopPropagation();
-    await window.electron.ipcRenderer.invoke('open-browser-tab', props.browser, props.tab);
+    await window.electron.ipcRenderer.invoke(
+      'open-browser-tab',
+      props.browser,
+      props.tab
+    );
   };
 
   return (
-    <div className={styles.container} onClick={onClickTab}>
+    <div
+      className={styles.container}
+      onClick={onClickTab}
+      data-tooltip-id={'task-snap'}
+      data-tooltip-content={`${props.tab.title}`}
+    >
       <img className={styles.tabIcon} src={props.tab.favIconUrl} />
       {props.isExpanded || props.tab.isActive || !props.tab.favIconUrl ? (
         <span>{props.tab.title}</span>
