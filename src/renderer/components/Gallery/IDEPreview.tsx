@@ -9,6 +9,7 @@ import IDEEntity from '../../../main/entity/IDE';
 import ReactDOMServer from 'react-dom/server';
 import GitInfo from '../GitInfo';
 import IDEFileEntity from '../../../main/entity/IDEFile';
+import Artifact from 'types/Artifact';
 
 type Props = {
   ide: IDEEntity;
@@ -24,6 +25,18 @@ export default function IDEPreview(props: Props) {
         (file) => file.isSelected && file.isActive
       );
     }
+  };
+
+  const onClickApplicationIcon = async (e: React.MouseEvent) => {
+    // makes sure Preview is not expanded
+    e.stopPropagation();
+
+    const artifact: Artifact = {
+      artifact: props.ide.workspacePath
+        ? props.ide.workspacePath
+        : props.ide.path,
+    };
+    await window.electron.ipcRenderer.invoke('open-artifact', artifact);
   };
 
   const onClickFile = async (e: React.MouseEvent, file: IDEFileEntity) => {
@@ -56,6 +69,7 @@ export default function IDEPreview(props: Props) {
         src={props.ide.icon}
         data-tooltip-id={'task-snap'}
         data-tooltip-content={props.ide.title}
+        onClick={onClickApplicationIcon}
       />
       {getFiles().map((file) => {
         return (

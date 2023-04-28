@@ -7,15 +7,16 @@
   font-size: x-small;
 
   .ideIcon {
+    cursor: pointer;
     height: 1.7rem;
     margin-right: 0.5rem;
   }
 
   .file {
+    cursor: pointer;
     background-color: var(--bg-color-4);
     border-radius: var(--border-radius);
     padding: 0.2rem;
     margin: 0.1rem;
-    cursor: pointer;
   }
 }

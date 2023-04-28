@@ -13,6 +13,16 @@ type Props = {
 };
 
 export default function ApplicationPreview(props: Props) {
+  const onClickApplicationIcon = async (e: React.MouseEvent) => {
+    // makes sure Preview is not expanded
+    e.stopPropagation();
+
+    const artifact: Artifact = {
+      artifact: props.app.path,
+    };
+    await window.electron.ipcRenderer.invoke('open-artifact', artifact);
+  };
+
   const onClickFile = async (e: React.MouseEvent, path: string) => {
     // makes sure Preview is not expanded
     e.stopPropagation();
@@ -31,6 +41,7 @@ export default function ApplicationPreview(props: Props) {
         src={props.app.icon}
         data-tooltip-id={'task-snap'}
         data-tooltip-content={props.app.title}
+        onClick={onClickApplicationIcon}
       />
       {props.app.files.map((file) => {
         return (
