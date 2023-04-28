@@ -19,7 +19,9 @@ export default class TrayManager {
   public static async init(taskSnap: TaskSnap) {
     this._taskSnapInstance = taskSnap;
     const platform = isMac ? 'mac' : 'windows';
-    const iconPath = getAssetPath(`trayIcons/${platform}/CameraIcon.png`);
+    const iconPath = getAssetPath(
+      `trayIcons/${platform}/CameraIcon${isMac ? 'Template' : ''}.png`
+    );
     this._tray = new Tray(iconPath);
 
     const menu = Menu.buildFromTemplate([
