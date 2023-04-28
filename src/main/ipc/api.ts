@@ -102,3 +102,7 @@ typedIpcMain.handle('apply-snapshot', async (e, snapshotId) => {
 typedIpcMain.handle('open-browser-tab', async (e, browser, browserTab) => {
   TaskSnap.getInstance().openBrowserTabs(browser, [browserTab.url]);
 });
+
+typedIpcMain.handle('open-ide-file', async (e, ide, file) => {
+  TaskSnap.getInstance().openIDEFiles(ide, [file.path]);
+});

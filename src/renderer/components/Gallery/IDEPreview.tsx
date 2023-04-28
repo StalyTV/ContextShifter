@@ -8,6 +8,7 @@ import styles from './IDEPreview.module.scss';
 import IDEEntity from '../../../main/entity/IDE';
 import ReactDOMServer from 'react-dom/server';
 import GitInfo from '../GitInfo';
+import IDEFileEntity from '../../../main/entity/IDEFile';
 
 type Props = {
   ide: IDEEntity;
@@ -23,6 +24,12 @@ export default function IDEPreview(props: Props) {
         (file) => file.isSelected && file.isActive
       );
     }
+  };
+
+  const onClickFile = async (e: React.MouseEvent, file: IDEFileEntity) => {
+    // makes sure Preview is not expanded
+    e.stopPropagation();
+    await window.electron.ipcRenderer.invoke('open-ide-file', props.ide, file);
   };
 
   const tooltip =
@@ -47,7 +54,11 @@ export default function IDEPreview(props: Props) {
       <img className={styles.ideIcon} src={props.ide.icon} />
       {getFiles().map((file) => {
         return (
-          <div key={file.id} className={styles.file}>
+          <div
+            key={file.id}
+            className={styles.file}
+            onClick={(e) => onClickFile(e, file)}
+          >
             {file.name}
           </div>
         );
