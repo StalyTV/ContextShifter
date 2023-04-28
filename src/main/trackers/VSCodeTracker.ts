@@ -83,6 +83,12 @@ export default class VSCodeTracker {
     if (data.lastCommitMessage) {
       ide.lastCommitMessage = data.lastCommitMessage;
     }
+    if (data.workspaceName) {
+      ide.workspaceName = data.workspaceName;
+    }
+    if (data.workspacePath) {
+      ide.workspacePath = data.workspacePath;
+    }
     ide.save();
 
     for await (const openFile of data.openFiles) {

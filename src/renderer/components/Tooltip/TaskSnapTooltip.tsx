@@ -10,6 +10,11 @@ import { Tooltip } from 'react-tooltip';
 
 export default function TaskSnapTooltip() {
   return (
-    <Tooltip className={styles.tooltip} id={'task-snap'} delayShow={200} />
+    <Tooltip
+      className={styles.tooltip}
+      id={'task-snap'}
+      delayShow={200}
+      noArrow={true}
+    />
   );
 }

@@ -7,10 +7,12 @@
 import styles from './GitInfo.module.scss';
 import BranchIcon from './Icons/BranchIcon';
 import CommitIcon from './Icons/CommitIcon';
+import WorkspaceIcon from './Icons/WorkspaceIcon';
 
 type Props = {
   branch: string;
   lastCommitMessage: string;
+  workspaceName: string;
 };
 
 export default function GitInfo(props: Props) {
@@ -26,6 +28,12 @@ export default function GitInfo(props: Props) {
         <div className={styles.item}>
           <CommitIcon className={styles.icon} />
           <span>{props.lastCommitMessage}</span>
+        </div>
+      ) : null}
+      {props.workspaceName ? (
+        <div className={styles.item}>
+          <WorkspaceIcon className={styles.icon} />
+          <span>{props.workspaceName}</span>
         </div>
       ) : null}
     </div>

@@ -9,7 +9,7 @@ import IDEEntity from '../../main/entity/IDE';
 import IDEFileEntity from '../../main/entity/IDEFile';
 import IDEFile from './IDEFile';
 import GitInfo from './GitInfo';
-import { useState } from 'react';
+import ReactDOMServer from 'react-dom/server';
 
 type Props = {
   ide: IDEEntity;
@@ -17,8 +17,6 @@ type Props = {
 };
 
 export default function IDE(props: Props) {
-  const [isHovering, setIsHovering] = useState<boolean>(false);
-
   const toggleSelect = () => {
     const updatedIDE = props.ide;
     updatedIDE.isSelected = !props.ide.isSelected;
@@ -48,28 +46,31 @@ export default function IDE(props: Props) {
     }
   };
 
+  const tooltip =
+    props.ide.branch ||
+    props.ide.lastCommitMessage ||
+    props.ide.workspaceName ? (
+      <GitInfo
+        branch={props.ide.branch}
+        lastCommitMessage={props.ide.lastCommitMessage}
+        workspaceName={props.ide.workspaceName}
+      />
+    ) : (
+      <></>
+    );
+
   return (
     <div
       className={`${styles.ide} ${
         props.ide.isSelected ? styles.isSelected : undefined
       }`}
       onClick={() => toggleSelect()}
-      onMouseEnter={() => {
-        setIsHovering(true);
-      }}
-      onMouseLeave={() => {
-        setIsHovering(false);
-      }}
+      data-tooltip-id={'task-snap'}
+      data-tooltip-html={ReactDOMServer.renderToStaticMarkup(tooltip)}
     >
       <div className={styles.info}>
         <img className={styles.icon} src={props.ide.icon} />
         <span>{props.ide.title}</span>
-        {isHovering ? (
-          <GitInfo
-            branch={props.ide.branch}
-            lastCommitMessage={props.ide.lastCommitMessage}
-          />
-        ) : null}
       </div>
 
       <div className={styles.fileContainer}>

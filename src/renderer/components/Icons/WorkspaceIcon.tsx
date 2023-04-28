@@ -1,0 +1,29 @@
+/* Copyright Human Aspects of Software Engineering Lab (HASEL), Department of Informatics, University of Zurich - All Rights Reserved
+ * Unauthorized copying of this file, via any medium is strictly prohibited
+ * Proprietary and confidential
+ * Written by Remy Egloff <remy.egloff@uzh.ch>, April 2023
+ */
+
+import React from 'react';
+
+interface Props extends React.ComponentPropsWithoutRef<'svg'> {
+  onClick?: (
+    e: React.MouseEvent<SVGSVGElement, MouseEvent>
+  ) => void | Promise<void>;
+}
+
+export default function WorkspaceIcon(props: Props) {
+  return (
+    <svg
+      {...props}
+      onClick={props.onClick}
+      id="workspaceIcon"
+      xmlns="http://www.w3.org/2000/svg"
+      x="0px"
+      y="0px"
+      viewBox="0 0 24 24"
+    >
+      <path d="M17.5002 0H8.50024L7.00024 1.5V6H2.50024L1.00024 7.5V22.5699L2.50024 24H14.5702L16.0002 22.5699V18H20.7002L22.0002 16.5699V4.5L17.5002 0ZM17.5002 2.12L19.8802 4.5H17.5002V2.12ZM14.5002 22.5H2.50024V7.5H7.00024V16.5699L8.50024 18H14.5002V22.5ZM20.5002 16.5H8.50024V1.5H16.0002V6H20.5002V16.5Z" />
+    </svg>
+  );
+}

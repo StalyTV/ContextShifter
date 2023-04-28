@@ -10,6 +10,8 @@ export type VSCodeSnapshot = {
   lastCommitMessage: string | undefined;
   toDos: VSCodeTODO[];
   lastEditedFunction: EditedFunction | undefined;
+  workspaceName: string | undefined;
+  workspacePath: string | undefined;
 };
 
 export type OpenVSCodeFile = {

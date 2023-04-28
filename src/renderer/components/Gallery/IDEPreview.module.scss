@@ -18,17 +18,3 @@
     margin: 0.1rem;
   }
 }
-
-.gitInfo {
-  display: flex;
-  align-items: center;
-
-  .gitIcon {
-    height: 1rem;
-    margin-right: 0.2rem;
-  }
-}
-
-.gitInfo.first {
-  margin-bottom: 0.5rem;
-}
