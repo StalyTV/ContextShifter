@@ -51,7 +51,12 @@ export default function IDEPreview(props: Props) {
       data-tooltip-id={'task-snap'}
       data-tooltip-html={ReactDOMServer.renderToStaticMarkup(tooltip)}
     >
-      <img className={styles.ideIcon} src={props.ide.icon} />
+      <img
+        className={styles.ideIcon}
+        src={props.ide.icon}
+        data-tooltip-id={'task-snap'}
+        data-tooltip-content={props.ide.title}
+      />
       {getFiles().map((file) => {
         return (
           <div

@@ -143,7 +143,7 @@ export default function SnapshotPreview(props: Props) {
                     src={app.icon}
                     onClick={(e) => onClickApplication(e, app.path)}
                     data-tooltip-id={'task-snap'}
-                    data-tooltip-content={`${app.title}`}
+                    data-tooltip-content={app.title}
                   />
                 );
               })}

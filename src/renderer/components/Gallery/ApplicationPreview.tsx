@@ -26,10 +26,19 @@ export default function ApplicationPreview(props: Props) {
 
   return (
     <div className={styles.previewContainer}>
-      <img className={styles.appIcon} src={props.app.icon} />
+      <img
+        className={styles.appIcon}
+        src={props.app.icon}
+        data-tooltip-id={'task-snap'}
+        data-tooltip-content={props.app.title}
+      />
       {props.app.files.map((file) => {
         return (
-          <div key={file.id} className={styles.file} onClick={(e) => onClickFile(e, file.path)}>
+          <div
+            key={file.id}
+            className={styles.file}
+            onClick={(e) => onClickFile(e, file.path)}
+          >
             {file.name}
           </div>
         );

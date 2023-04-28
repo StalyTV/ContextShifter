@@ -20,7 +20,12 @@ export default function BrowserPreview(props: Props) {
 
   return (
     <div className={styles.previewContainer}>
-      <img className={styles.browserIcon} src={props.browser.icon} />
+      <img
+        className={styles.browserIcon}
+        src={props.browser.icon}
+        data-tooltip-id={'task-snap'}
+        data-tooltip-content={props.browser.title}
+      />
       <div className={styles.tabs}>
         {getSelectedTabs().map((tab) => (
           <BrowserTabPreview
