@@ -147,8 +147,8 @@
     "webpack-merge": "^5.8.0"
   },
   "build": {
-    "productName": "ElectronReact",
-    "appId": "org.erb.ElectronReact",
+    "productName": "TaskSnap",
+    "appId": "ch.ifi.hasel.TaskSnap",
     "asar": true,
     "asarUnpack": "**\\*.{node,dll}",
     "files": [
