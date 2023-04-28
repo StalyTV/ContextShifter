@@ -26,7 +26,9 @@ import { CloseTabClientRequest } from 'context-browser-extension-types';
 import Browser from './entity/Browser';
 import VSCodeTracker from './trackers/VSCodeTracker';
 import AppConfig from './AppConfig';
+import getAssetPath from './helpers/getAssetPath';
 const fileIcon = require('extract-file-icon');
+const sound = require('sound-play');
 
 /**
  * Main class of the application
@@ -38,6 +40,7 @@ export default class TaskSnap {
   private _fileSystemWatcher: FileSystemWatcher;
   private _vscodeTracker: VSCodeTracker;
   private _snapshotManager: SnapshotManager;
+  private _cameraShutterSoundPath = getAssetPath(`sounds/cameraShutter.mp3`);
 
   private constructor() {
     this._windowTracker = new WindowTracker();
@@ -68,6 +71,7 @@ export default class TaskSnap {
 
   public async createNewSnapshot() {
     info('[TaskSnap] New snapshot created');
+    sound.play(this._cameraShutterSoundPath);
 
     const res = await this.getCurrentlyOpenApplications();
     const openBrowsers = res[0];
