@@ -130,7 +130,7 @@ export default class TaskSnap {
           filesToOpen.push(file.path);
         }
       });
-      this._vscodeTracker.sendOpenFilesRequest(filesToOpen);
+      this.openIDEFiles(ide, filesToOpen);
     }
 
     for (const app of snapshot.applications) {
@@ -172,6 +172,23 @@ export default class TaskSnap {
     } else {
       this._browserTracker.subscribeToConnection(() => {
         this._browserTracker.sendTabOpeningRequest(urlsToOpen, label);
+      });
+    }
+  }
+
+  public openIDEFiles(ide: IDE, filePaths: string[]) {
+    // open ide. If workspace is defined, open workspace
+    const artifact: Artifact = {
+      artifact: ide.workspacePath ? ide.workspacePath : ide.path,
+    };
+    openArtifact(artifact);
+
+    // if websocket is not open, wait until ide is ready (sends any kind of message)
+    if (this._vscodeTracker.isSocketOpen()) {
+      this._vscodeTracker.sendOpenFilesRequest(filePaths);
+    } else {
+      this._vscodeTracker.subscribeToConnection(() => {
+        this._vscodeTracker.sendOpenFilesRequest(filePaths);
       });
     }
   }

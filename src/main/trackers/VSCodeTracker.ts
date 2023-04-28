@@ -15,11 +15,16 @@ export default class VSCodeTracker {
   private _port = 8084;
   private _server: WebSocket.Server;
   private _lastUsedSocket: WebSocket | undefined;
+  private _connectionListeners: Array<() => void> = [];
 
   constructor() {
     info(`[VSCodeTracker] listening on port ${this._port}`);
     this._server = new WebSocket.Server({ port: this._port });
     this.initEventListeners();
+  }
+
+  public subscribeToConnection(fn: () => void) {
+    this._connectionListeners.push(fn);
   }
 
   private initEventListeners(): void {
@@ -38,6 +43,7 @@ export default class VSCodeTracker {
 
       socket.on('message', (msg: string) => {
         self._lastUsedSocket = socket;
+        self.notifyConnectionListeners();
         debug('[VSCodeTracker] Received: %s', msg);
         const obj = JSON.parse(msg) as {
           endpoint: string;
@@ -120,5 +126,16 @@ export default class VSCodeTracker {
     latestSnapshot.intent = intent;
 
     latestSnapshot.save();
+  }
+
+  public isSocketOpen(): boolean {
+    return this._lastUsedSocket?.readyState === WebSocket.OPEN;
+  }
+
+  private notifyConnectionListeners() {
+    for (const fn of this._connectionListeners) {
+      fn();
+    }
+    this._connectionListeners = [];
   }
 }
