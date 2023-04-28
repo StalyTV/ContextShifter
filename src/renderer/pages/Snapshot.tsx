@@ -26,6 +26,7 @@ export default function Snapshot() {
   const [selectedSnapshot, setSelectedSnapshot] =
     useState<SnapshotEntity | null>(null);
   const [snapshotName, setSnapshotName] = useState<string>('');
+  const [editTimestamp, setEditTimestamp] = useState<string>('');
   const [summary, setSummary] = useState<string>('');
   const [intent, setIntent] = useState<string>('');
   const [browserMap, setBrowserMap] = useState<Map<number, BrowserEntity>>(
@@ -53,6 +54,7 @@ export default function Snapshot() {
 
     setSelectedSnapshot(snapshot);
     setSnapshotName(snapshot.name);
+    setEditTimestamp(snapshot.edited);
     setSummary(snapshot.summary || '');
     setIntent(snapshot.intent || '');
 
@@ -78,18 +80,18 @@ export default function Snapshot() {
     if (!selectedSnapshot) return;
 
     const updatedSnapshot = reapplyChanges(selectedSnapshot);
-    toast.promise(
-      async () =>
-        await window.electron.ipcRenderer.invoke(
-          'save-snapshot',
-          updatedSnapshot
-        ),
-      {
-        pending: 'Saving Snapshot...',
-        success: 'Saved Snapshot',
-        error: 'Something went wrong',
-      }
-    );
+    toast.promise(async () => sendSaveRequest(updatedSnapshot), {
+      pending: 'Saving Snapshot...',
+      success: 'Saved Snapshot',
+      error: 'Something went wrong',
+    });
+  };
+
+  const sendSaveRequest = async (updatedSnapshot: SnapshotEntity) => {
+    await window.electron.ipcRenderer.invoke('save-snapshot', updatedSnapshot);
+
+    // this avoids refetching the whole db entry just to get the updated timestamp
+    setEditTimestamp(new Date().toISOString());
   };
 
   const onClickSaveAndClose = async () => {
@@ -177,7 +179,7 @@ export default function Snapshot() {
             <SnapshotHeader
               snapshotName={snapshotName}
               createTimestamp={selectedSnapshot.created}
-              editTimestamp={selectedSnapshot.edited}
+              editTimestamp={editTimestamp}
               onNameChange={onNameChange}
             />
           </div>

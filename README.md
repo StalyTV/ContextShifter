@@ -12,3 +12,8 @@ node -v
 npm i
 npm run start
 ```
+
+## Build locally
+```
+npm run package
+```
