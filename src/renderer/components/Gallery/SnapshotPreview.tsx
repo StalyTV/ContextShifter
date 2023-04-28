@@ -205,7 +205,7 @@ export default function SnapshotPreview(props: Props) {
             isFilled={true}
             onClick={() => onClickRestore()}
           >
-            {'Restore'}
+            <span>Restore&nbsp;</span>
             <ArrowRightIcon />
           </Button>
         </div>

@@ -20,6 +20,7 @@ import NavBar from '../components/Navigation/NavBar';
 import SnapshotHeader from 'renderer/components/SnapshotHeader';
 import PostponeButton from 'renderer/components/PostponeButton';
 import LoadingAnimation from 'renderer/components/LoadingAnimation';
+import SaveIcon from 'renderer/components/Icons/SaveIcon';
 
 export default function Snapshot() {
   const [selectedSnapshot, setSelectedSnapshot] =
@@ -229,10 +230,12 @@ export default function Snapshot() {
               onSelect={postponeSnapshot}
             />
             <Button isFilled={false} onClick={() => onClickSaveAndClose()}>
-              Save & Close Applications
+              <>
+                <SaveIcon /> <span>&nbsp;& Close Applications</span>
+              </>
             </Button>
             <Button isFilled={true} onClick={() => onClickSave()}>
-              Save
+              <SaveIcon />
             </Button>
           </div>
         </>
