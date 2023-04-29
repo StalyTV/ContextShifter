@@ -1,0 +1,17 @@
+.settingsContainer {
+  position: absolute;
+  right: 1rem;
+  top: 3rem;
+  width: 20rem;
+  height: 30rem;
+  padding: 1rem;
+  background-color: var(--overlay-color);
+  border-radius: var(--border-radius);
+  box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
+
+  h3 {
+    margin-top: 0;
+    font-weight: 300;
+  }
+}
+
