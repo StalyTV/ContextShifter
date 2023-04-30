@@ -44,11 +44,11 @@ export default class VSCodeTracker {
       socket.on('message', (msg: string) => {
         self._lastUsedSocket = socket;
         self.notifyConnectionListeners();
-        debug('[VSCodeTracker] Received: %s', msg);
         const obj = JSON.parse(msg) as {
           endpoint: string;
           data: unknown;
         };
+        debug('[VSCodeTracker] Received: %s', obj);
 
         if (obj.endpoint === 'get-vscode-snapshot') {
           const vscodeSnapshot = obj.data as VSCodeSnapshot;

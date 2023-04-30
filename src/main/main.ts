@@ -9,7 +9,8 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import './ipc/api';
-import { app, globalShortcut } from 'electron';
+import { app, globalShortcut, powerMonitor } from 'electron';
+import { info } from 'electron-log';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import TaskSnap from './TaskSnap';
@@ -17,6 +18,7 @@ import { Database } from './database';
 import Log from './entity/Log';
 import WindowManager from './WindowManager';
 import AppConfig from './AppConfig';
+import UsageData from './entity/UsageData';
 
 class AppUpdater {
   constructor() {
@@ -85,7 +87,9 @@ app
     // load config file
     await AppConfig.loadConfig();
   })
-  .then(() => {
+  .then(async () => {
+    await UsageData.addEntry('start', true, `version ${app.getVersion()}`);
+
     Database.manager.save(Log, {
       key: 'lastStart',
       value: new Date().toISOString(),
@@ -103,4 +107,15 @@ app.on('before-quit', async (e) => {
   const taskSnap = TaskSnap.getInstance();
   taskSnap.stop();
   globalShortcut.unregisterAll();
+  await UsageData.addEntry('quit', true);
+});
+
+powerMonitor.on('lock-screen', async () => {
+  info('[main] lock-screen');
+  await UsageData.addEntry('lock-screen', true);
+});
+
+powerMonitor.on('unlock-screen', async () => {
+  info('[main] unlock-screen');
+  await UsageData.addEntry('unlock-screen', true);
 });

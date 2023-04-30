@@ -14,6 +14,7 @@ import path from 'path';
 import isWindows from './helpers/isWindows';
 import isMac from './helpers/isMac';
 import TrayManager from './TrayManager';
+import UsageData from './entity/UsageData';
 
 export default class WindowManager {
   public static snapshotWindow: BrowserWindow | null = null;
@@ -40,6 +41,7 @@ export default class WindowManager {
       this.snapshotWindow.removeMenu();
     }
     this.snapshotWindow.loadURL(resolveHtmlPath('index.html'));
+    await UsageData.addEntry('open-snapshot-window');
 
     this.snapshotWindow.on('ready-to-show', () => {
       if (!this.snapshotWindow) {
@@ -52,11 +54,25 @@ export default class WindowManager {
       }
     });
 
-    this.snapshotWindow.on('closed', () => {
+    this.snapshotWindow.on('closed', async () => {
       this.snapshotWindow = null;
+      await UsageData.addEntry('close-snapshot-window');
     });
 
     this.snapshotWindow.webContents.once('dom-ready', onDomReady);
+
+    this.snapshotWindow.on('minimize', async () => {
+      await UsageData.addEntry('minimize-snapshot-window');
+    });
+    this.snapshotWindow.on('restore', async () => {
+      await UsageData.addEntry('restore-snapshot-window');
+    });
+    this.snapshotWindow.on('focus', async () => {
+      await UsageData.addEntry('focus-snapshot-window');
+    });
+    this.snapshotWindow.on('blur', async () => {
+      await UsageData.addEntry('blur-snapshot-window');
+    });
 
     const menuBuilder = new MenuBuilder(this.snapshotWindow);
     menuBuilder.buildMenu();
@@ -101,6 +117,7 @@ export default class WindowManager {
     this.instantCurationWindow.loadURL(
       resolveHtmlPath('index.html') + `#/instantCuration`
     );
+    await UsageData.addEntry('open-instant-curation-window');
 
     this.instantCurationWindow.on('ready-to-show', () => {
       if (!this.instantCurationWindow) {
@@ -113,8 +130,22 @@ export default class WindowManager {
       }
     });
 
-    this.instantCurationWindow.on('closed', () => {
+    this.instantCurationWindow.on('closed', async () => {
       this.instantCurationWindow = null;
+      await UsageData.addEntry('close-instant-curation-window');
+    });
+
+    this.instantCurationWindow.on('minimize', async () => {
+      await UsageData.addEntry('minimize-instant-curation-window');
+    });
+    this.instantCurationWindow.on('restore', async () => {
+      await UsageData.addEntry('restore-instant-curation-window');
+    });
+    this.instantCurationWindow.on('focus', async () => {
+      await UsageData.addEntry('focus-instant-curation-window');
+    });
+    this.instantCurationWindow.on('blur', async () => {
+      await UsageData.addEntry('blur-instant-curation-window');
     });
 
     const menuBuilder = new MenuBuilder(this.instantCurationWindow);
@@ -144,6 +175,7 @@ export default class WindowManager {
     this.snapshotGalleryWindow.loadURL(
       resolveHtmlPath('index.html') + `#/snapshotGallery`
     );
+    await UsageData.addEntry('open-snapshot-gallery-window');
 
     this.snapshotGalleryWindow.on('ready-to-show', () => {
       if (!this.snapshotGalleryWindow) {
@@ -156,8 +188,22 @@ export default class WindowManager {
       }
     });
 
-    this.snapshotGalleryWindow.on('closed', () => {
+    this.snapshotGalleryWindow.on('closed', async () => {
       this.snapshotGalleryWindow = null;
+      await UsageData.addEntry('close-snapshot-gallery-window');
+    });
+
+    this.snapshotGalleryWindow.on('minimize', async () => {
+      await UsageData.addEntry('minimize-snapshot-gallery-window');
+    });
+    this.snapshotGalleryWindow.on('restore', async () => {
+      await UsageData.addEntry('restore-snapshot-gallery-window');
+    });
+    this.snapshotGalleryWindow.on('focus', async () => {
+      await UsageData.addEntry('focus-snapshot-gallery-window');
+    });
+    this.snapshotGalleryWindow.on('blur', async () => {
+      await UsageData.addEntry('blur-snapshot-gallery-window');
     });
 
     const menuBuilder = new MenuBuilder(this.snapshotGalleryWindow);
