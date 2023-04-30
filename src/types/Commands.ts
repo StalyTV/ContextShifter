@@ -40,6 +40,7 @@ type Commands = {
 
   // settings
   'get-extensions-status': () => ExtensionsStatus;
+  'open-config': () => void;
 };
 
 export default Commands;

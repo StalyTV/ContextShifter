@@ -8,11 +8,12 @@ import typedIpcMain from './typedIpcMain';
 import Log from '../entity/Log';
 import ActiveWindow from '../entity/ActiveWindow';
 import SnapshotManager from '../SnapshotManager';
-import { nativeTheme } from 'electron';
+import { app, nativeTheme, shell } from 'electron';
 import { openArtifact } from '../helpers/osCommands';
 import WindowManager from '../WindowManager';
 import SnapshotEntity from '../entity/Snapshot';
 import TaskSnap from '../TaskSnap';
+import path from 'path';
 
 typedIpcMain.handle('get-used-applications', async () => {
   const lastStart = await Log.getLastApplicationStart();
@@ -110,4 +111,10 @@ typedIpcMain.handle('open-ide-file', async (e, ide, file) => {
 // settings
 typedIpcMain.handle('get-extensions-status', async () => {
   return TaskSnap.getInstance().getExtensionsStatus();
+});
+
+typedIpcMain.handle('open-config', async () => {
+  shell.showItemInFolder(
+    path.join(app.getPath('appData'), app.name, 'config', 'config.yaml')
+  );
 });

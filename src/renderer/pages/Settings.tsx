@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import styles from './Settings.module.scss';
 import ExtensionsStatus from '../../types/ExtensionsStatus';
+import Button from 'renderer/components/Button';
 
 export default function Settings() {
   let loopRef: NodeJS.Timeout | undefined;
@@ -24,6 +25,10 @@ export default function Settings() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const onClickOpenConfig = async () => {
+    await window.electron.ipcRenderer.invoke('open-config');
   };
 
   useEffect(() => {
@@ -59,6 +64,11 @@ export default function Settings() {
           <span>Browser</span>
         </div>
       </div>
+
+      <h4>Configuration</h4>
+      <Button isFilled={false} onClick={() => onClickOpenConfig()}>
+        Open Config File
+      </Button>
     </div>
   );
 }
