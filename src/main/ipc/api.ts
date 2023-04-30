@@ -106,3 +106,8 @@ typedIpcMain.handle('open-browser-tab', async (e, browser, browserTab) => {
 typedIpcMain.handle('open-ide-file', async (e, ide, file) => {
   TaskSnap.getInstance().openIDEFiles(ide, [file.path]);
 });
+
+// settings
+typedIpcMain.handle('get-extensions-status', async () => {
+  return TaskSnap.getInstance().getExtensionsStatus();
+});

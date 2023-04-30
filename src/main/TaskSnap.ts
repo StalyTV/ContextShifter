@@ -27,6 +27,7 @@ import Browser from './entity/Browser';
 import VSCodeTracker from './trackers/VSCodeTracker';
 import AppConfig from './AppConfig';
 import getAssetPath from './helpers/getAssetPath';
+import ExtensionsStatus from '../types/ExtensionsStatus';
 const fileIcon = require('extract-file-icon');
 const sound = require('sound-play');
 
@@ -327,5 +328,13 @@ export default class TaskSnap {
     const iconString = Buffer.from(iconBuffer).toString('base64');
     const dataUrl = `data:image/png;base64,${iconString}`;
     return dataUrl;
+  }
+
+  public getExtensionsStatus(): ExtensionsStatus {
+    const status: ExtensionsStatus = {
+      isVSCodeConnected: this._vscodeTracker.isSocketOpen(),
+      isBrowserConnected: this._browserTracker.isSocketOpen(),
+    };
+    return status;
   }
 }

@@ -10,6 +10,7 @@ import Browser from '../main/entity/Browser';
 import BrowserTab from '../main/entity/BrowserTab';
 import IDEFile from 'main/entity/IDEFile';
 import IDE from '../main/entity/IDE';
+import ExtensionsStatus from './ExtensionsStatus';
 
 type Commands = {
   'get-snapshot-by-id': (id: number) => Snapshot | null;
@@ -36,6 +37,9 @@ type Commands = {
   'apply-snapshot': (snapshotId: number) => void;
   'open-browser-tab': (browser: Browser, tab: BrowserTab) => void;
   'open-ide-file': (ide: IDE, file: IDEFile) => void;
+
+  // settings
+  'get-extensions-status': () => ExtensionsStatus;
 };
 
 export default Commands;

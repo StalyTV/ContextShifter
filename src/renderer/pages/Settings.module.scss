@@ -11,7 +11,32 @@
 
   h3 {
     margin-top: 0;
+    font-weight: 500;
+  }
+
+  h4 {
     font-weight: 300;
+    margin-bottom: 0.5rem;
+  }
+
+  .connections {
+    .connection {
+      display: flex;
+      align-items: center;
+      font-size: small;
+
+      .circle {
+        border-radius: 100%;
+        background-color: red;
+        height: 0.8rem;
+        width: 0.8rem;
+        margin-right: 0.5rem;
+      }
+
+      .circle.connected {
+        background-color: green;
+      }
+    }
   }
 }
 
