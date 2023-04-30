@@ -107,7 +107,7 @@ export default function SnapshotPreview(props: Props) {
 
   const onClickRestore = async () => {
     await window.electron.ipcRenderer.invoke(
-      'apply-snapshot',
+      'restore-snapshot',
       props.snapshot.id
     );
   };

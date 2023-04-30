@@ -26,4 +26,8 @@ export type UsageDataEvent =
   | 'minimize-snapshot-gallery-window'
   | 'restore-snapshot-gallery-window'
   | 'focus-snapshot-gallery-window'
-  | 'blur-snapshot-gallery-window';
+  | 'blur-snapshot-gallery-window'
+  | 'create-snapshot'
+  | 'restore-snapshot'
+  | 'postpone-snapshot';
+  ;

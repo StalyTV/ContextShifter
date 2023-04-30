@@ -28,6 +28,7 @@ import VSCodeTracker from './trackers/VSCodeTracker';
 import AppConfig from './AppConfig';
 import getAssetPath from './helpers/getAssetPath';
 import ExtensionsStatus from '../types/ExtensionsStatus';
+import UsageData from './entity/UsageData';
 const fileIcon = require('extract-file-icon');
 const sound = require('sound-play');
 
@@ -91,6 +92,7 @@ export default class TaskSnap {
     newSnapshot.ides = openIDEs;
     newSnapshot.applications = openApplications;
     await Snapshot.save(newSnapshot);
+    await UsageData.addEntry('create-snapshot', false, `id: ${newSnapshot.id}`);
 
     // send request to get information from the browser. Information will later be attached to the snapshot.
     this._browserTracker.sendGetAllTabsRequest();
@@ -104,15 +106,16 @@ export default class TaskSnap {
     this._snapshotManager.updateSnapshotGalleryWindow();
   }
 
-  public async applyLatestSnapshot() {
+  public async restoreLatestSnapshot() {
     const latestSnapshot = await this._snapshotManager.getLatestSnapshot();
     if (!latestSnapshot) return;
 
-    await this.applySnapshot(latestSnapshot);
+    await this.restoreSnapshot(latestSnapshot);
   }
 
-  public async applySnapshot(snapshot: Snapshot) {
-    info(`[TaskSnap] Apply snapshot "${snapshot.name}"`);
+  public async restoreSnapshot(snapshot: Snapshot) {
+    info(`[TaskSnap] Restore snapshot "${snapshot.name}"`);
+    await UsageData.addEntry('restore-snapshot', false, `id: ${snapshot.id}`);
 
     for (const browser of snapshot.browsers) {
       if (!browser.isSelected) continue;

@@ -33,9 +33,9 @@ export default class TrayManager {
         accelerator: AppConfig.getSnapshotShortcut(),
       },
       {
-        label: 'Apply Latest Snapshot',
+        label: 'Restore Latest Snapshot',
         click: async () => {
-          await this._taskSnapInstance.applyLatestSnapshot();
+          await this._taskSnapInstance.restoreLatestSnapshot();
         },
       },
       { type: 'separator' },

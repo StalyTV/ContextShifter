@@ -17,6 +17,7 @@ import { closeApplication } from './helpers/osCommands';
 import WindowManager from './WindowManager';
 import { TypedWebContents } from './ipc/types/electron-typed-ipc';
 import Events from 'types/Events';
+import UsageData from './entity/UsageData';
 
 export default class SnapshotManager {
   private static _instance: SnapshotManager;
@@ -140,13 +141,22 @@ export default class SnapshotManager {
     }
   }
 
-  public async postponeSnapshot(snapshotId: number, timeInMin: number) {
+  public async postponeSnapshot(
+    snapshotId: number,
+    timeInMin: number,
+    origin: string
+  ) {
     this._postponeTimeoutRef = setTimeout(async () => {
       await this.openSnapshotInSnapshotWindow(snapshotId);
       this.resetTimeout();
     }, timeInMin * 60 * 1000);
     info(
       `[SnapshotManager] Postponed snapshot with id ${snapshotId} for ${timeInMin} minutes`
+    );
+    await UsageData.addEntry(
+      'postpone-snapshot',
+      false,
+      `id: ${snapshotId}, time: ${timeInMin}, origin: ${origin}`
     );
   }
 

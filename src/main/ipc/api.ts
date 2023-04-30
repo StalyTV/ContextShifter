@@ -54,7 +54,11 @@ typedIpcMain.handle('delete-snapshot', async (e, snapshotId) => {
 
 typedIpcMain.handle('postpone-snapshot', async (e, snapshot, timeInMin) => {
   await SnapshotManager.getInstance().saveSnapshot(snapshot);
-  await SnapshotManager.getInstance().postponeSnapshot(snapshot.id, timeInMin);
+  await SnapshotManager.getInstance().postponeSnapshot(
+    snapshot.id,
+    timeInMin,
+    'snapshot-window'
+  );
   WindowManager.snapshotWindow?.close();
 });
 
@@ -83,7 +87,11 @@ typedIpcMain.handle(
       snapshotId,
       updatedName
     );
-    await SnapshotManager.getInstance().postponeSnapshot(snapshotId, timeInMin);
+    await SnapshotManager.getInstance().postponeSnapshot(
+      snapshotId,
+      timeInMin,
+      'instant-curation-window'
+    );
     WindowManager.instantCurationWindow?.close();
   }
 );
@@ -93,10 +101,10 @@ typedIpcMain.handle('open-snapshot', async (e, snapshotId) => {
   SnapshotManager.getInstance().openSnapshotInSnapshotWindow(snapshotId);
 });
 
-typedIpcMain.handle('apply-snapshot', async (e, snapshotId) => {
+typedIpcMain.handle('restore-snapshot', async (e, snapshotId) => {
   const snapshot = await SnapshotEntity.getSnapshotById(snapshotId);
   if (snapshot) {
-    await TaskSnap.getInstance().applySnapshot(snapshot);
+    await TaskSnap.getInstance().restoreSnapshot(snapshot);
   }
 });
 

@@ -34,7 +34,7 @@ type Commands = {
 
   // snapshot gallery
   'open-snapshot': (snapshotId: number) => void;
-  'apply-snapshot': (snapshotId: number) => void;
+  'restore-snapshot': (snapshotId: number) => void;
   'open-browser-tab': (browser: Browser, tab: BrowserTab) => void;
   'open-ide-file': (ide: IDE, file: IDEFile) => void;
 
