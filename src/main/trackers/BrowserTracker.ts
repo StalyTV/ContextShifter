@@ -90,7 +90,10 @@ export default class BrowserTracker {
     const allTabs: Tabs.Tab[] = [];
     data.windows.forEach((win) => {
       if (!win.incognito && win.tabs) {
-        allTabs.push(...win.tabs);
+        const filteredTabs = win.tabs.filter(
+          (tab) => tab.url && tab.url !== 'chrome://newtab/'
+        );
+        allTabs.push(...filteredTabs);
       }
     });
     this._openTabs = allTabs;
