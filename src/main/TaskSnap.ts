@@ -71,7 +71,7 @@ export default class TaskSnap {
     this._fileSystemWatcher.stop();
   }
 
-  public async createNewSnapshot() {
+  public async createNewSnapshot(origin: string) {
     info('[TaskSnap] New snapshot created');
     sound.play(this._cameraShutterSoundPath);
 
@@ -92,7 +92,11 @@ export default class TaskSnap {
     newSnapshot.ides = openIDEs;
     newSnapshot.applications = openApplications;
     await Snapshot.save(newSnapshot);
-    await UsageData.addEntry('create-snapshot', false, `id: ${newSnapshot.id}`);
+    await UsageData.addEntry(
+      'create-snapshot',
+      false,
+      `id: ${newSnapshot.id}, origin: ${origin}`
+    );
 
     // send request to get information from the browser. Information will later be attached to the snapshot.
     this._browserTracker.sendGetAllTabsRequest();
@@ -110,12 +114,16 @@ export default class TaskSnap {
     const latestSnapshot = await this._snapshotManager.getLatestSnapshot();
     if (!latestSnapshot) return;
 
-    await this.restoreSnapshot(latestSnapshot);
+    await this.restoreSnapshot(latestSnapshot, 'tray');
   }
 
-  public async restoreSnapshot(snapshot: Snapshot) {
+  public async restoreSnapshot(snapshot: Snapshot, origin: string) {
     info(`[TaskSnap] Restore snapshot "${snapshot.name}"`);
-    await UsageData.addEntry('restore-snapshot', false, `id: ${snapshot.id}`);
+    await UsageData.addEntry(
+      'restore-snapshot',
+      false,
+      `id: ${snapshot.id}, origin: ${origin}`
+    );
 
     for (const browser of snapshot.browsers) {
       if (!browser.isSelected) continue;

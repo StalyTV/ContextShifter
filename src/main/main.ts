@@ -99,7 +99,7 @@ app
 
     // create shortcut
     const keys = AppConfig.getSnapshotShortcut();
-    globalShortcut.register(keys, () => taskSnap.createNewSnapshot());
+    globalShortcut.register(keys, () => taskSnap.createNewSnapshot('shortcut'));
   })
   .catch(console.log);
 

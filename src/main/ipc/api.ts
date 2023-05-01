@@ -40,12 +40,18 @@ typedIpcMain.handle('get-latest-n-snapshots', async (e, n) => {
 });
 
 typedIpcMain.handle('save-snapshot', async (e, snapshot) => {
+  await UsageData.addEntry('save-snapshot', false, `id: ${snapshot.id}`);
   await SnapshotManager.getInstance().saveSnapshot(snapshot);
 });
 
 typedIpcMain.handle(
   'save-snapshot-and-close-applications',
   async (e, snapshot) => {
+    await UsageData.addEntry(
+      'save-snapshot-and-close-applications',
+      false,
+      `id: ${snapshot.id}`
+    );
     await SnapshotManager.getInstance().saveAndCloseApplications(snapshot);
   }
 );
@@ -108,7 +114,10 @@ typedIpcMain.handle('delete-snapshot', async (e, snapshotId) => {
 typedIpcMain.handle('restore-snapshot', async (e, snapshotId) => {
   const snapshot = await SnapshotEntity.getSnapshotById(snapshotId);
   if (snapshot) {
-    await TaskSnap.getInstance().restoreSnapshot(snapshot);
+    await TaskSnap.getInstance().restoreSnapshot(
+      snapshot,
+      'snapshot-gallery-window'
+    );
   }
 });
 

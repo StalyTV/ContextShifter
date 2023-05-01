@@ -35,4 +35,6 @@ export type UsageDataEvent =
   | 'open-ide-file'
   | 'open-snapshot'
   | 'delete-snapshot'
-  | 'expand-snapshot-preview';
+  | 'expand-snapshot-preview'
+  | 'save-snapshot'
+  | 'save-snapshot-and-close-applications';

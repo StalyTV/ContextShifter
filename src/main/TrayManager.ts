@@ -28,7 +28,7 @@ export default class TrayManager {
       {
         label: 'New Snapshot',
         click: async () => {
-          await this._taskSnapInstance.createNewSnapshot();
+          await this._taskSnapInstance.createNewSnapshot('tray');
         },
         accelerator: AppConfig.getSnapshotShortcut(),
       },
