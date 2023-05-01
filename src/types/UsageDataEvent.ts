@@ -29,5 +29,10 @@ export type UsageDataEvent =
   | 'blur-snapshot-gallery-window'
   | 'create-snapshot'
   | 'restore-snapshot'
-  | 'postpone-snapshot';
-  ;
+  | 'postpone-snapshot'
+  | 'open-artifact'
+  | 'open-browser-tab'
+  | 'open-ide-file'
+  | 'open-snapshot'
+  | 'delete-snapshot'
+  | 'expand-snapshot-preview';

@@ -14,6 +14,7 @@ import WindowManager from '../WindowManager';
 import SnapshotEntity from '../entity/Snapshot';
 import TaskSnap from '../TaskSnap';
 import path from 'path';
+import UsageData from '../entity/UsageData';
 
 typedIpcMain.handle('get-used-applications', async () => {
   const lastStart = await Log.getLastApplicationStart();
@@ -22,6 +23,7 @@ typedIpcMain.handle('get-used-applications', async () => {
 });
 
 typedIpcMain.handle('open-artifact', async (e, artifact) => {
+  await UsageData.addEntry('open-artifact', false, JSON.stringify(artifact));
   openArtifact(artifact);
 });
 
@@ -47,10 +49,6 @@ typedIpcMain.handle(
     await SnapshotManager.getInstance().saveAndCloseApplications(snapshot);
   }
 );
-
-typedIpcMain.handle('delete-snapshot', async (e, snapshotId) => {
-  await SnapshotManager.getInstance().deleteSnapshot(snapshotId);
-});
 
 typedIpcMain.handle('postpone-snapshot', async (e, snapshot, timeInMin) => {
   await SnapshotManager.getInstance().saveSnapshot(snapshot);
@@ -98,7 +96,13 @@ typedIpcMain.handle(
 
 // snapshot gallery
 typedIpcMain.handle('open-snapshot', async (e, snapshotId) => {
+  await UsageData.addEntry('open-snapshot', false, `id: ${snapshotId}`);
   SnapshotManager.getInstance().openSnapshotInSnapshotWindow(snapshotId);
+});
+
+typedIpcMain.handle('delete-snapshot', async (e, snapshotId) => {
+  await UsageData.addEntry('delete-snapshot', false, `id: ${snapshotId}`);
+  await SnapshotManager.getInstance().deleteSnapshot(snapshotId);
 });
 
 typedIpcMain.handle('restore-snapshot', async (e, snapshotId) => {
@@ -108,11 +112,21 @@ typedIpcMain.handle('restore-snapshot', async (e, snapshotId) => {
   }
 });
 
+typedIpcMain.handle('expand-snapshot-preview', async (e, snapshotId) => {
+  await UsageData.addEntry(
+    'expand-snapshot-preview',
+    false,
+    `id: ${snapshotId}`
+  );
+});
+
 typedIpcMain.handle('open-browser-tab', async (e, browser, browserTab) => {
+  await UsageData.addEntry('open-browser-tab');
   TaskSnap.getInstance().openBrowserTabs(browser, [browserTab.url]);
 });
 
 typedIpcMain.handle('open-ide-file', async (e, ide, file) => {
+  await UsageData.addEntry('open-ide-file');
   TaskSnap.getInstance().openIDEFiles(ide, [file.path]);
 });
 

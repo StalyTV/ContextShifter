@@ -62,6 +62,18 @@ export default function SnapshotPreview(props: Props) {
     });
   };
 
+  const onClickSnapshot = async (e: React.MouseEvent) => {
+    // needed just for logging. Just log when it is expanded.
+    if (!isExpanded) {
+      await window.electron.ipcRenderer.invoke(
+        'expand-snapshot-preview',
+        props.snapshot.id
+      );
+    }
+
+    setIsExpanded(!isExpanded);
+  };
+
   const onClickApplication = async (e: React.MouseEvent, path: string) => {
     // makes sure Preview is not expanded
     e.stopPropagation();
@@ -124,7 +136,7 @@ export default function SnapshotPreview(props: Props) {
     >
       <div
         className={styles.snapshotPreviewContainer}
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={onClickSnapshot}
       >
         <div className={styles.left}>
           <div className={styles.upper}>
