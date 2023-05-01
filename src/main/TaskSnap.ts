@@ -295,6 +295,11 @@ export default class TaskSnap {
                   win.title.toLowerCase().includes(lowerCaseFileName)) &&
                 !lowerCaseFileName.includes('~$')
               ) {
+                // check that file not already included
+                if (associatedFiles.some((file) => file.path === path)) {
+                  continue;
+                }
+
                 const file = new File();
                 file.path = path;
                 file.name = getFileNameFromPath(path);
