@@ -19,6 +19,7 @@ import Log from './entity/Log';
 import WindowManager from './WindowManager';
 import AppConfig from './AppConfig';
 import UsageData from './entity/UsageData';
+import path from 'path';
 
 class AppUpdater {
   constructor() {
@@ -38,6 +39,19 @@ const isDebug =
 
 if (isDebug) {
   require('electron-debug')();
+}
+
+// auto-start (https://www.electronjs.org/docs/latest/api/app#appsetloginitemsettingssettings-macos-windows)
+const appFolder = path.dirname(process.execPath);
+const updateExe = path.resolve(appFolder, '..', 'Update.exe');
+const exeName = path.basename(process.execPath);
+
+if (!isDebug) {
+  app.setLoginItemSettings({
+    openAtLogin: true,
+    path: updateExe,
+    args: ['--processStart', `"${exeName}"`],
+  });
 }
 
 const installExtensions = async () => {
