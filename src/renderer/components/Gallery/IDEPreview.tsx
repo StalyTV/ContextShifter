@@ -10,6 +10,7 @@ import ReactDOMServer from 'react-dom/server';
 import GitInfo from '../GitInfo';
 import IDEFileEntity from '../../../main/entity/IDEFile';
 import Artifact from 'types/Artifact';
+import EyeIcon from '../Icons/EyeIcon';
 
 type Props = {
   ide: IDEEntity;
@@ -78,7 +79,8 @@ export default function IDEPreview(props: Props) {
             className={styles.file}
             onClick={(e) => onClickFile(e, file)}
           >
-            {file.name}
+            {file.isActive ? <EyeIcon className={styles.eyeIcon}/> : null}
+            <span>{file.name}</span>
           </div>
         );
       })}

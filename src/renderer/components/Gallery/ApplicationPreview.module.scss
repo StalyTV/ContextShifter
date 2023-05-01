@@ -13,6 +13,9 @@
   }
 
   .file {
+    display: flex;
+    align-items: center;
+    height: 1rem;
     cursor: pointer;
     background-color: var(--bg-color-4);
     border-radius: var(--border-radius);

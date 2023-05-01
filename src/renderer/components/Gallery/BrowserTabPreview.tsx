@@ -7,6 +7,7 @@
 import styles from './BrowserTabPreview.module.scss';
 import BrowserEntity from '../../../main/entity/Browser';
 import BrowserTabEntity from '../../../main/entity/BrowserTab';
+import EyeIcon from '../Icons/EyeIcon';
 
 type Props = {
   browser: BrowserEntity;
@@ -32,6 +33,7 @@ export default function BrowserTabPreview(props: Props) {
       data-tooltip-id={'task-snap'}
       data-tooltip-content={`${props.tab.title}`}
     >
+      {props.tab.isActive ? <EyeIcon className={styles.eyeIcon} /> : null}
       <img className={styles.tabIcon} src={props.tab.favIconUrl} />
       {props.isExpanded || props.tab.isActive || !props.tab.favIconUrl ? (
         <span>{props.tab.title}</span>

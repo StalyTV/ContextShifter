@@ -3,7 +3,7 @@
   flex-wrap: wrap;
   align-items: center;
   border-radius: var(--border-radius);
-  padding: 0.2rem 0.4rem 0.2rem 0.2rem;
+  padding: 0rem 0.3rem;
   font-size: x-small;
 
   .ideIcon {
@@ -13,10 +13,17 @@
   }
 
   .file {
+    display: flex;
+    align-items: center;
+    height: 1rem;
     cursor: pointer;
     background-color: var(--bg-color-4);
     border-radius: var(--border-radius);
     padding: 0.2rem;
     margin: 0.1rem;
+
+    .eyeIcon {
+      height: 1rem;
+    }
   }
 }
