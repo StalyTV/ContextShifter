@@ -233,11 +233,11 @@ export default function Snapshot() {
             />
             <Button isFilled={false} onClick={() => onClickSaveAndClose()}>
               <>
-                <SaveIcon /> <span>&nbsp;& Close Applications</span>
+                <SaveIcon /> <span>&nbsp;Snapshot & Close Applications</span>
               </>
             </Button>
             <Button isFilled={true} onClick={() => onClickSave()}>
-              <SaveIcon />
+              <SaveIcon /> <span>&nbsp;Snapshot</span>
             </Button>
           </div>
         </>
