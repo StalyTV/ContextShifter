@@ -22,7 +22,7 @@ import { getFileNameFromPath } from './helpers/getFileNameFromPath';
 import isMac from './helpers/isMac';
 import BrowserTracker from './trackers/BrowserTracker';
 import BrowserTabEntity from './entity/BrowserTab';
-import { CloseTabClientRequest } from 'context-browser-extension-types';
+import { CloseTabClientRequest } from '../types/context-browser-extension-types/types';
 import Browser from './entity/Browser';
 import VSCodeTracker from './trackers/VSCodeTracker';
 import AppConfig from './AppConfig';
@@ -98,8 +98,8 @@ export default class TaskSnap {
       `id: ${newSnapshot.id}, origin: ${origin}`
     );
 
-    // send request to get information from the browser. Information will later be attached to the snapshot.
-    this._browserTracker.sendGetAllTabsRequest();
+    // latest tabs are already stored in memory. Save them to db.
+    this._browserTracker.saveOpenTabsToDb(openBrowsers[0]); // TODO: improve this
 
     // same for vscode
     this._vscodeTracker.sendGetVSCodeSnapshotRequest();

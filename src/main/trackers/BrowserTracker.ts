@@ -14,16 +14,17 @@ import {
   ServerEndpoints,
   WebNavigationDetail,
   WebNavigationSequenceUpdate,
-} from 'context-browser-extension-types';
+} from '../../types/context-browser-extension-types/types';
 import { Tabs } from 'webextension-polyfill';
+import Browser from '../entity/Browser';
 import BrowserTab from '../entity/BrowserTab';
-import Snapshot from '../entity/Snapshot';
 
 export default class BrowserTracker {
   private _port = 8083;
   private _server: WebSocket.Server;
   private _lastUsedSocket: WebSocket | undefined;
   private _connectionListeners: Array<() => void> = [];
+  private _openTabs: Tabs.Tab[] = [];
 
   constructor() {
     info(`[BrowserTracker] listening on port ${this._port}`);
@@ -74,8 +75,6 @@ export default class BrowserTracker {
           );
         } else if (obj.endpoint === 'navigation') {
           self.handleNavigation(obj.data as WebNavigationDetail);
-        } else if (obj.endpoint === 'tabs') {
-          self.handleTabs(obj.data as Tabs.Tab[]);
         }
       });
 
@@ -87,7 +86,15 @@ export default class BrowserTracker {
     });
   }
 
-  private handleEvent(data: BrowserEvent, runtimeInfo: RuntimeInfo) {}
+  private handleEvent(data: BrowserEvent, runtimeInfo: RuntimeInfo) {
+    const allTabs: Tabs.Tab[] = [];
+    data.windows.forEach((win) => {
+      if (!win.incognito && win.tabs) {
+        allTabs.push(...win.tabs);
+      }
+    });
+    this._openTabs = allTabs;
+  }
 
   private handleSequence(
     data: WebNavigationSequenceUpdate,
@@ -100,11 +107,8 @@ export default class BrowserTracker {
     );
   }
 
-  private async handleTabs(tabs: Tabs.Tab[]) {
-    const latestSnapshot = await Snapshot.getLatestSnapshot();
-    if (!latestSnapshot) return;
-
-    for await (const tab of tabs) {
+  public async saveOpenTabsToDb(browser: Browser) {
+    for await (const tab of this._openTabs) {
       if (!tab.url) continue;
 
       const tabEntity = new BrowserTab();
@@ -113,20 +117,12 @@ export default class BrowserTracker {
       tabEntity.favIconUrl = tab.favIconUrl;
       tabEntity.index = tab.index;
       tabEntity.isActive = tab.active;
-      tabEntity.browser = latestSnapshot.browsers[0]; // TODO: Improve this
+      tabEntity.browser = browser;
       tabEntity.save();
     }
     info(
-      `[BrowserTracker] received ${tabs.length} tabs and attached them to snapshot with id ${latestSnapshot.id}`
+      `[BrowserTracker] attached ${this._openTabs.length} tabs to browser with id ${browser.id};`
     );
-  }
-
-  public sendGetAllTabsRequest() {
-    if (this._lastUsedSocket) {
-      return this._lastUsedSocket.send(
-        JSON.stringify({ endpoint: 'get-all-tabs' })
-      );
-    }
   }
 
   public sendTabOpeningRequest(urls: string[], label?: string) {

@@ -1,3 +1,6 @@
 [submodule "release/app/PA.WindowsActivityTracker"]
 	path = release/app/PA.WindowsActivityTracker
 	url = https://github.com/HASEL-UZH/PA.WindowsActivityTracker
+[submodule "src/types/context-browser-extension-types"]
+	path = src/types/context-browser-extension-types
+	url = https://github.com/HASEL-UZH/context-browser-extension-types.git
