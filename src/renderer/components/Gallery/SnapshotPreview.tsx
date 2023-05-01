@@ -8,9 +8,8 @@ import { useState } from 'react';
 import EditIcon from '../Icons/EditIcon';
 import styles from './SnapshotPreview.module.scss';
 import SnapshotEntity from 'main/entity/Snapshot';
-import Button from '../Button';
-import ArrowRightIcon from '../Icons/ArrowRightIcon';
 import TrashIcon from '../Icons/TrashIcon';
+import PlayIcon from '../Icons/PlayIcon';
 import { toast } from 'react-toastify';
 import BrowserPreview from './BrowserPreview';
 import IDEPreview from './IDEPreview';
@@ -197,7 +196,7 @@ export default function SnapshotPreview(props: Props) {
       {isHovering ? (
         <div className={styles.buttonBox}>
           <div
-            className={styles.dot}
+            className={`${styles.dot} ${styles.edit}`}
             onClick={() => {
               onClickEdit();
             }}
@@ -212,14 +211,13 @@ export default function SnapshotPreview(props: Props) {
           >
             <TrashIcon className={styles.icon} />
           </div>
-          <Button
-            className={styles.restore}
-            isFilled={true}
+          <div
+            className={`${styles.dot} ${styles.restore}`}
             onClick={() => onClickRestore()}
           >
-            <span>Restore&nbsp;</span>
-            <ArrowRightIcon />
-          </Button>
+            <PlayIcon className={styles.icon} />
+            <span>Restore</span>
+          </div>
         </div>
       ) : null}
     </div>

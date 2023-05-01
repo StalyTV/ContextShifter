@@ -77,7 +77,6 @@
       width: 2rem;
       height: 2rem;
       cursor: pointer;
-      transition: all ease-in 0.1s;
 
 
       .icon {
@@ -87,16 +86,42 @@
       }
     }
 
+    .dot.edit:hover {
+      transform: scale(1.05);
+      transition: all ease-in 0.1s;
+    }
+
     .dot.delete {
       background-color: red;
+
+      &:hover {
+        transform: scale(1.05);
+        transition: all ease-in 0.1s;
+      }
     }
 
-    .dot:hover {
-      transform: scale(1.05);
-    }
+    .dot.restore {
+      display: flex;
+      align-items: center;
+      background-color: var(--accent-color-1);
 
-    .restore {
-      margin-left: 1rem;
+      .icon {
+        margin-left: 0.6rem;
+      }
+
+      span {
+        display: none;
+        font-size: small;
+      }
+
+      &:hover {
+        width: 6rem;
+        border-radius: 2rem / 2rem;
+
+        span {
+          display: block;
+        }
+      }
     }
   }
 }
