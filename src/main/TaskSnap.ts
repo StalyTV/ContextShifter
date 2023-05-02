@@ -99,10 +99,14 @@ export default class TaskSnap {
     );
 
     // latest tabs are already stored in memory. Save them to db.
-    this._browserTracker.saveOpenTabsToDb(openBrowsers[0]); // TODO: improve this
+    if (openBrowsers.length > 0) {
+      this._browserTracker.saveOpenTabsToDb(openBrowsers[0]); // TODO: improve this
+    }
 
     // same for vscode
-    this._vscodeTracker.sendGetVSCodeSnapshotRequest();
+    if (openIDEs.length > 0) {
+      this._vscodeTracker.sendGetVSCodeSnapshotRequest();
+    }
 
     WindowManager.createInstantCurationWindow();
 
