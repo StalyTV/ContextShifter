@@ -58,6 +58,9 @@ export default class DeviceManager {
             this.onClickButton();
           }
         });
+        this._connectedDevice.on('error', (err) => {
+          info(`[DeviceManager]`, err);
+        });
 
         await UsageData.addEntry(
           'connect-supported-usb-device',
@@ -69,6 +72,7 @@ export default class DeviceManager {
       }
     } else if (!connectedSupportedDevice && this._connectedDevice) {
       info(`[DeviceManager] ${supportedDevice.name} disconnected`);
+      this._connectedDevice.close();
       this._connectedDevice = undefined;
       await UsageData.addEntry(
         'disconnect-supported-usb-device',
