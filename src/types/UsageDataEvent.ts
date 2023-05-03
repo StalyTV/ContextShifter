@@ -37,4 +37,6 @@ export type UsageDataEvent =
   | 'delete-snapshot'
   | 'expand-snapshot-preview'
   | 'save-snapshot'
-  | 'save-snapshot-and-close-applications';
+  | 'save-snapshot-and-close-applications'
+  | 'connect-supported-usb-device'
+  | 'disconnect-supported-usb-device';

@@ -29,6 +29,7 @@ import AppConfig from './AppConfig';
 import getAssetPath from './helpers/getAssetPath';
 import ExtensionsStatus from '../types/ExtensionsStatus';
 import UsageData from './entity/UsageData';
+import DeviceManager from './HID/DeviceManager';
 const fileIcon = require('extract-file-icon');
 const sound = require('sound-play');
 
@@ -41,6 +42,7 @@ export default class TaskSnap {
   private _browserTracker: BrowserTracker;
   private _fileSystemWatcher: FileSystemWatcher;
   private _vscodeTracker: VSCodeTracker;
+  private _deviceManager: DeviceManager;
   private _snapshotManager: SnapshotManager;
   private _cameraShutterSoundPath = getAssetPath(`sounds/cameraShutter.mp3`);
 
@@ -49,6 +51,7 @@ export default class TaskSnap {
     this._browserTracker = new BrowserTracker();
     this._fileSystemWatcher = new FileSystemWatcher();
     this._vscodeTracker = new VSCodeTracker();
+    this._deviceManager = DeviceManager.getInstance();
     this._snapshotManager = SnapshotManager.getInstance();
   }
 
@@ -74,6 +77,7 @@ export default class TaskSnap {
   public async createNewSnapshot(origin: string) {
     info('[TaskSnap] New snapshot created');
     sound.play(this._cameraShutterSoundPath);
+    this._deviceManager.showLightPulse();
 
     const res = await this.getCurrentlyOpenApplications();
     const openBrowsers = res[0];

@@ -3,8 +3,11 @@
  * Proprietary and confidential
  * Written by Remy Egloff <remy.egloff@uzh.ch>, May 2023
  */
+import RGB from '../types/RGB';
 
 // the purpose of this class is to define constants that might be adapted in the future
 export default class StaticSettings {
   public static IDE_TIME_WINDOW = 10 * 60 * 1000;
+  public static LIGHT_PULSE_COLOR: RGB = { r: 8, g: 192, b: 221 };
+  public static LIGHT_PULSE_LENGTH = 100; // time in ms
 }

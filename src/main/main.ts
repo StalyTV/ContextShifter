@@ -20,6 +20,7 @@ import WindowManager from './WindowManager';
 import AppConfig from './AppConfig';
 import UsageData from './entity/UsageData';
 import path from 'path';
+import DeviceManager from './HID/DeviceManager';
 
 class AppUpdater {
   constructor() {
@@ -115,6 +116,7 @@ app.on('before-quit', async (e) => {
   const taskSnap = TaskSnap.getInstance();
   taskSnap.stop();
   globalShortcut.unregisterAll();
+  DeviceManager.getInstance().stopMonitoring();
   await UsageData.addEntry('quit', true);
 });
 
