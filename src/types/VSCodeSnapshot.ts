@@ -28,6 +28,8 @@ export type VSCodeTODO = {
 
 export type EditedFunction = {
   name: string;
+  line: number; // starting at 1
+  lineContent: string;
   filePath: string;
   timestamp: Date;
 };

@@ -10,6 +10,7 @@ import { VSCodeSnapshot } from 'types/VSCodeSnapshot';
 import Snapshot from '../entity/Snapshot';
 import IDEFile from '../entity/IDEFile';
 import { getFileNameFromPath } from '../helpers/getFileNameFromPath';
+import StaticSettings from '../StaticSettings';
 
 export default class VSCodeTracker {
   private _port = 8084;
@@ -112,9 +113,15 @@ export default class VSCodeTracker {
     // add last edit to summary
     const editedFunction = data.lastEditedFunction;
     if (editedFunction) {
-      latestSnapshot.summary = `Just edited ${
-        editedFunction.name
-      } in ${getFileNameFromPath(editedFunction.filePath)}`;
+      // check if last change was outside considered time window
+      const changeTime = new Date(editedFunction.timestamp).getTime();
+      if (changeTime > Date.now() - StaticSettings.IDE_TIME_WINDOW) {
+        latestSnapshot.summary = `Just edited line ${editedFunction.line} "${
+          editedFunction.lineContent
+        }" in [${editedFunction.name} - ${getFileNameFromPath(
+          editedFunction.filePath
+        )}]`;
+      }
     }
 
     // convert TODOs to intent string
