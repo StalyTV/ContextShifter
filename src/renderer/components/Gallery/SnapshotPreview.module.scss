@@ -64,6 +64,10 @@
         color: var(--postIt-text-color);
         overflow: hidden;
         text-overflow: ellipsis;
+
+        .postItIcon {
+          margin-right: 0.3rem;
+        }
       }
 
       .intent {

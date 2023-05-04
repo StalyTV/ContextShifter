@@ -14,6 +14,7 @@
       width: 70%;
       padding: 0.5rem 0.5rem 0.5rem 1rem;
       font-weight: 700;
+      font-size: small;
     }
 
     .buttonContainer {
@@ -23,6 +24,7 @@
       justify-content: flex-end;
 
       .clearButton {
+        font-size: small;
         color: black;
         border: 1px black solid;
         padding: 0.2rem 0.4rem;

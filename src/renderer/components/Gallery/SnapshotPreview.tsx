@@ -189,10 +189,26 @@ export default function SnapshotPreview(props: Props) {
         </div>
 
         <div className={styles.right}>
-          <div className={styles.postIt}>⏪ {props.snapshot.summary}</div>
+          <div className={styles.postIt}>
+            <span
+              className={styles.postItIcon}
+              data-tooltip-id={'task-snap'}
+              data-tooltip-content={'What was I doing?'}
+            >
+              ⏪
+            </span>
+            <span>{props.snapshot.summary}</span>
+          </div>
           {isExpanded ? (
             <div className={`${styles.postIt} ${styles.intent}`}>
-              💭 {props.snapshot.intent}
+              <span
+                className={styles.postItIcon}
+                data-tooltip-id={'task-snap'}
+                data-tooltip-content={'What was I about to do?'}
+              >
+                💭
+              </span>
+              <span>{props.snapshot.intent}</span>
             </div>
           ) : null}
         </div>
