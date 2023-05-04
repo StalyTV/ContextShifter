@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import styles from './Settings.module.scss';
 import ExtensionsStatus from '../../types/ExtensionsStatus';
 import Button from 'renderer/components/Button';
+import TaskSnapToggle from 'renderer/components/Toggle/TaskSnapToggle';
 
 export default function Settings() {
   let loopRef: NodeJS.Timeout | undefined;
@@ -15,6 +16,8 @@ export default function Settings() {
     isVSCodeConnected: false,
     isBrowserConnected: false,
   });
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+  const [isFetchingSettings, setIsFetchingSettings] = useState<boolean>(false);
 
   const getConnectionStatus = async () => {
     try {
@@ -27,11 +30,29 @@ export default function Settings() {
     }
   };
 
+  const getColorTheme = async () => {
+    setIsFetchingSettings(true);
+    try {
+      const isDarkModeEnabled = await window.electron.ipcRenderer.invoke(
+        'is-dark-mode-enabled'
+      );
+      setIsDarkMode(isDarkModeEnabled);
+    } catch (err) {
+      console.error(err);
+    }
+    setIsFetchingSettings(false);
+  };
+
   const onClickOpenConfig = async () => {
     await window.electron.ipcRenderer.invoke('open-config');
   };
 
+  const onToggleColorTheme = async () => {
+    await window.electron.ipcRenderer.invoke('toggle-color-theme');
+  };
+
   useEffect(() => {
+    getColorTheme();
     getConnectionStatus();
     loopRef = setInterval(() => {
       getConnectionStatus();
@@ -45,6 +66,17 @@ export default function Settings() {
   return (
     <div className={styles.settingsContainer}>
       <h3>Settings</h3>
+      <h4>Color Theme</h4>
+      {isFetchingSettings ? null : (
+        <TaskSnapToggle
+          defaultChecked={isDarkMode}
+          leftLabel={'light'}
+          rightLabel={'dark'}
+          icons={false}
+          onChange={onToggleColorTheme}
+        />
+      )}
+
       <h4>Connection Status to Extensions</h4>
       <div className={styles.connections}>
         <div className={styles.connection}>

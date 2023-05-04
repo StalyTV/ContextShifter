@@ -78,6 +78,10 @@ typedIpcMain.handle('toggle-color-theme', () => {
   }
 });
 
+typedIpcMain.handle('is-dark-mode-enabled', () => {
+  return nativeTheme.shouldUseDarkColors;
+});
+
 // instant curation
 typedIpcMain.handle(
   'instant-curation-curate-now',

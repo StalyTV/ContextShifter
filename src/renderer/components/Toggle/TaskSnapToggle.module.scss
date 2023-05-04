@@ -1,0 +1,13 @@
+.toggleContainer {
+  display: flex;
+  align-items: center;
+  font-size: x-small;
+
+  .leftLabel {
+    margin-right: 0.5rem;
+  }
+
+  .rightLabel {
+    margin-left: 0.5rem;
+  }
+}

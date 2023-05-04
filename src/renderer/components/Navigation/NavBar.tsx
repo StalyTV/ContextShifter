@@ -6,16 +6,11 @@
 
 import { useState } from 'react';
 import GearIcon from '../Icons/GearIcon';
-import SunMoonIcon from '../Icons/SunMoonIcon';
 import styles from './NavBar.module.scss';
 import Settings from 'renderer/pages/Settings';
 
 export default function NavBar() {
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
-
-  const onClickSunMoonIcon = async () => {
-    await window.electron.ipcRenderer.invoke('toggle-color-theme');
-  };
 
   const onClickGearIcon = async () => {
     setIsSettingsOpen(!isSettingsOpen);
@@ -24,10 +19,6 @@ export default function NavBar() {
   return (
     <>
       <div className={styles.navBar}>
-        <SunMoonIcon
-          className={styles.icon}
-          onClick={() => onClickSunMoonIcon()}
-        />
         <GearIcon className={styles.icon} onClick={() => onClickGearIcon()} />
       </div>
       {isSettingsOpen ? <Settings /> : null}
