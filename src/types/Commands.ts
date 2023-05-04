@@ -18,6 +18,7 @@ type Commands = {
   'get-latest-n-snapshots': (n: number) => Snapshot[];
   'get-used-applications': () => string[];
   'open-artifact': (artifact: Artifact) => void;
+  'open-all-artifacts-of-snapshot': (snapshot: Snapshot) => void;
   'save-snapshot': (snapshot: Snapshot) => Promise<void>;
   'save-snapshot-and-close-applications': (snapshot: Snapshot) => Promise<void>;
   'postpone-snapshot': (snapshot: Snapshot, timeInMin: number) => void;

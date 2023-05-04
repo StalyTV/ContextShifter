@@ -27,6 +27,10 @@ typedIpcMain.handle('open-artifact', async (e, artifact) => {
   openArtifact(artifact);
 });
 
+typedIpcMain.handle('open-all-artifacts-of-snapshot', async (e, snapshot) => {
+  TaskSnap.getInstance().restoreSnapshot(snapshot, 'curation_window');
+});
+
 typedIpcMain.handle('get-snapshot-by-id', async (e, id) => {
   return await SnapshotManager.getInstance().getSnapshotById(id);
 });

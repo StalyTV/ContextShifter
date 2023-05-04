@@ -112,6 +112,24 @@ export default function Snapshot() {
     );
   };
 
+  const onClickOpenArtifacts = async () => {
+    if (!selectedSnapshot) return;
+
+    const updatedSnapshot = reapplyChanges(selectedSnapshot);
+    toast.promise(
+      async () =>
+        await window.electron.ipcRenderer.invoke(
+          'open-all-artifacts-of-snapshot',
+          updatedSnapshot
+        ),
+      {
+        pending: 'Opening Artifacts...',
+        success: 'Opened Artifacts',
+        error: 'Something went wrong',
+      }
+    );
+  };
+
   const onNameChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setSnapshotName(e.target.value);
   };
@@ -231,6 +249,9 @@ export default function Snapshot() {
               title={'Postpone Curation'}
               onSelect={postponeSnapshot}
             />
+            <Button isFilled={false} onClick={() => onClickOpenArtifacts()}>
+              Open Selected Artifacts
+            </Button>
             <Button isFilled={false} onClick={() => onClickSaveAndClose()}>
               <>
                 <SaveIcon /> <span>&nbsp;Snapshot & Close Applications</span>
