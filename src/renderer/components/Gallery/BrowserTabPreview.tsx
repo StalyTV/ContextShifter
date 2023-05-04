@@ -33,11 +33,11 @@ export default function BrowserTabPreview(props: Props) {
       data-tooltip-id={'task-snap'}
       data-tooltip-content={`${props.tab.title}`}
     >
-      {props.tab.isActive ? <EyeIcon className={styles.eyeIcon} /> : null}
       <img className={styles.tabIcon} src={props.tab.favIconUrl} />
       {props.isExpanded || props.tab.isActive || !props.tab.favIconUrl ? (
         <span>{props.tab.title}</span>
       ) : null}
+      {props.tab.isActive ? <EyeIcon className={styles.eyeIcon} /> : null}
     </div>
   );
 }

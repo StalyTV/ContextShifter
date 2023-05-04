@@ -45,6 +45,10 @@
       .applicationsWithMoreContext {
         display: flex;
         flex-wrap: wrap;
+
+        &.isExpanded {
+          display: block;
+        }
       }
     }
 

@@ -2,8 +2,10 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  border: solid var(--bg-color-5) 1px;
   border-radius: var(--border-radius);
-  padding: 0rem 0.3rem;
+  padding: 0.2rem;
+  margin: 0rem 0.1rem 0.1rem 0rem;
   font-size: x-small;
 
   .ideIcon {

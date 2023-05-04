@@ -14,8 +14,6 @@ type Props = {
 };
 
 export default function BrowserTab(props: Props) {
-  const openTab = async () => {};
-
   const toggleSelect = (e: React.MouseEvent) => {
     // makes sure Browser is not clicked as well
     e.stopPropagation();
@@ -32,9 +30,9 @@ export default function BrowserTab(props: Props) {
       }`}
       onClick={toggleSelect}
     >
-      {props.tab.isActive ? <EyeIcon className={styles.icon} /> : null}
       <img src={props.tab.favIconUrl} alt="favicon"></img>
       <span>{props.tab.title}</span>
+      {props.tab.isActive ? <EyeIcon className={styles.icon} /> : null}
     </div>
   );
 }

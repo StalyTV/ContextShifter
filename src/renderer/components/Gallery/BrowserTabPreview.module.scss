@@ -6,7 +6,7 @@
   margin: 0.1rem;
   background-color: var(--bg-color-4);
   border-radius: var(--border-radius);
-  padding: 0rem 0.2rem;
+  padding: 0.2rem;
   cursor: pointer;
 
   .tabIcon {
@@ -15,7 +15,8 @@
   }
 
   .eyeIcon {
-    height: 1.5rem;
+    height: 1rem;
+    flex-shrink: 0;
     fill: var(--border-color);
   }
 

@@ -205,12 +205,12 @@ export default function Snapshot() {
             <div className={styles.leftContainer}>
               <PostIt
                 title={'Now what was I doing?'}
-                content={summary}
+                content={`⏪ ${summary}`}
                 onTextChange={onSummaryChange}
               />
               <PostIt
                 title={'What was I about to do?'}
-                content={intent}
+                content={`💭 ${intent}`}
                 onTextChange={onIntentChange}
               />
             </div>

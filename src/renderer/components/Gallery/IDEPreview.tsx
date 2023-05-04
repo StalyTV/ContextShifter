@@ -79,8 +79,8 @@ export default function IDEPreview(props: Props) {
             className={styles.file}
             onClick={(e) => onClickFile(e, file)}
           >
-            {file.isActive ? <EyeIcon className={styles.eyeIcon}/> : null}
             <span>{file.name}</span>
+            {file.isActive ? <EyeIcon className={styles.eyeIcon}/> : null}
           </div>
         );
       })}

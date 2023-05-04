@@ -162,7 +162,11 @@ export default function SnapshotPreview(props: Props) {
           </div>
 
           <div className={styles.lower}>
-            <div className={styles.applicationsWithMoreContext}>
+            <div
+              className={`${styles.applicationsWithMoreContext} ${
+                isExpanded ? styles.isExpanded : undefined
+              }`}
+            >
               {getSelectedBrowsers().map((browser) => {
                 return (
                   <BrowserPreview

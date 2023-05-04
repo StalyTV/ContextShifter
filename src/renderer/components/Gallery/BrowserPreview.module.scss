@@ -1,8 +1,10 @@
 .previewContainer {
   display: flex;
   align-items: center;
+  border: solid var(--bg-color-5) 1px;
   border-radius: var(--border-radius);
   padding: 0.2rem;
+  margin: 0rem 0.1rem 0.1rem 0rem;
 
   .browserIcon {
     cursor: pointer;
