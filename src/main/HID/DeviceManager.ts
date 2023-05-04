@@ -59,7 +59,7 @@ export default class DeviceManager {
           }
         });
         this._connectedDevice.on('error', (err) => {
-          info(`[DeviceManager]`, err);
+          error(`[DeviceManager]`, err);
         });
 
         await UsageData.addEntry(

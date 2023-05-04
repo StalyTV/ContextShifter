@@ -87,8 +87,8 @@ export default class VSCodeTracker {
     if (data.branch) {
       ide.branch = data.branch;
     }
-    if (data.lastCommitMessage) {
-      ide.lastCommitMessage = data.lastCommitMessage;
+    if (data.lastCommit) {
+      ide.lastCommitMessage = data.lastCommit.message;
     }
     if (data.workspaceName) {
       ide.workspaceName = data.workspaceName;
@@ -110,19 +110,31 @@ export default class VSCodeTracker {
       `[VSCodeTracker] received ${data.openFiles.length} files and attached them to snapshot with id ${latestSnapshot.id}`
     );
 
-    // add last edit to summary
+    // create snapshot summary
+    let summaryString = '';
+
     const editedFunction = data.lastEditedFunction;
     if (editedFunction) {
       // check if last change was outside considered time window
       const changeTime = new Date(editedFunction.timestamp).getTime();
       if (changeTime > Date.now() - StaticSettings.IDE_TIME_WINDOW) {
-        latestSnapshot.summary = `Just edited line ${editedFunction.line} "${
+        summaryString += `Just edited line ${editedFunction.line} "${
           editedFunction.lineContent
         }" in [${editedFunction.name} - ${getFileNameFromPath(
           editedFunction.filePath
         )}]`;
       }
     }
+
+    const lastCommit = data.lastCommit;
+    if (lastCommit && lastCommit.commitDate) {
+      const commitTime = new Date(lastCommit.commitDate).getTime();
+      if (commitTime > Date.now() - StaticSettings.IDE_TIME_WINDOW) {
+        summaryString += `\nRecently committed "${lastCommit.message}"`;
+      }
+    }
+
+    latestSnapshot.summary = summaryString;
 
     // convert TODOs to intent string
     let intent: string = '';

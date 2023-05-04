@@ -4,10 +4,12 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, April 2023
  */
 
+import { Commit } from "./git";
+
 export type VSCodeSnapshot = {
   openFiles: OpenVSCodeFile[];
   branch: string | undefined;
-  lastCommitMessage: string | undefined;
+  lastCommit: Commit | undefined;
   toDos: VSCodeTODO[];
   lastEditedFunction: EditedFunction | undefined;
   workspaceName: string | undefined;
