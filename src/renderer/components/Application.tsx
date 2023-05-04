@@ -5,7 +5,6 @@
  */
 
 import styles from './Application.module.scss';
-import Artifact from '../../types/Artifact';
 import ApplicationEntity from '../../main/entity/Application';
 import File from './File';
 import FileEntity from 'main/entity/File';
@@ -16,11 +15,6 @@ type Props = {
 };
 
 export default function Application(props: Props) {
-  const openApplication = async (app: string) => {
-    const artifact: Artifact = { artifact: app };
-    await window.electron.ipcRenderer.invoke('open-artifact', artifact);
-  };
-
   const toggleSelect = () => {
     const updatedApp = props.app;
     updatedApp.isSelected = !props.app.isSelected;
@@ -55,7 +49,6 @@ export default function Application(props: Props) {
         props.app.isSelected ? styles.isSelected : undefined
       }`}
       onClick={() => toggleSelect()}
-      onContextMenu={() => openApplication(props.app.path)}
     >
       <div className={styles.header}>
         <img className={styles.icon} src={props.app.icon} />

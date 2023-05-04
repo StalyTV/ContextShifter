@@ -15,14 +15,6 @@ type Props = {
 };
 
 export default function File(props: Props) {
-  const openFile = async () => {
-    const artifact: Artifact = {
-      artifact: props.file.path,
-      application: props.applicationPath,
-    };
-    await window.electron.ipcRenderer.invoke('open-artifact', artifact);
-  };
-
   const toggleSelect = (e: React.MouseEvent) => {
     // makes sure Application is not clicked as well
     e.stopPropagation();
@@ -38,7 +30,6 @@ export default function File(props: Props) {
         props.file.isSelected ? styles.isSelected : undefined
       }`}
       onClick={toggleSelect}
-      onContextMenu={() => openFile()}
     >
       {props.file.name}
     </div>
