@@ -15,6 +15,7 @@ import SnapshotEntity from '../entity/Snapshot';
 import TaskSnap from '../TaskSnap';
 import path from 'path';
 import UsageData from '../entity/UsageData';
+import DeviceManager from '../HID/DeviceManager';
 
 typedIpcMain.handle('get-used-applications', async () => {
   const lastStart = await Log.getLastApplicationStart();
@@ -150,6 +151,10 @@ typedIpcMain.handle('open-ide-file', async (e, ide, file) => {
 // settings
 typedIpcMain.handle('get-extensions-status', async () => {
   return TaskSnap.getInstance().getExtensionsStatus();
+});
+
+typedIpcMain.handle('get-device-status', async () => {
+  return DeviceManager.getInstance().isDeviceConnected();
 });
 
 typedIpcMain.handle('open-config', async () => {

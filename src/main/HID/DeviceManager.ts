@@ -135,4 +135,8 @@ export default class DeviceManager {
       TaskSnap.getInstance().createNewSnapshot('usb_device');
     }
   }
+
+  public isDeviceConnected(): boolean {
+    return this._connectedDevice ? true : false;
+  }
 }

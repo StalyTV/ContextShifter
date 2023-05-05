@@ -14,10 +14,11 @@ import PlusIcon from '../components/Icons/PlusIcon';
 
 export default function Settings() {
   let loopRef: NodeJS.Timeout | undefined;
-  const [status, setStatus] = useState<ExtensionsStatus>({
+  const [extensionStatus, setExtensionStatus] = useState<ExtensionsStatus>({
     isVSCodeConnected: false,
     isBrowserConnected: false,
   });
+  const [deviceStatus, setDeviceStatus] = useState<boolean>(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [neverCloseApplications, setNeverCloseApplications] = useState<
     KnownApplicationEntity[]
@@ -29,10 +30,15 @@ export default function Settings() {
 
   const getConnectionStatus = async () => {
     try {
-      const latestStatus = await window.electron.ipcRenderer.invoke(
+      const latestExtensionStatus = await window.electron.ipcRenderer.invoke(
         'get-extensions-status'
       );
-      setStatus(latestStatus);
+      setExtensionStatus(latestExtensionStatus);
+
+      const latestDeviceStatus = await window.electron.ipcRenderer.invoke(
+        'get-device-status'
+      );
+      setDeviceStatus(latestDeviceStatus);
     } catch (err) {
       console.error(err);
     }
@@ -131,23 +137,31 @@ export default function Settings() {
         />
       )}
 
-      <h4>Connection Status to Extensions</h4>
+      <h4>Connection Status</h4>
       <div className={styles.connections}>
         <div className={styles.connection}>
           <div
             className={`${styles.circle} ${
-              status.isVSCodeConnected ? styles.connected : undefined
+              extensionStatus.isVSCodeConnected ? styles.connected : undefined
             }`}
           ></div>
-          <span>VSCode</span>
+          <span>VSCode Extension</span>
         </div>
         <div className={styles.connection}>
           <div
             className={`${styles.circle} ${
-              status.isBrowserConnected ? styles.connected : undefined
+              extensionStatus.isBrowserConnected ? styles.connected : undefined
             }`}
           ></div>
-          <span>Browser</span>
+          <span>Browser Extension</span>
+        </div>
+        <div className={styles.connection}>
+          <div
+            className={`${styles.circle} ${
+              deviceStatus ? styles.connected : undefined
+            }`}
+          ></div>
+          <span>Physical Button</span>
         </div>
       </div>
 
