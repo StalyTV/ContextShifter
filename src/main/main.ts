@@ -11,8 +11,6 @@
 import './ipc/api';
 import { app, globalShortcut, powerMonitor } from 'electron';
 import { info } from 'electron-log';
-import { autoUpdater } from 'electron-updater';
-import log from 'electron-log';
 import TaskSnap from './TaskSnap';
 import { Database } from './database';
 import Log from './entity/Log';
@@ -21,14 +19,7 @@ import AppConfig from './AppConfig';
 import UsageData from './entity/UsageData';
 import path from 'path';
 import DeviceManager from './HID/DeviceManager';
-
-class AppUpdater {
-  constructor() {
-    log.transports.file.level = 'info';
-    autoUpdater.logger = log;
-    autoUpdater.checkForUpdatesAndNotify();
-  }
-}
+import AppUpdater from './AppUpdater';
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
@@ -80,8 +71,6 @@ app
     if (isDebug) {
       await installExtensions();
     }
-    // Remove this if your app does not use auto updates
-    // eslint-disable-next-line
     new AppUpdater();
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the
