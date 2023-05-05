@@ -18,6 +18,7 @@ import WindowManager from './WindowManager';
 import { TypedWebContents } from './ipc/types/electron-typed-ipc';
 import Events from 'types/Events';
 import UsageData from './entity/UsageData';
+import KnownApplication from './entity/KnownApplication';
 
 export default class SnapshotManager {
   private static _instance: SnapshotManager;
@@ -117,8 +118,15 @@ export default class SnapshotManager {
 
     TaskSnap.getInstance().closeBrowserTabs(tabsToClose);
 
+    const appsThatShouldNeverBeClosed =
+      await KnownApplication.getAppsThatShouldNeverBeClosed();
     for (const app of updatedSnapshot.applications) {
-      if (app.isSelected) {
+      const doNotCloseThisApp = appsThatShouldNeverBeClosed.some(
+        (notCloseApp) => {
+          return notCloseApp.path === app.path;
+        }
+      );
+      if (app.isSelected && !doNotCloseThisApp) {
         closeApplication(app);
       }
     }
