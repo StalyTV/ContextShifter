@@ -13,6 +13,7 @@ import Snapshot from './entity/Snapshot';
 import Application from './entity/Application';
 import File from './entity/File';
 import IDE from './entity/IDE';
+import IDEFileEntity from './entity/IDEFile';
 import WindowManager from './WindowManager';
 import SnapshotManager from './SnapshotManager';
 import { lsof, Options, ProcessInfo } from 'list-open-files';
@@ -223,6 +224,13 @@ export default class TaskSnap {
       return { url: tab.url };
     });
     this._browserTracker.sendTabClosingRequest(closeRequest);
+  }
+
+  public closeIDEFiles(filesToClose: IDEFileEntity[]): void {
+    const filePaths: string[] = filesToClose.map((file) => {
+      return file.path;
+    });
+    this._vscodeTracker.sendFileClosingRequest(filePaths);
   }
 
   // TODO [regloff] refactor this method

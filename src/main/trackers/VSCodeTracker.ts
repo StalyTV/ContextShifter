@@ -75,6 +75,14 @@ export default class VSCodeTracker {
     }
   }
 
+  public async sendFileClosingRequest(filePaths: string[]) {
+    if (this._lastUsedSocket) {
+      return this._lastUsedSocket.send(
+        JSON.stringify({ data: filePaths, endpoint: 'close-files' })
+      );
+    }
+  }
+
   private async handleVSCodeSnapshot(data: VSCodeSnapshot) {
     const latestSnapshot = await Snapshot.getLatestSnapshot();
     if (!latestSnapshot) return;

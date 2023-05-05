@@ -115,8 +115,17 @@ export default class SnapshotManager {
         }
       }
     }
-
     TaskSnap.getInstance().closeBrowserTabs(tabsToClose);
+
+    const ideFilesToClose: IDEFileEntity[] = [];
+    for (const ide of updatedSnapshot.ides) {
+      for (const file of ide.ideFiles) {
+        if (file.isSelected) {
+          ideFilesToClose.push(file);
+        }
+      }
+    }
+    TaskSnap.getInstance().closeIDEFiles(ideFilesToClose);
 
     const appsThatShouldNeverBeClosed =
       await KnownApplication.getAppsThatShouldNeverBeClosed();
