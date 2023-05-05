@@ -30,6 +30,7 @@ import getAssetPath from './helpers/getAssetPath';
 import ExtensionsStatus from '../types/ExtensionsStatus';
 import UsageData from './entity/UsageData';
 import DeviceManager from './HID/DeviceManager';
+import KnownApplication from './entity/KnownApplication';
 const fileIcon = require('extract-file-icon');
 const sound = require('sound-play');
 
@@ -360,5 +361,46 @@ export default class TaskSnap {
       isBrowserConnected: this._browserTracker.isSocketOpen(),
     };
     return status;
+  }
+
+  public async getKnownApplications(): Promise<KnownApplication[]> {
+    // first update list of known applications based on currently open windows
+    const openWindows = await activeWin.getOpenWindows();
+
+    const alreadyKnownApplications = await KnownApplication.find();
+    const appsToAdd: KnownApplication[] = [];
+
+    openWindows.forEach((win) => {
+      const appPath = win.owner.path;
+      const appName = win.owner.name;
+      const isAlreadyAdded = alreadyKnownApplications.some((knownApp) => {
+        return knownApp.path === appPath;
+      });
+
+      if (!isAlreadyAdded) {
+        const newKnownApp = new KnownApplication();
+        newKnownApp.name = appName;
+        newKnownApp.path = appPath;
+        newKnownApp.icon = this.getApplicationIcon(appPath);
+        appsToAdd.push(newKnownApp);
+      }
+    });
+    await KnownApplication.save(appsToAdd);
+
+    return await KnownApplication.find();
+  }
+
+  public async updateKnownApplication(app: KnownApplication): Promise<void> {
+    info(`[TaskSnap] Updated known application with id ${app.id}`);
+    const knownAppInDb = await KnownApplication.findOneBy({ id: app.id });
+    if (knownAppInDb) {
+      knownAppInDb.neverClose = app.neverClose;
+      knownAppInDb.save();
+      UsageData.addEntry(
+        'update-known-application',
+        false,
+        JSON.stringify(app)
+      );
+    }
   }
 }

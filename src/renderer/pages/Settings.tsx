@@ -9,6 +9,8 @@ import styles from './Settings.module.scss';
 import ExtensionsStatus from '../../types/ExtensionsStatus';
 import Button from 'renderer/components/Button';
 import TaskSnapToggle from 'renderer/components/Toggle/TaskSnapToggle';
+import KnownApplicationEntity from '../../main/entity/KnownApplication';
+import PlusIcon from '../components/Icons/PlusIcon';
 
 export default function Settings() {
   let loopRef: NodeJS.Timeout | undefined;
@@ -17,6 +19,12 @@ export default function Settings() {
     isBrowserConnected: false,
   });
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+  const [neverCloseApplications, setNeverCloseApplications] = useState<
+    KnownApplicationEntity[]
+  >([]);
+  const [otherApplications, setOtherApplications] = useState<
+    KnownApplicationEntity[]
+  >([]);
   const [isFetchingSettings, setIsFetchingSettings] = useState<boolean>(false);
 
   const getConnectionStatus = async () => {
@@ -43,6 +51,51 @@ export default function Settings() {
     setIsFetchingSettings(false);
   };
 
+  const getKnownApplications = async () => {
+    try {
+      const fetchedApplications = await window.electron.ipcRenderer.invoke(
+        'get-known-applications'
+      );
+
+      const neverCloseApps = fetchedApplications.filter((app) => {
+        return app.neverClose;
+      });
+      setNeverCloseApplications(neverCloseApps);
+      const otherApps = fetchedApplications.filter((app) => {
+        return !app.neverClose;
+      });
+      setOtherApplications(otherApps);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const onClickNeverCloseApp = async (app: KnownApplicationEntity) => {
+    app.neverClose = !app.neverClose;
+    const updatedNeverCloseApps = neverCloseApplications.filter((appInList) => {
+      return appInList.id !== app.id;
+    });
+    setNeverCloseApplications(updatedNeverCloseApps);
+    setOtherApplications([...otherApplications, app]);
+
+    await updateKnownApplication(app);
+  };
+
+  const onClickOtherApp = async (app: KnownApplicationEntity) => {
+    app.neverClose = !app.neverClose;
+    const updatedOtherApps = otherApplications.filter((appInList) => {
+      return appInList.id !== app.id;
+    });
+    setOtherApplications(updatedOtherApps);
+    setNeverCloseApplications([...neverCloseApplications, app]);
+
+    await updateKnownApplication(app);
+  };
+
+  const updateKnownApplication = async (app: KnownApplicationEntity) => {
+    await window.electron.ipcRenderer.invoke('update-known-application', app);
+  };
+
   const onClickOpenConfig = async () => {
     await window.electron.ipcRenderer.invoke('open-config');
   };
@@ -52,6 +105,7 @@ export default function Settings() {
   };
 
   useEffect(() => {
+    getKnownApplications();
     getColorTheme();
     getConnectionStatus();
     loopRef = setInterval(() => {
@@ -95,6 +149,37 @@ export default function Settings() {
           ></div>
           <span>Browser</span>
         </div>
+      </div>
+
+      <h4>Apps that should never be closed</h4>
+      <div className={styles.neverCloseApplications}>
+        {neverCloseApplications.map((app) => {
+          return (
+            <img
+              key={app.id}
+              className={styles.appIcon}
+              src={app.icon}
+              data-tooltip-id={'task-snap'}
+              data-tooltip-content={app.name}
+              onClick={() => onClickNeverCloseApp(app)}
+            />
+          );
+        })}
+      </div>
+      <div className={styles.otherApplications}>
+        <PlusIcon className={styles.plusIcon} />
+        {otherApplications.map((app) => {
+          return (
+            <img
+              key={app.id}
+              className={styles.appIcon}
+              src={app.icon}
+              data-tooltip-id={'task-snap'}
+              data-tooltip-content={app.name}
+              onClick={() => onClickOtherApp(app)}
+            />
+          );
+        })}
       </div>
 
       <h4>Configuration</h4>

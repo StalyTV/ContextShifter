@@ -157,3 +157,11 @@ typedIpcMain.handle('open-config', async () => {
     path.join(app.getPath('appData'), app.name, 'config', 'config.yaml')
   );
 });
+
+typedIpcMain.handle('get-known-applications', async () => {
+  return TaskSnap.getInstance().getKnownApplications();
+});
+
+typedIpcMain.handle('update-known-application', async (e, app) => {
+  await TaskSnap.getInstance().updateKnownApplication(app);
+});

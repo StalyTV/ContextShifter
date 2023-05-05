@@ -38,5 +38,37 @@
       }
     }
   }
+
+  .neverCloseApplications {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    min-height: 2rem;
+    background-color: var(--bg-color-3);
+    border-radius: var(--border-radius);
+    padding: 0.2rem 0.2rem 0.2rem 0.4rem;
+    margin-bottom: 0.5rem;
+
+    img {
+      cursor: pointer;
+    }
+  }
+
+  .otherApplications {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+
+    .plusIcon {
+      height: 1rem;
+      margin-right: 0.3rem;
+      fill: var(--border-color);
+    }
+
+    img {
+      cursor: pointer;
+    }
+  }
+
 }
 

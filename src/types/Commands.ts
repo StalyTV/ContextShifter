@@ -11,6 +11,7 @@ import BrowserTab from '../main/entity/BrowserTab';
 import IDEFile from 'main/entity/IDEFile';
 import IDE from '../main/entity/IDE';
 import ExtensionsStatus from './ExtensionsStatus';
+import KnownApplication from 'main/entity/KnownApplication';
 
 type Commands = {
   'get-snapshot-by-id': (id: number) => Snapshot | null;
@@ -44,6 +45,8 @@ type Commands = {
   // settings
   'get-extensions-status': () => ExtensionsStatus;
   'open-config': () => void;
+  'get-known-applications': () => KnownApplication[];
+  'update-known-application': (app: KnownApplication) => void;
 };
 
 export default Commands;
