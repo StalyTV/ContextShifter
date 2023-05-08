@@ -11,7 +11,7 @@ export type VSCodeSnapshot = {
   branch: string | undefined;
   lastCommit: Commit | undefined;
   toDos: VSCodeTODO[];
-  lastEditedFunction: EditedFunction | undefined;
+  lastEdit: Edit | undefined;
   workspaceName: string | undefined;
   workspacePath: string | undefined;
 };
@@ -28,10 +28,10 @@ export type VSCodeTODO = {
   text: string;
 };
 
-export type EditedFunction = {
-  name: string;
+export type Edit = {
   line: number; // starting at 1
   lineContent: string;
   filePath: string;
+  functionName: string | undefined;
   timestamp: Date;
 };

@@ -121,16 +121,17 @@ export default class VSCodeTracker {
     // create snapshot summary
     let summaryString = '';
 
-    const editedFunction = data.lastEditedFunction;
-    if (editedFunction) {
+    const lastEdit = data.lastEdit;
+    if (lastEdit) {
       // check if last change was outside considered time window
-      const changeTime = new Date(editedFunction.timestamp).getTime();
+      const changeTime = new Date(lastEdit.timestamp).getTime();
       if (changeTime > Date.now() - StaticSettings.IDE_TIME_WINDOW) {
-        summaryString += `Just edited line ${editedFunction.line} "${
-          editedFunction.lineContent
-        }" in [${editedFunction.name} - ${getFileNameFromPath(
-          editedFunction.filePath
-        )}]`;
+        const fileName = getFileNameFromPath(lastEdit.filePath);
+        const functionAndFileName = lastEdit.functionName
+          ? `${lastEdit.functionName} - ${fileName}`
+          : fileName;
+
+        summaryString += `Just edited line ${lastEdit.line} "${lastEdit.lineContent}" in [${functionAndFileName}]`;
       }
     }
 
