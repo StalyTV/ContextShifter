@@ -6,10 +6,12 @@
 
 import styles from './PostIt.module.scss';
 import Button from 'renderer/components/Button';
+import InfoIcon from './Icons/InfoIcon';
 
 type Props = {
   title: string;
   content: string;
+  infoMessage?: string;
   onTextChange: (text: string) => {};
 };
 
@@ -25,7 +27,16 @@ export default function PostIt(props: Props) {
   return (
     <div className={styles.postIt}>
       <div className={styles.header}>
-        <div className={styles.postItTitle}>{props.title}</div>
+        <div className={styles.postItTitle}>
+          <span>{props.title}</span>
+          {props.infoMessage ? (
+            <InfoIcon
+              className={styles.infoIcon}
+              data-tooltip-id={'task-snap'}
+              data-tooltip-html={props.infoMessage}
+            />
+          ) : null}
+        </div>
         <div className={styles.buttonContainer}>
           <Button
             className={styles.clearButton}

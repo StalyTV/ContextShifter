@@ -211,6 +211,7 @@ export default function Snapshot() {
               <PostIt
                 title={'What was I about to do?'}
                 content={`💭 ${intent}`}
+                infoMessage={`Uncommitted TODOs are automatically added to this section`}
                 onTextChange={onIntentChange}
               />
             </div>
@@ -250,7 +251,7 @@ export default function Snapshot() {
               onSelect={postponeSnapshot}
             />
             <Button isFilled={false} onClick={() => onClickOpenArtifacts()}>
-              Open Selected Artifacts
+              Open Selection
             </Button>
             <Button isFilled={false} onClick={() => onClickSaveAndClose()}>
               <>

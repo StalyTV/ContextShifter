@@ -11,10 +11,17 @@
     border-bottom: 1px black solid;
 
     .postItTitle {
+      display: flex;
+      align-items: center;
       width: 70%;
       padding: 0.5rem 0.5rem 0.5rem 1rem;
       font-weight: 700;
       font-size: small;
+
+      .infoIcon {
+        margin-left: 0.2rem;
+        height: 0.8rem;
+      }
     }
 
     .buttonContainer {
