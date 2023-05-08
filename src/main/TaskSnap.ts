@@ -385,7 +385,12 @@ export default class TaskSnap {
         return knownApp.path === appPath;
       });
 
-      if (!isAlreadyAdded) {
+      // multiple windows of the same application can be open
+      const isDuplicate = appsToAdd.some((appInList) => {
+        return appInList.path === appPath;
+      });
+
+      if (!isAlreadyAdded && !isDuplicate) {
         const newKnownApp = new KnownApplication();
         newKnownApp.name = appName;
         newKnownApp.path = appPath;

@@ -91,6 +91,7 @@ export default class WindowManager {
       show: false,
       width: 600,
       height: 210,
+      alwaysOnTop: true,
       icon: getAssetPath('icon.png'),
       title: 'New Snapshot',
       webPreferences: {
