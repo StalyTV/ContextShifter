@@ -7,7 +7,7 @@
   padding: 1rem;
   background-color: var(--overlay-color);
   border-radius: var(--border-radius);
-  box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
+  box-shadow: var(--overlay-box-shadow);
 
   h3 {
     margin-top: 0;

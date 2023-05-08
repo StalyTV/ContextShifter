@@ -15,7 +15,6 @@
     --bg-color-4: #8B8B8B;
     --bg-color-5: #B1B1B1;
     --overlay-color: #000000;
-    --overlay-border-color: #000000;
     --border-color: #FFFFFF;
     --text-color: #FFFFFF;
   }
@@ -28,7 +27,6 @@
     --bg-color-4: #c1c1c1;
     --bg-color-5: #a3a3a3;
     --overlay-color: #FFFFFF;
-    --overlay-border-color: #3E3E3E;
     --border-color: #3E3E3E;
     --text-color: #3E3E3E;
   }
@@ -37,6 +35,8 @@
   --postIt-bg-color-2: #fdfdbc;
   --postIt-border-color: #3E3E3E;
   --postIt-text-color: #3E3E3E;
+
+  --overlay-box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
 
   --border-radius: 5px;
   --font-family: 'Montserrat', sans-serif;
