@@ -19,6 +19,7 @@ import IDE from './entity/IDE';
 import IDEFile from './entity/IDEFile';
 import UsageData from './entity/UsageData';
 import KnownApplication from './entity/KnownApplication';
+import ActiveBrowserTab from './entity/ActiveBrowserTab';
 
 const dbPath = path.join(
   app.getPath('appData'),
@@ -42,6 +43,7 @@ export const Database = new DataSource({
     IDEFile,
     UsageData,
     KnownApplication,
+    ActiveBrowserTab,
   ],
   synchronize: true,
 });

@@ -8,6 +8,7 @@
 
   .icon {
     fill: var(--border-color);
+    flex-shrink: 0;
   }
 
   img {

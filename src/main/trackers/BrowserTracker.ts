@@ -18,6 +18,7 @@ import {
 import { Tabs } from 'webextension-polyfill';
 import Browser from '../entity/Browser';
 import BrowserTab from '../entity/BrowserTab';
+import ActiveBrowserTab from '../entity/ActiveBrowserTab';
 
 export default class BrowserTracker {
   private _port = 8083;
@@ -97,6 +98,17 @@ export default class BrowserTracker {
       }
     });
     this._openTabs = allTabs;
+
+    // store currently active tab for smart pre-selection
+    const activeTab = allTabs.find((tab) => {
+      return tab.active;
+    });
+    if (activeTab && activeTab.url) {
+      const dbEntry = new ActiveBrowserTab();
+      dbEntry.url = activeTab.url;
+      dbEntry.ts = new Date().toISOString();
+      dbEntry.save();
+    }
   }
 
   private handleSequence(
@@ -111,8 +123,16 @@ export default class BrowserTracker {
   }
 
   public async saveOpenTabsToDb(browser: Browser) {
+    // for smart pre-selection, look which urls were active within the last 10 minutes - TODO: update this condition
+    const timeMinus10Min = Date.now() - 10 * 60 * 1000;
+    const recentlyActiveUrls = await ActiveBrowserTab.getRecentlyActiveURLs(
+      new Date(timeMinus10Min)
+    );
+
     for await (const tab of this._openTabs) {
       if (!tab.url) continue;
+
+      const wasTabRecentlyActive = recentlyActiveUrls.includes(tab.url);
 
       const tabEntity = new BrowserTab();
       tabEntity.url = tab.url;
@@ -121,6 +141,7 @@ export default class BrowserTracker {
       tabEntity.index = tab.index;
       tabEntity.isActive = tab.active;
       tabEntity.browser = browser;
+      tabEntity.isSelected = wasTabRecentlyActive;
       tabEntity.save();
     }
     info(
