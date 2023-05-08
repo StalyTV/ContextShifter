@@ -31,7 +31,7 @@ export default function File(props: Props) {
       }`}
       onClick={toggleSelect}
     >
-      {props.file.name}
+      <span>{props.file.name}</span>
     </div>
   );
 }

@@ -4,8 +4,16 @@
   border-radius: var(--border-radius);
   background-color: var(--bg-color-4);
   overflow: hidden;
+
+  span {
+    opacity: 0.5;
+  }
 }
 
 .isSelected {
   background-color: var(--bg-color-5);
+
+  span {
+    opacity: 1;
+  }
 }

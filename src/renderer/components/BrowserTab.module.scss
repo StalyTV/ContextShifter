@@ -16,6 +16,7 @@
   }
 
   span {
+    opacity: 0.5;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -24,4 +25,8 @@
 
 .isSelected {
   background-color: var(--bg-color-5);
+
+  span {
+    opacity: 1;
+  }
 }
