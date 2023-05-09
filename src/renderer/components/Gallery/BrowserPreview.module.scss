@@ -9,6 +9,9 @@
   .browserIcon {
     cursor: pointer;
     height: 1.7rem;
+  }
+
+  &.hasTabs .browserIcon {
     margin-right: 0.3rem;
   }
 

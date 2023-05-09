@@ -29,8 +29,16 @@ export default function BrowserPreview(props: Props) {
     await window.electron.ipcRenderer.invoke('open-artifact', artifact);
   };
 
+  const hasTabs = (): boolean => {
+    return getSelectedTabs().length > 0;
+  };
+
   return (
-    <div className={styles.previewContainer}>
+    <div
+      className={`${styles.previewContainer} ${
+        hasTabs() ? styles.hasTabs : undefined
+      }`}
+    >
       <img
         className={styles.browserIcon}
         src={props.browser.icon}

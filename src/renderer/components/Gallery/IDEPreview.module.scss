@@ -11,6 +11,9 @@
   .ideIcon {
     cursor: pointer;
     height: 1.7rem;
+  }
+
+  &.hasFiles .ideIcon {
     margin-right: 0.3rem;
   }
 

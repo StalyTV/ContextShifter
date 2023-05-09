@@ -28,6 +28,10 @@ export default function IDEPreview(props: Props) {
     }
   };
 
+  const hasFiles = (): boolean => {
+    return getFiles().length > 0;
+  };
+
   const onClickApplicationIcon = async (e: React.MouseEvent) => {
     // makes sure Preview is not expanded
     e.stopPropagation();
@@ -61,7 +65,9 @@ export default function IDEPreview(props: Props) {
 
   return (
     <div
-      className={styles.previewContainer}
+      className={`${styles.previewContainer} ${
+        hasFiles() ? styles.hasFiles : undefined
+      }`}
       data-tooltip-id={'task-snap'}
       data-tooltip-html={ReactDOMServer.renderToStaticMarkup(tooltip)}
     >
@@ -80,7 +86,7 @@ export default function IDEPreview(props: Props) {
             onClick={(e) => onClickFile(e, file)}
           >
             <span>{file.name}</span>
-            {file.isActive ? <EyeIcon className={styles.eyeIcon}/> : null}
+            {file.isActive ? <EyeIcon className={styles.eyeIcon} /> : null}
           </div>
         );
       })}
