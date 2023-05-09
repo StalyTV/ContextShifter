@@ -11,6 +11,7 @@ import Snapshot from '../entity/Snapshot';
 import IDEFile from '../entity/IDEFile';
 import { getFileNameFromPath } from '../helpers/getFileNameFromPath';
 import StaticSettings from '../StaticSettings';
+import ActiveIDEFile from '../entity/ActiveIDEFile';
 
 export default class VSCodeTracker {
   private _port = 8084;
@@ -54,6 +55,9 @@ export default class VSCodeTracker {
         if (obj.endpoint === 'get-vscode-snapshot') {
           const vscodeSnapshot = obj.data as VSCodeSnapshot;
           self.handleVSCodeSnapshot(vscodeSnapshot);
+        } else if (obj.endpoint === 'active-file') {
+          const filePath = obj.data as string;
+          self.handleActiveFile(filePath);
         }
       });
     });
@@ -106,12 +110,21 @@ export default class VSCodeTracker {
     }
     ide.save();
 
+    // for smart pre-selection, look which files were active within the last 10 minutes - TODO: update this condition
+    const timeMinus10Min = Date.now() - 10 * 60 * 1000;
+    const recentlyActiveFiles = await ActiveIDEFile.getRecentlyActiveIDEFiles(
+      new Date(timeMinus10Min)
+    );
+
     for await (const openFile of data.openFiles) {
+      const wasFileRecentlyActive = recentlyActiveFiles.includes(openFile.path);
+
       const ideFile = new IDEFile();
       ideFile.name = openFile.name;
       ideFile.path = openFile.path;
       ideFile.isActive = openFile.isActive;
       ideFile.ide = ide;
+      ideFile.isSelected = wasFileRecentlyActive;
       ideFile.save();
     }
     info(
@@ -154,6 +167,13 @@ export default class VSCodeTracker {
     latestSnapshot.intent = intent;
 
     latestSnapshot.save();
+  }
+
+  public handleActiveFile(filePath: string): void {
+    const dbEntry = new ActiveIDEFile();
+    dbEntry.path = filePath;
+    dbEntry.ts = new Date().toISOString();
+    dbEntry.save();
   }
 
   public isSocketOpen(): boolean {
