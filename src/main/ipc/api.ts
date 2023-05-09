@@ -5,8 +5,6 @@
  */
 
 import typedIpcMain from './typedIpcMain';
-import Log from '../entity/Log';
-import ActiveWindow from '../entity/ActiveWindow';
 import SnapshotManager from '../SnapshotManager';
 import { app, nativeTheme, shell } from 'electron';
 import { openArtifact } from '../helpers/osCommands';
@@ -16,12 +14,6 @@ import TaskSnap from '../TaskSnap';
 import path from 'path';
 import UsageData from '../entity/UsageData';
 import DeviceManager from '../HID/DeviceManager';
-
-typedIpcMain.handle('get-used-applications', async () => {
-  const lastStart = await Log.getLastApplicationStart();
-  const applications = await ActiveWindow.getUsedApplications(lastStart);
-  return applications;
-});
 
 typedIpcMain.handle('open-artifact', async (e, artifact) => {
   await UsageData.addEntry('open-artifact', false, JSON.stringify(artifact));

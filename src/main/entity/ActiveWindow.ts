@@ -25,17 +25,4 @@ export default class ActiveWindow extends BaseEntity {
 
   @Column({ type: 'varchar', nullable: true })
   url!: string;
-
-  static async getUsedApplications(since: Date) {
-    const activeWindows = await this.createQueryBuilder('active_window')
-      .where('active_window.ts >= :since', {
-        since: since.toISOString(),
-      })
-      .getMany();
-    const applications = activeWindows.map((win) => {
-      return win.application;
-    });
-    const uniqueApplications = [...new Set(applications)];
-    return uniqueApplications;
-  }
 }

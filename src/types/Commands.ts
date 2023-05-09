@@ -17,7 +17,6 @@ type Commands = {
   'get-snapshot-by-id': (id: number) => Snapshot | null;
   'get-latest-snapshot': () => Snapshot | null;
   'get-latest-n-snapshots': (n: number) => Snapshot[];
-  'get-used-applications': () => string[];
   'open-artifact': (artifact: Artifact) => void;
   'open-all-artifacts-of-snapshot': (snapshot: Snapshot) => void;
   'save-snapshot': (snapshot: Snapshot) => Promise<void>;
