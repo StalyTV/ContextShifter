@@ -25,4 +25,17 @@ export default class ActiveWindow extends BaseEntity {
 
   @Column({ type: 'varchar', nullable: true })
   url!: string;
+
+  static async getRecentlyActiveApps(startTime: Date): Promise<string[]> {
+    const entries = await this.createQueryBuilder('active_window')
+      .where('active_window.ts >= :tsStart', {
+        tsStart: startTime.toISOString(),
+      })
+      .groupBy('application')
+      .getMany();
+    const appNames = entries.map((entry) => {
+      return entry.application;
+    });
+    return appNames;
+  }
 }

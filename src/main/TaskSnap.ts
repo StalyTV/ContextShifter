@@ -32,6 +32,7 @@ import ExtensionsStatus from '../types/ExtensionsStatus';
 import UsageData from './entity/UsageData';
 import DeviceManager from './HID/DeviceManager';
 import KnownApplication from './entity/KnownApplication';
+import ActiveWindow from './entity/ActiveWindow';
 const fileIcon = require('extract-file-icon');
 const sound = require('sound-play');
 
@@ -254,6 +255,12 @@ export default class TaskSnap {
       recentlyOpenedFiles = await getRecentlyOpenedFilePaths(searchStart);
     }
 
+    // for smart pre-selection, look which apps were active within the last 10 minutes - TODO: update this condition
+    const timeMinus10Min = Date.now() - 10 * 60 * 1000;
+    const recentlyActiveApps = await ActiveWindow.getRecentlyActiveApps(
+      new Date(timeMinus10Min)
+    );
+
     const openBrowsers: Browser[] = [];
     const openIDEs: IDE[] = [];
     const openApplications: Application[] = [];
@@ -263,17 +270,20 @@ export default class TaskSnap {
 
       if (AppConfig.getExcludedApplications().includes(appName)) continue;
 
+      const wasAppRecentlyActive = recentlyActiveApps.includes(appName);
+
       // browsers get stored separately, as handling of urls different than handling of files
       if (
         appName.includes('Google Chrome') ||
         appName.includes('Firefox') ||
-        appName.includes('Edge') // TODO: Check if this name is correct
+        appName.includes('Edge')
       ) {
         const browser = new Browser();
         browser.name = appName;
         browser.path = appPath;
         browser.icon = this.getApplicationIcon(appPath);
         browser.title = win.title;
+        browser.isSelected = wasAppRecentlyActive;
         openBrowsers.push(browser);
 
         // ide
@@ -283,6 +293,7 @@ export default class TaskSnap {
         ide.path = appPath;
         ide.icon = this.getApplicationIcon(appPath);
         ide.title = win.title;
+        ide.isSelected = wasAppRecentlyActive;
         openIDEs.push(ide);
 
         // regular application case
@@ -292,6 +303,7 @@ export default class TaskSnap {
         app.path = appPath;
         app.icon = this.getApplicationIcon(appPath);
         app.title = win.title;
+        app.isSelected = wasAppRecentlyActive;
         openApplications.push(app);
 
         if (isMac) {
@@ -320,6 +332,7 @@ export default class TaskSnap {
                 const file = new File();
                 file.path = path;
                 file.name = getFileNameFromPath(path);
+                file.isSelected = wasAppRecentlyActive; // TODO: Improve this
                 associatedFiles.push(file);
               }
             }
@@ -342,6 +355,7 @@ export default class TaskSnap {
               const file = new File();
               file.path = path;
               file.name = getFileNameFromPath(path);
+              file.isSelected = wasAppRecentlyActive; // TODO: Improve this
               associatedFiles.push(file);
             }
           }
