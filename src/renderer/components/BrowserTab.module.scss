@@ -2,9 +2,10 @@
   margin: 0.2rem;
   padding: 0.3rem;
   border-radius: var(--border-radius);
-  background-color: var(--bg-color-4);
+  background-color: var(--bg-color-5);
   height: 1rem;
   display: flex;
+  opacity: 0.5;
 
   .icon {
     fill: var(--border-color);
@@ -13,11 +14,9 @@
 
   img {
     margin-right: 0.7rem;
-    opacity: 0.5;
   }
 
   span {
-    opacity: 0.5;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -25,13 +24,5 @@
 }
 
 .isSelected {
-  background-color: var(--bg-color-5);
-
-  img {
-    opacity: 1;
-  }
-
-  span {
-    opacity: 1;
-  }
+  opacity: 1;
 }

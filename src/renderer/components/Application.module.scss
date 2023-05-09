@@ -9,14 +9,11 @@
   .header {
     display: flex;
     align-items: center;
+    opacity: 0.5;
 
-    span {
-      opacity: 0.5;
-    }
     .icon {
       height: 1.5rem;
       margin-right: 0.6rem;
-      opacity: 0.5;
     }
   }
 }
@@ -24,11 +21,7 @@
 .application.isSelected {
   border: solid var(--accent-color-1) 2px;
 
-  .header
-    span {
-      opacity: 1;
-    }
-    .icon {
-      opacity: 1;
-    }
+  .header {
+    opacity: 1;
+  }
 }
