@@ -9,6 +9,7 @@
   .info {
     display: flex;
     align-items: center;
+    opacity: 0.5;
 
     .icon {
       height: 1.5rem;
@@ -24,4 +25,8 @@
 
 .isSelected {
   border: solid var(--accent-color-1) 2px;
+
+  .info {
+    opacity: 1;
+  }
 }

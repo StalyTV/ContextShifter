@@ -84,6 +84,7 @@ export default class Snapshot extends BaseEntity {
         .leftJoinAndSelect('snapshot.applications', 'applications')
         .leftJoinAndSelect('applications.files', 'files')
         .where('snapshot.id = :id', { id: id })
+        .orderBy('applications.isSelected', 'DESC')
         .getOne();
       return snapshot;
     }

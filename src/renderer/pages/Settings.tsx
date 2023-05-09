@@ -11,6 +11,7 @@ import Button from 'renderer/components/Button';
 import TaskSnapToggle from 'renderer/components/Toggle/TaskSnapToggle';
 import KnownApplicationEntity from '../../main/entity/KnownApplication';
 import PlusIcon from '../components/Icons/PlusIcon';
+import InfoIcon from 'renderer/components/Icons/InfoIcon';
 
 export default function Settings() {
   let loopRef: NodeJS.Timeout | undefined;
@@ -165,7 +166,16 @@ export default function Settings() {
         </div>
       </div>
 
-      <h4>Apps that should never be closed</h4>
+      <div className={styles.titleWithInfo}>
+        <h4>Apps that should never be closed</h4>
+        <InfoIcon
+          className={styles.infoIcon}
+          data-tooltip-id={'task-snap'}
+          data-tooltip-html={
+            'If an app is not listed, make sure it is in focus and reopen the settings window'
+          }
+        />
+      </div>
       <div className={styles.neverCloseApplications}>
         {neverCloseApplications.map((app) => {
           return (
