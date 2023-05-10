@@ -11,7 +11,7 @@ import Snapshot from '../entity/Snapshot';
 import IDEFile from '../entity/IDEFile';
 import { getFileNameFromPath } from '../helpers/getFileNameFromPath';
 import StaticSettings from '../StaticSettings';
-import ActiveIDEFile from '../entity/ActiveIDEFile';
+import IDEFileEvent from '../entity/IDEFileEvent';
 
 export default class VSCodeTracker {
   private _port = 8084;
@@ -54,10 +54,13 @@ export default class VSCodeTracker {
 
         if (obj.endpoint === 'get-vscode-snapshot') {
           const vscodeSnapshot = obj.data as VSCodeSnapshot;
-          self.handleVSCodeSnapshot(vscodeSnapshot);
+          self.handleVSCodeSnapshotEvent(vscodeSnapshot);
         } else if (obj.endpoint === 'active-file') {
           const filePath = obj.data as string;
-          self.handleActiveFile(filePath);
+          self.handleActiveFileEvent(filePath);
+        } else if (obj.endpoint === 'file-save') {
+          const filePath = obj.data as string;
+          self.handleFileSaveEvent(filePath);
         }
       });
     });
@@ -87,7 +90,7 @@ export default class VSCodeTracker {
     }
   }
 
-  private async handleVSCodeSnapshot(data: VSCodeSnapshot) {
+  private async handleVSCodeSnapshotEvent(data: VSCodeSnapshot) {
     const latestSnapshot = await Snapshot.getLatestSnapshot();
     if (!latestSnapshot) return;
 
@@ -112,7 +115,7 @@ export default class VSCodeTracker {
 
     // for smart pre-selection, look which files were active within the last 10 minutes - TODO: update this condition
     const timeMinus10Min = Date.now() - 10 * 60 * 1000;
-    const recentlyActiveFiles = await ActiveIDEFile.getRecentlyActiveIDEFiles(
+    const recentlyActiveFiles = await IDEFileEvent.getRecentlyActiveIDEFiles(
       new Date(timeMinus10Min)
     );
 
@@ -177,10 +180,19 @@ export default class VSCodeTracker {
     latestSnapshot.save();
   }
 
-  public handleActiveFile(filePath: string): void {
-    const dbEntry = new ActiveIDEFile();
+  public handleActiveFileEvent(filePath: string): void {
+    const dbEntry = new IDEFileEvent();
     dbEntry.path = filePath;
     dbEntry.ts = new Date().toISOString();
+    dbEntry.type = 'active-file';
+    dbEntry.save();
+  }
+
+  public handleFileSaveEvent(filePath: string): void {
+    const dbEntry = new IDEFileEvent();
+    dbEntry.path = filePath;
+    dbEntry.ts = new Date().toISOString();
+    dbEntry.type = 'file-save';
     dbEntry.save();
   }
 

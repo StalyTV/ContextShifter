@@ -6,8 +6,8 @@
 
 import { Entity, BaseEntity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
-@Entity({ name: 'active_ide_file' })
-export default class ActiveIDEFile extends BaseEntity {
+@Entity({ name: 'ide_file_event' })
+export default class IDEFileEvent extends BaseEntity {
   @PrimaryGeneratedColumn()
   id!: number;
 
@@ -17,9 +17,12 @@ export default class ActiveIDEFile extends BaseEntity {
   @Column({ type: 'varchar', nullable: true })
   path!: string;
 
+  @Column({ type: 'varchar', nullable: false })
+  type!: 'active-file' | 'file-save';
+
   static async getRecentlyActiveIDEFiles(startTime: Date): Promise<string[]> {
-    const entries = await this.createQueryBuilder('active_ide_file')
-      .where('active_ide_file.ts >= :tsStart', {
+    const entries = await this.createQueryBuilder('ide_file_event')
+      .where('ide_file_event.ts >= :tsStart', {
         tsStart: startTime.toISOString(),
       })
       .groupBy('path')
