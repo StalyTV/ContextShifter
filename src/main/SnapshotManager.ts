@@ -43,10 +43,12 @@ export default class SnapshotManager {
   public async saveSnapshot(updatedSnapshot: Snapshot) {
     const snapshotInDb = await Snapshot.findOneBy({ id: updatedSnapshot.id });
     if (snapshotInDb) {
+      const timestamp = new Date().toISOString();
       snapshotInDb.name = updatedSnapshot.name;
       snapshotInDb.summary = updatedSnapshot.summary;
       snapshotInDb.intent = updatedSnapshot.intent;
-      snapshotInDb.edited = new Date().toISOString();
+      snapshotInDb.edited = timestamp;
+      snapshotInDb.lastChange = timestamp;
 
       for (const browser of updatedSnapshot.browsers) {
         const browserInDb = await BrowserEntity.findOneBy({ id: browser.id });
@@ -145,7 +147,6 @@ export default class SnapshotManager {
     const snapshotInDb = await Snapshot.findOneBy({ id: snapshotId });
     if (snapshotInDb) {
       snapshotInDb.name = name;
-      snapshotInDb.edited = new Date().toISOString();
       snapshotInDb.save();
     }
   }

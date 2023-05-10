@@ -29,16 +29,10 @@ export default function SnapshotGallery() {
       10
     );
 
-    snapshots.sort((a, b) => {
-      const dateA = new Date(a.created).getTime();
-      const dateB = new Date(b.created).getTime();
-      return dateB - dateA;
-    });
-
     const initialMap: Map<number, SnapshotEntity[]> = new Map();
     snapshots.forEach((snapshot) => {
-      const creationDate = new Date(snapshot.created);
-      const key: number = creationDate.setHours(0, 0, 0, 0);
+      const lastChangeDate = new Date(snapshot.lastChange);
+      const key: number = lastChangeDate.setHours(0, 0, 0, 0);
       if (initialMap.has(key)) {
         initialMap.get(key)!.push(snapshot);
       } else {

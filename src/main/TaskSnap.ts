@@ -91,9 +91,11 @@ export default class TaskSnap {
     await IDE.save(openIDEs);
     await Application.save(openApplications);
 
+    const timestamp = new Date().toISOString();
     const nextId = await Snapshot.getNextId();
     const newSnapshot = new Snapshot();
-    newSnapshot.created = new Date().toISOString();
+    newSnapshot.created = timestamp;
+    newSnapshot.lastChange = timestamp;
     newSnapshot.name = `Snapshot ${nextId}`;
     newSnapshot.browsers = openBrowsers;
     newSnapshot.ides = openIDEs;

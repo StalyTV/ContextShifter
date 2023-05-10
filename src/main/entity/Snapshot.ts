@@ -35,6 +35,9 @@ export default class Snapshot extends BaseEntity {
   @Column({ type: 'varchar', nullable: true })
   edited!: string;
 
+  @Column({ type: 'varchar', nullable: false })
+  lastChange!: string; // needed for sorting
+
   @Column({ type: 'tinyint', nullable: false, default: false })
   isArchived!: boolean;
 
@@ -93,7 +96,7 @@ export default class Snapshot extends BaseEntity {
   static async getLatestNSnapshots(n: number): Promise<Snapshot[]> {
     const lastNSnapshots = await this.find({
       where: {},
-      order: { id: 'DESC' },
+      order: { lastChange: 'DESC' },
       take: n,
     });
     const snapshotIds = lastNSnapshots.map((snapshot) => snapshot.id);
@@ -110,6 +113,7 @@ export default class Snapshot extends BaseEntity {
         .where('snapshot.id IN (:...ids)', {
           ids: snapshotIds,
         })
+        .orderBy('snapshot.lastChange', 'DESC')
         .getMany();
       return snapshots;
     }

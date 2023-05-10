@@ -9,7 +9,7 @@ import log, { info, error } from 'electron-log';
 import { app, dialog } from 'electron';
 
 export default class AppUpdater {
-  private server = 'https://tasksnap-test.vercel.app';
+  private server = 'https://tasksnap-updater.vercel.app';
 
   constructor() {
     log.transports.file.level = 'info';

@@ -15,6 +15,7 @@ import BrowserPreview from './BrowserPreview';
 import IDEPreview from './IDEPreview';
 import ApplicationPreview from './ApplicationPreview';
 import Artifact from 'types/Artifact';
+import CameraIcon from '../Icons/CameraIcon';
 
 type Props = {
   snapshot: SnapshotEntity;
@@ -141,7 +142,12 @@ export default function SnapshotPreview(props: Props) {
           <div className={styles.upper}>
             <div className={styles.timeAndName}>
               <div className={styles.time}>
-                {getFormattedTime(props.snapshot.created)}
+                {getFormattedTime(props.snapshot.lastChange)}
+                {props.snapshot.lastChange === props.snapshot.created ? (
+                  <CameraIcon className={styles.icon} />
+                ) : (
+                  <EditIcon className={styles.icon} />
+                )}
               </div>
               <div className={styles.name}>{props.snapshot.name}</div>
             </div>
