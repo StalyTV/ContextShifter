@@ -139,12 +139,20 @@ export default class VSCodeTracker {
       // check if last change was outside considered time window
       const changeTime = new Date(lastEdit.timestamp).getTime();
       if (changeTime > Date.now() - StaticSettings.IDE_TIME_WINDOW) {
+        const lineRange = lastEdit.lineRange as any; // vscode.Range somehow does not get serialized as expected
+        const startLine = lineRange[0].line + 1; // vscode starts indexing lines at 0
+        const endLine = lineRange[1].line + 1;
+        const lineInfo =
+          startLine === endLine
+            ? `${startLine} "${lastEdit.code}"`
+            : `${startLine}-${endLine}`;
+
         const fileName = getFileNameFromPath(lastEdit.filePath);
         const functionAndFileName = lastEdit.functionName
           ? `${lastEdit.functionName} - ${fileName}`
           : fileName;
 
-        summaryString += `Just edited line ${lastEdit.line} "${lastEdit.lineContent}" in [${functionAndFileName}]`;
+        summaryString += `Just edited line ${lineInfo} in [${functionAndFileName}]`;
       }
     }
 

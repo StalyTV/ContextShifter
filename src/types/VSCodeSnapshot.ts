@@ -4,6 +4,7 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, April 2023
  */
 
+import { Range } from "vscode";
 import { Commit } from "./git";
 
 export type VSCodeSnapshot = {
@@ -29,8 +30,8 @@ export type VSCodeTODO = {
 };
 
 export type Edit = {
-  line: number; // starting at 1
-  lineContent: string;
+  lineRange: Range;
+  code: string;
   filePath: string;
   functionName: string | undefined;
   timestamp: Date;
