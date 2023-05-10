@@ -140,6 +140,10 @@ typedIpcMain.handle('open-ide-file', async (e, ide, file) => {
   TaskSnap.getInstance().openIDEFiles(ide, [file.path]);
 });
 
+typedIpcMain.handle('get-total-num-snapshots', async () => {
+  return SnapshotEntity.getTotalNumSnapshots();
+});
+
 // settings
 typedIpcMain.handle('get-extensions-status', async () => {
   return TaskSnap.getInstance().getExtensionsStatus();

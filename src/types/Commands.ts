@@ -40,6 +40,7 @@ type Commands = {
   'expand-snapshot-preview': (snapshotId: number) => void;
   'open-browser-tab': (browser: Browser, tab: BrowserTab) => void;
   'open-ide-file': (ide: IDE, file: IDEFile) => void;
+  'get-total-num-snapshots': () => number;
 
   // settings
   'get-extensions-status': () => ExtensionsStatus;

@@ -118,4 +118,8 @@ export default class Snapshot extends BaseEntity {
       return snapshots;
     }
   }
+
+  static async getTotalNumSnapshots(): Promise<number> {
+    return this.count();
+  }
 }

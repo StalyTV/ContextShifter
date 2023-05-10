@@ -9,24 +9,31 @@ import { useEffect, useState } from 'react';
 import SnapshotEntity from '../../main/entity/Snapshot';
 import SnapshotPreview from '../components/Gallery/SnapshotPreview';
 import NavBar from '../components/Navigation/NavBar';
+import Button from 'renderer/components/Button';
 
 export default function SnapshotGallery() {
   const [snapshotMap, setSnapshotMap] = useState<Map<number, SnapshotEntity[]>>(
     new Map()
   );
+  const [totalNumSnapshots, setTotalNumSnapshots] = useState<number>(0);
+  const [shownNumSnapshots, setShownNumSnapshots] = useState<number>(10);
 
   const registerEventListeners = () => {
-    window.electron.onSnapshotsUpdated(fetchSnapshots);
+    window.electron.onSnapshotsUpdated(() => fetchSnapshots());
   };
 
   const unRegisterEventListeners = () => {
     window.electron.removeOnSnapshotsUpdated();
   };
 
-  const fetchSnapshots = async () => {
+  const fetchSnapshots = async (amount: number = shownNumSnapshots) => {
+    const numSnapshots = await window.electron.ipcRenderer.invoke(
+      'get-total-num-snapshots'
+    );
+    setTotalNumSnapshots(numSnapshots);
     const snapshots = await window.electron.ipcRenderer.invoke(
       'get-latest-n-snapshots',
-      10
+      amount
     );
 
     const initialMap: Map<number, SnapshotEntity[]> = new Map();
@@ -44,6 +51,12 @@ export default function SnapshotGallery() {
 
   const onDelete = () => {
     fetchSnapshots();
+  };
+
+  const increaseShownNumSnapshots = () => {
+    const newAmount = shownNumSnapshots + 10;
+    setShownNumSnapshots(newAmount);
+    fetchSnapshots(newAmount);
   };
 
   const getFormattedDateFromKey = (key: number): string => {
@@ -84,6 +97,17 @@ export default function SnapshotGallery() {
           </div>
         );
       })}
+      {shownNumSnapshots < totalNumSnapshots ? (
+        <>
+          <Button
+            className={styles.loadMoreButton}
+            isFilled={false}
+            onClick={() => increaseShownNumSnapshots()}
+          >
+            Load More...
+          </Button>
+        </>
+      ) : null}
     </>
   );
 }
