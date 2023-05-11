@@ -4,13 +4,14 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, April 2023
  */
 
-import { Range } from "vscode";
-import { Commit } from "./git";
+import { Range } from 'vscode';
+import { Commit } from './git';
 
 export type VSCodeSnapshot = {
   openFiles: OpenVSCodeFile[];
   branch: string | undefined;
   lastCommit: Commit | undefined;
+  hasUncommittedChanges: boolean;
   toDos: VSCodeTODO[];
   lastEdit: Edit | undefined;
   workspaceName: string | undefined;

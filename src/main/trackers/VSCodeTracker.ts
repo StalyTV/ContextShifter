@@ -167,6 +167,10 @@ export default class VSCodeTracker {
       }
     }
 
+    if (data.hasUncommittedChanges) {
+      summaryString += '\nUncommitted changes.';
+    }
+
     latestSnapshot.summary = summaryString;
 
     // convert TODOs to intent string
