@@ -19,6 +19,7 @@ import { TypedWebContents } from './ipc/types/electron-typed-ipc';
 import Events from 'types/Events';
 import UsageData from './entity/UsageData';
 import KnownApplication from './entity/KnownApplication';
+import TrayManager from './TrayManager';
 
 export default class SnapshotManager {
   private static _instance: SnapshotManager;
@@ -103,6 +104,9 @@ export default class SnapshotManager {
 
       // update snapshot gallery window
       this.updateSnapshotGalleryWindow();
+
+      // update tray
+      await TrayManager.updateTray();
     }
   }
 
@@ -147,15 +151,21 @@ export default class SnapshotManager {
     const snapshotInDb = await Snapshot.findOneBy({ id: snapshotId });
     if (snapshotInDb) {
       snapshotInDb.name = name;
-      snapshotInDb.save();
+      await snapshotInDb.save();
+
+      // update tray
+      await TrayManager.updateTray();
     }
   }
 
   public async deleteSnapshot(snapshotId: number) {
     const snapshotInDb = await Snapshot.findOneBy({ id: snapshotId });
     if (snapshotInDb) {
-      snapshotInDb.remove();
-      info`[SnapshotManager] Deleted snapshot "${snapshotInDb.name}"`;
+      await snapshotInDb.remove();
+      info(`[SnapshotManager] Deleted snapshot "${snapshotInDb.name}"`);
+
+      // update tray
+      await TrayManager.updateTray();
     }
   }
 

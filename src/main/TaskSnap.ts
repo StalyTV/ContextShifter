@@ -121,6 +121,9 @@ export default class TaskSnap {
 
     // update snapshot gallery window
     this._snapshotManager.updateSnapshotGalleryWindow();
+
+    // update tray menu
+    await TrayManager.updateTray();
   }
 
   public async restoreLatestSnapshot() {

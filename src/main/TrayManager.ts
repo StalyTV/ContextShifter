@@ -4,13 +4,14 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
-import { Menu, Tray, app, shell } from 'electron';
+import { Menu, MenuItemConstructorOptions, Tray, app, shell } from 'electron';
 import isMac from './helpers/isMac';
 import getAssetPath from './helpers/getAssetPath';
 import path from 'path';
 import TaskSnap from './TaskSnap';
 import WindowManager from './WindowManager';
 import AppConfig from './AppConfig';
+import Snapshot from './entity/Snapshot';
 
 export default class TrayManager {
   private static _tray: Tray | null = null;
@@ -24,6 +25,12 @@ export default class TrayManager {
     );
     this._tray = new Tray(iconPath);
 
+    const menu = await this.createMenu();
+    this._tray.setContextMenu(menu);
+    this._tray.setToolTip('TaskSnap');
+  }
+
+  private static async createMenu(): Promise<Menu> {
     const menu = Menu.buildFromTemplate([
       {
         label: 'New Snapshot',
@@ -33,10 +40,8 @@ export default class TrayManager {
         accelerator: AppConfig.getSnapshotShortcut(),
       },
       {
-        label: 'Restore Latest Snapshot',
-        click: async () => {
-          await this._taskSnapInstance.restoreLatestSnapshot();
-        },
+        label: 'Restore Recent Snapshot',
+        submenu: await this.createRestoreSubmenu(),
       },
       { type: 'separator' },
       {
@@ -73,8 +78,32 @@ export default class TrayManager {
       { role: 'about' },
       { role: 'quit' },
     ]);
-    this._tray.setContextMenu(menu);
-    this._tray.setToolTip('TaskSnap');
+    return menu;
+  }
+
+  private static async createRestoreSubmenu(): Promise<
+    MenuItemConstructorOptions[]
+  > {
+    const lastFiveSnapshots = await Snapshot.getLatestNSnapshots(5);
+    const menuEntries: MenuItemConstructorOptions[] = lastFiveSnapshots.map(
+      (snap) => {
+        const entry: MenuItemConstructorOptions = {
+          label: snap.name,
+          click: async () => {
+            await TaskSnap.getInstance().restoreSnapshot(snap, 'tray');
+          },
+        };
+        return entry;
+      }
+    );
+    return menuEntries;
+  }
+
+  public static async updateTray(): Promise<void> {
+    const updatedMenu = await this.createMenu();
+    if (this._tray) {
+      this._tray.setContextMenu(updatedMenu);
+    }
   }
 
   // needed for positioning of instantCurationWindow
