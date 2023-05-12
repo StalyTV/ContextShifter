@@ -10,6 +10,7 @@ jobs:
       - name: Checkout git repo
         uses: actions/checkout@v3
         with:
+          token: ${{ secrets.SUBMODULES }}
           submodules: recursive
 
       - name: Install Node, NPM and Yarn
