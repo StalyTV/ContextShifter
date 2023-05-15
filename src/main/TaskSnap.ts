@@ -4,6 +4,7 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
+import { app } from 'electron';
 import { info } from 'electron-log';
 import WindowTracker from './trackers/WindowTracker';
 import FileSystemWatcher from './trackers/FileSystemWatcher';
@@ -274,6 +275,7 @@ export default class TaskSnap {
       const appPath = win.owner.path;
 
       if (AppConfig.getExcludedApplications().includes(appName)) continue;
+      if (appName === app.getName()) continue;
 
       const wasAppRecentlyActive = recentlyActiveApps.includes(appName);
 
@@ -409,7 +411,7 @@ export default class TaskSnap {
         return appInList.path === appPath;
       });
 
-      if (!isAlreadyAdded && !isDuplicate) {
+      if (!isAlreadyAdded && !isDuplicate && appName !== app.getName()) {
         const newKnownApp = new KnownApplication();
         newKnownApp.name = appName;
         newKnownApp.path = appPath;
