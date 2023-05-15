@@ -4,7 +4,7 @@
  * Written by Roy Rutishauser <royadrian.rutishauser@uzh.ch>, Remy Egloff <remy.egloff@uzh.ch>, April 2023
  */
 
-import WebSocket from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import { info, debug, error } from 'electron-log';
 import { VSCodeSnapshot } from 'types/VSCodeSnapshot';
 import Snapshot from '../entity/Snapshot';
@@ -15,14 +15,14 @@ import IDEFileEvent from '../entity/IDEFileEvent';
 
 export default class VSCodeTracker {
   private _port = 8084;
-  private _server: WebSocket.Server;
+  private _server: WebSocketServer;
   private _lastUsedSocket: WebSocket | undefined;
   private _connectionListeners: Array<() => void> = [];
 
   constructor() {
-    info(`[VSCodeTracker] listening on port ${this._port}`);
-    this._server = new WebSocket.Server({ port: this._port });
+    this._server = new WebSocketServer({ port: this._port });
     this.initEventListeners();
+    info(`[VSCodeTracker] listening on port ${this._port}`);
   }
 
   public subscribeToConnection(fn: () => void) {

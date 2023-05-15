@@ -4,7 +4,7 @@
  * Written by Roy Rutishauser <royadrian.rutishauser@uzh.ch>, Remy Egloff <remy.egloff@uzh.ch>, April 2023
  */
 
-import WebSocket from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import { info, debug } from 'electron-log';
 import {
   BrowserEvent,
@@ -22,15 +22,15 @@ import ActiveBrowserTab from '../entity/ActiveBrowserTab';
 
 export default class BrowserTracker {
   private _port = 8083;
-  private _server: WebSocket.Server;
+  private _server: WebSocketServer;
   private _lastUsedSocket: WebSocket | undefined;
   private _connectionListeners: Array<() => void> = [];
   private _openTabs: Tabs.Tab[] = [];
 
   constructor() {
-    info(`[BrowserTracker] listening on port ${this._port}`);
-    this._server = new WebSocket.Server({ port: this._port });
+    this._server = new WebSocketServer({ port: this._port });
     this.initEventListeners();
+    info(`[BrowserTracker] listening on port ${this._port}`);
   }
 
   public subscribeToConnection(fn: () => void) {
