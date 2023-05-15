@@ -11,7 +11,6 @@ import getAssetPath from './helpers/getAssetPath';
 import { app } from 'electron';
 import ElectronPositioner from 'electron-positioner';
 import path from 'path';
-import isWindows from './helpers/isWindows';
 import isMac from './helpers/isMac';
 import TrayManager from './TrayManager';
 import UsageData from './entity/UsageData';
@@ -37,9 +36,6 @@ export default class WindowManager {
       },
     });
 
-    if (isWindows) {
-      this.snapshotWindow.removeMenu();
-    }
     this.snapshotWindow.loadURL(resolveHtmlPath('index.html'));
     await UsageData.addEntry('open-snapshot-window');
 
@@ -52,6 +48,10 @@ export default class WindowManager {
       } else {
         this.snapshotWindow.show();
       }
+    });
+
+    this.snapshotWindow.webContents.once('did-finish-load', () => {
+      this.snapshotWindow?.setMenuBarVisibility(false);
     });
 
     this.snapshotWindow.on('closed', async () => {
@@ -111,10 +111,6 @@ export default class WindowManager {
       positioner.move('bottomRight');
     }
 
-    if (isWindows) {
-      this.instantCurationWindow.removeMenu();
-    }
-
     this.instantCurationWindow.loadURL(
       resolveHtmlPath('index.html') + `#/instantCuration`
     );
@@ -129,6 +125,10 @@ export default class WindowManager {
       } else {
         this.instantCurationWindow.show();
       }
+    });
+
+    this.instantCurationWindow.webContents.once('did-finish-load', () => {
+      this.instantCurationWindow?.setMenuBarVisibility(false);
     });
 
     this.instantCurationWindow.on('closed', async () => {
@@ -169,10 +169,6 @@ export default class WindowManager {
       },
     });
 
-    if (isWindows) {
-      this.snapshotGalleryWindow.removeMenu();
-    }
-
     this.snapshotGalleryWindow.loadURL(
       resolveHtmlPath('index.html') + `#/snapshotGallery`
     );
@@ -187,6 +183,10 @@ export default class WindowManager {
       } else {
         this.snapshotGalleryWindow.show();
       }
+    });
+
+    this.snapshotGalleryWindow.webContents.once('did-finish-load', () => {
+      this.snapshotGalleryWindow?.setMenuBarVisibility(false);
     });
 
     this.snapshotGalleryWindow.on('closed', async () => {
