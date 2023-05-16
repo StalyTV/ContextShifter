@@ -26,22 +26,12 @@ export default function SnapshotPreview(props: Props) {
   const [isHovering, setIsHovering] = useState<boolean>(false);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
-  const getSelectedApplicationsWithoutFiles = () => {
+  const getSelectedApplications = () => {
     return props.snapshot.applications.filter((app) => {
       if (!app.isSelected) {
         return false;
       } else {
-        return !app.files.some((file) => file.isSelected);
-      }
-    });
-  };
-
-  const getSelectedApplicationsWithFiles = () => {
-    return props.snapshot.applications.filter((app) => {
-      if (!app.isSelected) {
-        return false;
-      } else {
-        return app.files.some((file) => file.isSelected);
+        return true;
       }
     });
   };
@@ -151,25 +141,11 @@ export default function SnapshotPreview(props: Props) {
               </div>
               <div className={styles.name}>{props.snapshot.name}</div>
             </div>
-            <div className={styles.applications}>
-              {getSelectedApplicationsWithoutFiles().map((app) => {
-                return (
-                  <img
-                    key={app.id}
-                    className={styles.icon}
-                    src={app.icon}
-                    onClick={(e) => onClickApplication(e, app.path)}
-                    data-tooltip-id={'task-snap'}
-                    data-tooltip-content={app.title}
-                  />
-                );
-              })}
-            </div>
           </div>
 
           <div className={styles.lower}>
             <div
-              className={`${styles.applicationsWithMoreContext} ${
+              className={`${styles.applications} ${
                 isExpanded ? styles.isExpanded : undefined
               }`}
             >
@@ -187,7 +163,7 @@ export default function SnapshotPreview(props: Props) {
                   <IDEPreview key={ide.id} ide={ide} isExpanded={isExpanded} />
                 );
               })}
-              {getSelectedApplicationsWithFiles().map((app) => {
+              {getSelectedApplications().map((app) => {
                 return <ApplicationPreview key={app.id} app={app} />;
               })}
             </div>

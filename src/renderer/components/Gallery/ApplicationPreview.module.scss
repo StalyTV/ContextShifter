@@ -11,6 +11,9 @@
   .appIcon {
     cursor: pointer;
     height: 1.7rem;
+  }
+
+  &.hasFiles .appIcon {
     margin-right: 0.3rem;
   }
 
