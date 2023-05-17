@@ -86,6 +86,7 @@ export default function InstantCuration() {
               onNameChange={onNameChange}
               createTimestamp={latestSnapshot.created}
               editTimestamp={latestSnapshot.edited}
+              showTimestamp={false}
             />
           </div>
           <div className={styles.buttonContainer}>

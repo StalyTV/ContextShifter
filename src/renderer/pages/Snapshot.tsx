@@ -199,6 +199,7 @@ export default function Snapshot() {
               createTimestamp={selectedSnapshot.created}
               editTimestamp={editTimestamp}
               onNameChange={onNameChange}
+              showTimestamp={true}
             />
           </div>
           <div className={styles.mainContainer}>
