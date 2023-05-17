@@ -19,7 +19,11 @@ import WindowManager from './WindowManager';
 import SnapshotManager from './SnapshotManager';
 import { lsof, Options, ProcessInfo } from 'list-open-files';
 import Artifact from 'types/Artifact';
-import { getRecentlyOpenedFilePaths, openArtifact } from './helpers/osCommands';
+import {
+  getOpenFileExplorerPaths,
+  getRecentlyOpenedFilePaths,
+  openArtifact,
+} from './helpers/osCommands';
 import { getFileNameFromPath } from './helpers/getFileNameFromPath';
 import isMac from './helpers/isMac';
 import BrowserTracker from './trackers/BrowserTracker';
@@ -302,6 +306,32 @@ export default class TaskSnap {
         ide.title = win.title;
         ide.isSelected = wasAppRecentlyActive;
         openIDEs.push(ide);
+
+        // file explorer
+      } else if (appName === 'Finder') {
+        // only add file explorer once
+        if (openApplications.some((app) => app.name === 'Finder')) continue;
+
+        const app = new Application();
+        app.name = appName;
+        app.path = appPath;
+        app.icon = this.getApplicationIcon(appPath);
+        app.title = "File System"
+        app.isSelected = wasAppRecentlyActive;
+        openApplications.push(app);
+
+        const associatedFolders: File[] = [];
+        const folderPaths = await getOpenFileExplorerPaths();
+        folderPaths.forEach((path) => {
+          const file = new File();
+          file.path = path;
+          file.name = path;
+          associatedFolders.push(file);
+        });
+        if (associatedFolders.length > 0) {
+          await File.save(associatedFolders);
+        }
+        app.files = associatedFolders;
 
         // regular application case
       } else {

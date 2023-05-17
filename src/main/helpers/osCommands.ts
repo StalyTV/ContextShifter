@@ -37,6 +37,22 @@ export function closeApplication(app: Application) {
   }
 }
 
+export async function getOpenFileExplorerPaths() {
+  if (isMac) {
+    const res = await asyncExec(
+      `osascript -e 'tell application "Finder"' -e 'set targets to (target of every window)' -e 'end tell' -e 'set filePaths to {}' -e 'repeat with elem in targets' -e 'set filePath to POSIX path of (elem as alias)' -e 'set end of filePaths to filePath' -e 'end repeat' -e 'return filePaths'`
+    );
+    const stdout = res.stdout;
+    const cleanedString = stdout.replace(/\n/g, '');
+    let listOfPaths = cleanedString.split(',');
+    listOfPaths = listOfPaths.map((path) => path.replace(/^\s*/g, '')); // remove spaces in front
+    return listOfPaths.map((path) => path.replace(/\/$/g, '')); // remove last slash of paths
+  } else {
+    error('Not supported yet');
+    return [];
+  }
+}
+
 export async function getRecentlyOpenedFilePaths(
   since: Date
 ): Promise<string[]> {
