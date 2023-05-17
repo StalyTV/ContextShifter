@@ -101,6 +101,17 @@ typedIpcMain.handle(
   }
 );
 
+typedIpcMain.handle(
+  'instant-curation-delete-snapshot',
+  async (e, snapshotId) => {
+    await SnapshotManager.getInstance().deleteSnapshot(
+      snapshotId,
+      'instant-curation'
+    );
+    WindowManager.instantCurationWindow?.close();
+  }
+);
+
 // snapshot gallery
 typedIpcMain.handle('open-snapshot', async (e, snapshotId) => {
   await UsageData.addEntry('open-snapshot', false, `id: ${snapshotId}`);
@@ -108,8 +119,10 @@ typedIpcMain.handle('open-snapshot', async (e, snapshotId) => {
 });
 
 typedIpcMain.handle('delete-snapshot', async (e, snapshotId) => {
-  await UsageData.addEntry('delete-snapshot', false, `id: ${snapshotId}`);
-  await SnapshotManager.getInstance().deleteSnapshot(snapshotId);
+  await SnapshotManager.getInstance().deleteSnapshot(
+    snapshotId,
+    'snapshot-gallery'
+  );
 });
 
 typedIpcMain.handle('restore-snapshot', async (e, snapshotId) => {

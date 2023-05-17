@@ -11,6 +11,7 @@ import SnapshotEntity from 'main/entity/Snapshot';
 import Button from 'renderer/components/Button';
 import { toast } from 'react-toastify';
 import PostponeButton from 'renderer/components/PostponeButton';
+import TrashIcon from 'renderer/components/Icons/TrashIcon';
 
 export default function InstantCuration() {
   const [latestSnapshot, setLatestSnapshot] = useState<SnapshotEntity | null>(
@@ -53,6 +54,23 @@ export default function InstantCuration() {
     );
   };
 
+  const onClickDelete = async () => {
+    if (!latestSnapshot) return;
+
+    toast.promise(
+      async () =>
+        await window.electron.ipcRenderer.invoke(
+          'instant-curation-delete-snapshot',
+          latestSnapshot.id
+        ),
+      {
+        pending: 'Deleting Snapshot...',
+        success: 'Snapshot Deleted',
+        error: 'Something went wrong',
+      }
+    );
+  };
+
   const postponeSnapshot = (timeInMin: number) => {
     if (!latestSnapshot) return;
 
@@ -90,6 +108,9 @@ export default function InstantCuration() {
             />
           </div>
           <div className={styles.buttonContainer}>
+            <Button className={styles.deleteButton} isFilled={true} onClick={() => onClickDelete()}>
+              <TrashIcon />
+            </Button>
             <PostponeButton
               isFilled={false}
               title={'PostponeCuration'}

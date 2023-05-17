@@ -32,6 +32,7 @@ type Commands = {
     updatedName: string,
     timeInMin: number
   ) => void;
+  'instant-curation-delete-snapshot': (snapshotId: number) => Promise<void>;
 
   // snapshot gallery
   'open-snapshot': (snapshotId: number) => void;

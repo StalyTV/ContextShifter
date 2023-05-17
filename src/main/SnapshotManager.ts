@@ -158,7 +158,12 @@ export default class SnapshotManager {
     }
   }
 
-  public async deleteSnapshot(snapshotId: number) {
+  public async deleteSnapshot(snapshotId: number, origin: string) {
+    await UsageData.addEntry(
+      'delete-snapshot',
+      false,
+      `id: ${snapshotId}, origin: ${origin}`
+    );
     const snapshotInDb = await Snapshot.findOneBy({ id: snapshotId });
     if (snapshotInDb) {
       await snapshotInDb.remove();
