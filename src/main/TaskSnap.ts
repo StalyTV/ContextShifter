@@ -308,15 +308,20 @@ export default class TaskSnap {
         openIDEs.push(ide);
 
         // file explorer
-      } else if (appName === 'Finder') {
+      } else if (appName === 'Finder' || appName === 'Windows Explorer') {
         // only add file explorer once
-        if (openApplications.some((app) => app.name === 'Finder')) continue;
+        if (
+          openApplications.some(
+            (app) => app.name === 'Finder' || app.name === 'Windows Explorer'
+          )
+        )
+          continue;
 
         const app = new Application();
         app.name = appName;
         app.path = appPath;
         app.icon = this.getApplicationIcon(appPath);
-        app.title = "File System"
+        app.title = 'File System';
         app.isSelected = wasAppRecentlyActive;
         openApplications.push(app);
 

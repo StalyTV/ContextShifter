@@ -24,7 +24,8 @@ export function openArtifact(artifact: Artifact) {
       exec(`open '${artifact.artifact}'`);
     }
   } else {
-    exec(`"${artifact.artifact}"`);
+    const command = `ii "${artifact.artifact}"`;
+    exec(command, { shell: 'powershell.exe' });
   }
 }
 
@@ -33,11 +34,12 @@ export function closeApplication(app: Application) {
     exec(`osascript -e 'quit app "${app.path}"'`);
   } else {
     const exe = getFileNameFromPath(app.path);
-    exec(`taskkill /IM ${exe}`);
+    const command = `taskkill /IM ${exe}`;
+    exec(command, { shell: 'powershell.exe' });
   }
 }
 
-export async function getOpenFileExplorerPaths() {
+export async function getOpenFileExplorerPaths(): Promise<string[]> {
   if (isMac) {
     const res = await asyncExec(
       `osascript -e 'tell application "Finder"' -e 'set targets to (target of every window)' -e 'end tell' -e 'set filePaths to {}' -e 'repeat with elem in targets' -e 'set filePath to POSIX path of (elem as alias)' -e 'set end of filePaths to filePath' -e 'end repeat' -e 'return filePaths'`
@@ -48,8 +50,11 @@ export async function getOpenFileExplorerPaths() {
     listOfPaths = listOfPaths.map((path) => path.replace(/^\s*/g, '')); // remove spaces in front
     return listOfPaths.map((path) => path.replace(/\/$/g, '')); // remove last slash of paths
   } else {
-    error('Not supported yet');
-    return [];
+    const command = `@((New-Object -com shell.application).Windows()).Document.Folder | foreach { $_.Self.Path }`;
+    const res = await asyncExec(command, { shell: 'powershell.exe' });
+    const filePaths = res.stdout.split('\r\n');
+    filePaths.pop(); // remove last element as empty
+    return filePaths;
   }
 }
 
