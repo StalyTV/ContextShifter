@@ -206,12 +206,14 @@ export default function Snapshot() {
             <div className={styles.leftContainer}>
               <PostIt
                 title={'Now what was I doing?'}
-                content={`⏪ ${summary}`}
+                icon={'⏪'}
+                content={summary}
                 onTextChange={onSummaryChange}
               />
               <PostIt
                 title={'What was I about to do?'}
-                content={`💭 ${intent}`}
+                icon={'💭'}
+                content={intent}
                 infoMessage={`Uncommitted TODOs are automatically added to this section`}
                 onTextChange={onIntentChange}
               />
