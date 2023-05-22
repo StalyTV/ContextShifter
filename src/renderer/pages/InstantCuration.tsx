@@ -22,7 +22,12 @@ export default function InstantCuration() {
   const [isSnapshotReady, setIsSnapshotReady] = useState<boolean>(false);
 
   const registerEventListeners = () => {
-    window.electron.onSnapshotReady(() => setIsSnapshotReady(true));
+    window.electron.onSnapshotReady(() => {
+      setIsSnapshotReady(true);
+      toast('Saved Snapshot', {
+        type: 'success',
+      });
+    });
   };
 
   const unRegisterEventListeners = () => {
@@ -38,9 +43,11 @@ export default function InstantCuration() {
     setLatestSnapshot(snapshot);
     setSnapshotName(snapshot.name);
     setIsSnapshotReady(snapshot.isReady);
-    toast('Saved Snapshot', {
-      type: 'success',
-    });
+    if (snapshot.isReady) {
+      toast('Saved Snapshot', {
+        type: 'success',
+      });
+    }
   };
 
   const onNameChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
