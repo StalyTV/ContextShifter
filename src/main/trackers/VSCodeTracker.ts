@@ -130,6 +130,12 @@ export default class VSCodeTracker {
       ideFile.isSelected = wasFileRecentlyActive;
       ideFile.save();
     }
+
+    // if no tabs are open, deselect IDE by default
+    if (data.openFiles.length === 0) {
+      ide.isSelected = false;
+      ide.save();
+    }
     info(
       `[VSCodeTracker] received ${data.openFiles.length} files and attached them to snapshot with id ${latestSnapshot.id}`
     );

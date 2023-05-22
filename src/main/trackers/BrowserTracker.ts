@@ -144,6 +144,12 @@ export default class BrowserTracker {
       tabEntity.isSelected = wasTabRecentlyActive;
       tabEntity.save();
     }
+
+    // if no tabs are open, deselect browser by default
+    if (this._openTabs.length === 0) {
+      browser.isSelected = false;
+      browser.save();
+    }
     info(
       `[BrowserTracker] attached ${this._openTabs.length} tabs to browser with id ${browser.id};`
     );
