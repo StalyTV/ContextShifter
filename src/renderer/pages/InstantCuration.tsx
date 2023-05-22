@@ -57,18 +57,23 @@ export default function InstantCuration() {
   const onClickDelete = async () => {
     if (!latestSnapshot) return;
 
-    toast.promise(
-      async () =>
-        await window.electron.ipcRenderer.invoke(
-          'instant-curation-delete-snapshot',
-          latestSnapshot.id
-        ),
-      {
-        pending: 'Deleting Snapshot...',
-        success: 'Snapshot Deleted',
-        error: 'Something went wrong',
-      }
-    );
+    if (
+      confirm(`Are you sure that you want to delete "${snapshotName}"?`) ===
+      true
+    ) {
+      toast.promise(
+        async () =>
+          await window.electron.ipcRenderer.invoke(
+            'instant-curation-delete-snapshot',
+            latestSnapshot.id
+          ),
+        {
+          pending: 'Deleting Snapshot...',
+          success: 'Snapshot Deleted',
+          error: 'Something went wrong',
+        }
+      );
+    }
   };
 
   const postponeSnapshot = (timeInMin: number) => {
@@ -108,7 +113,11 @@ export default function InstantCuration() {
             />
           </div>
           <div className={styles.buttonContainer}>
-            <Button className={styles.deleteButton} isFilled={true} onClick={() => onClickDelete()}>
+            <Button
+              className={styles.deleteButton}
+              isFilled={true}
+              onClick={() => onClickDelete()}
+            >
               <TrashIcon />
             </Button>
             <PostponeButton
