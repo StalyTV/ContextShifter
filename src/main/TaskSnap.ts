@@ -4,7 +4,7 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
-import { app } from 'electron';
+import { app, dialog } from 'electron';
 import { info } from 'electron-log';
 import WindowTracker from './trackers/WindowTracker';
 import FileSystemWatcher from './trackers/FileSystemWatcher';
@@ -91,6 +91,19 @@ export default class TaskSnap {
     const openBrowsers = res[0];
     const openIDEs = res[1];
     const openApplications = res[2];
+
+    // when no artifacts to attach, show error message
+    if (
+      openBrowsers.length === 0 &&
+      openIDEs.length === 0 &&
+      openApplications.length === 0
+    ) {
+      dialog.showMessageBox({
+        message: 'No open windows to attach to a snapshot',
+        type: 'error',
+      });
+      return;
+    }
 
     await Browser.save(openBrowsers);
     await IDE.save(openIDEs);
@@ -249,6 +262,9 @@ export default class TaskSnap {
     [Browser[], IDE[], Application[]]
   > {
     const openWindows = await activeWin.getOpenWindows();
+    if (!openWindows) {
+      return [[], [], []];
+    }
     const pidsOfApplications: number[] = openWindows.map((win) => {
       return win.owner.processId;
     });
