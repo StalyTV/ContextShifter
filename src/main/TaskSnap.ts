@@ -365,6 +365,7 @@ export default class TaskSnap {
           const file = new File();
           file.path = path;
           file.name = path;
+          file.isSelected = wasAppRecentlyActive; // TODO: Improve this
           associatedFolders.push(file);
         });
         if (associatedFolders.length > 0) {
