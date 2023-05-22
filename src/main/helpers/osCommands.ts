@@ -13,6 +13,8 @@ import { getFileNameFromPath } from './getFileNameFromPath';
 import path from 'path';
 import { app } from 'electron';
 import { promisify } from 'util';
+import IDE from '../entity/IDE';
+import Browser from '../entity/Browser';
 
 const asyncExec = promisify(exec);
 
@@ -29,12 +31,12 @@ export function openArtifact(artifact: Artifact) {
   }
 }
 
-export function closeApplication(app: Application) {
+export function closeApplication(app: Application | IDE | Browser) {
   if (isMac) {
     exec(`osascript -e 'quit app "${app.path}"'`);
   } else {
     const exe = getFileNameFromPath(app.path);
-    const command = `taskkill /IM ${exe}`;
+    const command = `taskkill /IM "${exe}"`;
     exec(command, { shell: 'powershell.exe' });
   }
 }

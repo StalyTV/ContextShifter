@@ -113,25 +113,35 @@ export default class SnapshotManager {
   public async saveAndCloseApplications(updatedSnapshot: Snapshot) {
     await this.saveSnapshot(updatedSnapshot);
 
-    const tabsToClose: BrowserTabEntity[] = [];
     for (const browser of updatedSnapshot.browsers) {
+      const tabsToClose: BrowserTabEntity[] = [];
+
       for (const tab of browser.browserTabs) {
         if (tab.isSelected) {
           tabsToClose.push(tab);
         }
       }
+      TaskSnap.getInstance().closeBrowserTabs(tabsToClose); // TODO: Add real support for multiple browsers
+      // if all tabs were closed, quit browser
+      if (browser.browserTabs.length === tabsToClose.length) {
+        closeApplication(browser);
+      }
     }
-    TaskSnap.getInstance().closeBrowserTabs(tabsToClose);
 
-    const ideFilesToClose: IDEFileEntity[] = [];
     for (const ide of updatedSnapshot.ides) {
+      const ideFilesToClose: IDEFileEntity[] = [];
+
       for (const file of ide.ideFiles) {
         if (file.isSelected) {
           ideFilesToClose.push(file);
         }
       }
+      TaskSnap.getInstance().closeIDEFiles(ideFilesToClose);
+      // if all files were closed, quit IDE
+      if (ide.ideFiles.length === ideFilesToClose.length) {
+        closeApplication(ide);
+      }
     }
-    TaskSnap.getInstance().closeIDEFiles(ideFilesToClose);
 
     const appsThatShouldNeverBeClosed =
       await KnownApplication.getAppsThatShouldNeverBeClosed();
