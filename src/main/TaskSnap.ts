@@ -38,6 +38,8 @@ import UsageData from './entity/UsageData';
 import DeviceManager from './HID/DeviceManager';
 import KnownApplication from './entity/KnownApplication';
 import ActiveWindow from './entity/ActiveWindow';
+import { TypedWebContents } from './ipc/types/electron-typed-ipc';
+import Events from '../types/Events';
 const fileIcon = require('extract-file-icon');
 const sound = require('sound-play');
 
@@ -87,6 +89,22 @@ export default class TaskSnap {
     sound.play(this._cameraShutterSoundPath);
     this._deviceManager.showLightPulse();
 
+    // immediately create snapshot and open instant curation view, later add open applications and files to snapshot.
+    const timestamp = new Date().toISOString();
+    const nextId = await Snapshot.getNextId();
+    const newSnapshot = new Snapshot();
+    newSnapshot.created = timestamp;
+    newSnapshot.lastChange = timestamp;
+    newSnapshot.name = `Snapshot ${nextId}`;
+    await Snapshot.save(newSnapshot);
+
+    await WindowManager.createInstantCurationWindow();
+    await UsageData.addEntry(
+      'create-snapshot',
+      false,
+      `id: ${newSnapshot.id}, origin: ${origin}`
+    );
+
     const res = await this.getCurrentlyOpenApplications();
     const openBrowsers = res[0];
     const openIDEs = res[1];
@@ -109,21 +127,11 @@ export default class TaskSnap {
     await IDE.save(openIDEs);
     await Application.save(openApplications);
 
-    const timestamp = new Date().toISOString();
-    const nextId = await Snapshot.getNextId();
-    const newSnapshot = new Snapshot();
-    newSnapshot.created = timestamp;
-    newSnapshot.lastChange = timestamp;
-    newSnapshot.name = `Snapshot ${nextId}`;
     newSnapshot.browsers = openBrowsers;
     newSnapshot.ides = openIDEs;
     newSnapshot.applications = openApplications;
-    await Snapshot.save(newSnapshot);
-    await UsageData.addEntry(
-      'create-snapshot',
-      false,
-      `id: ${newSnapshot.id}, origin: ${origin}`
-    );
+    newSnapshot.isReady = true;
+    await newSnapshot.save();
 
     // latest tabs are already stored in memory. Save them to db.
     if (openBrowsers.length > 0) {
@@ -135,13 +143,22 @@ export default class TaskSnap {
       this._vscodeTracker.sendGetVSCodeSnapshotRequest();
     }
 
-    WindowManager.createInstantCurationWindow();
+    // notify instant curation window that snapshot is ready
+    this.notifyInstantCurationWindow();
 
     // update snapshot gallery window
     this._snapshotManager.updateSnapshotGalleryWindow();
 
     // update tray menu
     await TrayManager.updateTray();
+  }
+
+  private notifyInstantCurationWindow(): void {
+    if (WindowManager.instantCurationWindow) {
+      const destination = WindowManager.instantCurationWindow
+        .webContents as TypedWebContents<Events>;
+      destination?.send('snapshot-ready');
+    }
   }
 
   public async restoreLatestSnapshot() {

@@ -41,6 +41,9 @@ export default class Snapshot extends BaseEntity {
   @Column({ type: 'tinyint', nullable: false, default: false })
   isArchived!: boolean;
 
+  @Column({ type: 'tinyint', nullable: false, default: false })
+  isReady!: boolean;
+
   @OneToMany(() => Application, (app) => app.snapshot)
   applications!: Application[];
 

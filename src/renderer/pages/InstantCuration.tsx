@@ -12,12 +12,22 @@ import Button from 'renderer/components/Button';
 import { toast } from 'react-toastify';
 import PostponeButton from 'renderer/components/PostponeButton';
 import TrashIcon from 'renderer/components/Icons/TrashIcon';
+import LoadingAnimation from 'renderer/components/LoadingAnimation';
 
 export default function InstantCuration() {
   const [latestSnapshot, setLatestSnapshot] = useState<SnapshotEntity | null>(
     null
   );
   const [snapshotName, setSnapshotName] = useState<string>('');
+  const [isSnapshotReady, setIsSnapshotReady] = useState<boolean>(false);
+
+  const registerEventListeners = () => {
+    window.electron.onSnapshotReady(() => setIsSnapshotReady(true));
+  };
+
+  const unRegisterEventListeners = () => {
+    window.electron.removeOnSnapshotReady();
+  };
 
   const fetchLatestSnapshot = async () => {
     const snapshot = await window.electron.ipcRenderer.invoke(
@@ -27,6 +37,7 @@ export default function InstantCuration() {
 
     setLatestSnapshot(snapshot);
     setSnapshotName(snapshot.name);
+    setIsSnapshotReady(snapshot.isReady);
     toast('Saved Snapshot', {
       type: 'success',
     });
@@ -97,6 +108,11 @@ export default function InstantCuration() {
 
   useEffect(() => {
     fetchLatestSnapshot();
+    registerEventListeners();
+
+    return () => {
+      unRegisterEventListeners();
+    };
   }, []);
 
   return (
@@ -112,23 +128,30 @@ export default function InstantCuration() {
               showTimestamp={false}
             />
           </div>
-          <div className={styles.buttonContainer}>
-            <Button
-              className={styles.deleteButton}
-              isFilled={true}
-              onClick={() => onClickDelete()}
-            >
-              <TrashIcon />
-            </Button>
-            <PostponeButton
-              isFilled={false}
-              title={'PostponeCuration'}
-              onSelect={postponeSnapshot}
-            />
-            <Button isFilled={true} onClick={() => onClickCurateNow()}>
-              Curate Now
-            </Button>
-          </div>
+          {isSnapshotReady ? (
+            <div className={styles.buttonContainer}>
+              <Button
+                className={styles.deleteButton}
+                isFilled={true}
+                onClick={() => onClickDelete()}
+              >
+                <TrashIcon />
+              </Button>
+              <PostponeButton
+                isFilled={false}
+                title={'PostponeCuration'}
+                onSelect={postponeSnapshot}
+              />
+              <Button isFilled={true} onClick={() => onClickCurateNow()}>
+                Curate Now
+              </Button>
+            </div>
+          ) : (
+            <div className={styles.loadingContainer}>
+              <LoadingAnimation />
+              <span>Preparing Snapshot...</span>
+            </div>
+          )}
         </>
       ) : null}
     </>
