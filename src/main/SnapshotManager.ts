@@ -161,12 +161,24 @@ export default class SnapshotManager {
     }
 
     for (const app of updatedSnapshot.applications) {
+      const filesToClose: File[] = [];
+
+      for (const file of app.files) {
+        if (file.isSelected) {
+          filesToClose.push(file);
+        }
+      }
       const doNotCloseThisApp = appsThatShouldNeverBeClosed.some(
         (notCloseApp) => {
           return notCloseApp.path === app.path;
         }
       );
-      if (app.isSelected && !doNotCloseThisApp) {
+
+      if (
+        app.isSelected &&
+        filesToClose.length === app.files.length &&
+        !doNotCloseThisApp
+      ) {
         closeApplication(app);
       }
     }

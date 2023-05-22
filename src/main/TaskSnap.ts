@@ -347,8 +347,9 @@ export default class TaskSnap {
           openApplications.some(
             (app) => app.name === 'Finder' || app.name === 'Windows Explorer'
           )
-        )
+        ) {
           continue;
+        }
 
         const app = new Application();
         app.name = appName;
@@ -373,16 +374,30 @@ export default class TaskSnap {
 
         // regular application case
       } else {
-        const app = new Application();
-        app.name = appName;
-        app.path = appPath;
-        app.icon = this.getApplicationIcon(appPath);
-        app.title = win.title;
-        app.isSelected = wasAppRecentlyActive;
-        openApplications.push(app);
+        let app: Application;
+        // check if this application was already added -> just append file
+        const alreadyAddedApplication = openApplications.find(
+          (app) => app.name === appName
+        );
+
+        if (alreadyAddedApplication) {
+          app = alreadyAddedApplication;
+          app.title = appName; // use app name as multiple windows have multiple titles
+        } else {
+          app = new Application();
+          app.name = appName;
+          app.path = appPath;
+          app.icon = this.getApplicationIcon(appPath);
+          app.title = win.title;
+          app.isSelected = wasAppRecentlyActive;
+          openApplications.push(app);
+        }
+
+        const associatedFiles: File[] = alreadyAddedApplication
+          ? alreadyAddedApplication.files
+          : [];
 
         if (isMac) {
-          const associatedFiles: File[] = [];
           const processInfoOfApplication = processInfos.filter((process) => {
             return process.process.pid === win.owner.processId;
           });
@@ -419,7 +434,6 @@ export default class TaskSnap {
 
           // Windows case
         } else {
-          const associatedFiles: File[] = [];
           for await (const path of recentlyOpenedFiles) {
             const fileName = getFileNameFromPath(path, true);
             const lowerCaseFileName = fileName.toLowerCase();
