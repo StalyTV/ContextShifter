@@ -13,7 +13,7 @@ import BrowserTabEntity from './entity/BrowserTab';
 import IDEEntity from './entity/IDE';
 import IDEFileEntity from './entity/IDEFile';
 import { info } from 'electron-log';
-import { closeApplication } from './helpers/osCommands';
+import { closeApplication, closeFileExplorerPath } from './helpers/osCommands';
 import WindowManager from './WindowManager';
 import { TypedWebContents } from './ipc/types/electron-typed-ipc';
 import Events from 'types/Events';
@@ -168,6 +168,14 @@ export default class SnapshotManager {
           filesToClose.push(file);
         }
       }
+
+      // we are only able to close specific windows / tabs of the Finder / Explorer
+      if (app.name === 'Finder' || app.name === 'Windows Explorer') {
+        for await (const folder of filesToClose) {
+          await closeFileExplorerPath(folder.path);
+        }
+      }
+
       const doNotCloseThisApp = appsThatShouldNeverBeClosed.some(
         (notCloseApp) => {
           return notCloseApp.path === app.path;

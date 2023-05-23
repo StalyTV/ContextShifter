@@ -60,6 +60,24 @@ export async function getOpenFileExplorerPaths(): Promise<string[]> {
   }
 }
 
+export async function closeFileExplorerPath(folderPath: string): Promise<void> {
+  if (isMac) {
+    const openPaths = await getOpenFileExplorerPaths();
+    const windowIndex = openPaths.indexOf(folderPath);
+    if (windowIndex > -1) {
+      try {
+        await asyncExec(
+          `osascript -e 'tell application "Finder"' -e 'close window ${windowIndex + 1}' -e 'end tell'`
+        );
+      } catch (err) {
+        error(err)
+      }
+    }
+  } else {
+    error('[osCommands] closeFileExplorerPath() is not yet supported on Windows');
+  }
+}
+
 export async function getRecentlyOpenedFilePaths(
   since: Date
 ): Promise<string[]> {
