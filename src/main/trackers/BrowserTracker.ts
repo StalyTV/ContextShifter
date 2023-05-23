@@ -19,6 +19,7 @@ import { Tabs } from 'webextension-polyfill';
 import Browser from '../entity/Browser';
 import BrowserTab from '../entity/BrowserTab';
 import ActiveBrowserTab from '../entity/ActiveBrowserTab';
+import Settings from '../entity/Settings';
 
 export default class BrowserTracker {
   private _port = 8083;
@@ -55,7 +56,7 @@ export default class BrowserTracker {
         debug('[BrowserTracker] Socket error', error);
       });
 
-      socket.on('message', function (msg: string) {
+      socket.on('message', async function (msg: string) {
         self._lastUsedSocket = socket;
         self.notifyConnectionListeners();
         const obj = JSON.parse(msg) as {
@@ -67,7 +68,7 @@ export default class BrowserTracker {
           const data = obj.data as BrowserEvent;
           debug(`[BrowserTracker] "event" msg received of type "${data.type}"`);
           runtimeInfo = data.runtimeInfo as RuntimeInfo;
-          self.handleEvent(data, runtimeInfo);
+          await self.handleEvent(data, runtimeInfo);
         } else if (obj.endpoint === 'sequence') {
           const data = obj.data as WebNavigationSequenceUpdate;
           self.handleSequence(
@@ -87,7 +88,7 @@ export default class BrowserTracker {
     });
   }
 
-  private handleEvent(data: BrowserEvent, runtimeInfo: RuntimeInfo) {
+  private async handleEvent(data: BrowserEvent, runtimeInfo: RuntimeInfo) {
     const allTabs: Tabs.Tab[] = [];
     data.windows.forEach((win) => {
       if (!win.incognito && win.tabs) {
@@ -104,8 +105,13 @@ export default class BrowserTracker {
       return tab.active;
     });
     if (activeTab && activeTab.url) {
+      const isDataAnonymized = await Settings.getIsDataAnonymized();
+      const urlToStore = isDataAnonymized
+        ? this.createHash(activeTab.url)
+        : activeTab.url;
+
       const dbEntry = new ActiveBrowserTab();
-      dbEntry.url = activeTab.url;
+      dbEntry.url = urlToStore;
       dbEntry.ts = new Date().toISOString();
       dbEntry.save();
     }
@@ -129,10 +135,14 @@ export default class BrowserTracker {
       new Date(timeMinus10Min)
     );
 
+    const isDataAnonymized = await Settings.getIsDataAnonymized();
+
     for await (const tab of this._openTabs) {
       if (!tab.url) continue;
 
-      const wasTabRecentlyActive = recentlyActiveUrls.includes(tab.url);
+      const wasTabRecentlyActive = recentlyActiveUrls.includes(
+        isDataAnonymized ? this.createHash(tab.url) : tab.url
+      );
 
       const tabEntity = new BrowserTab();
       tabEntity.url = tab.url;
@@ -153,6 +163,18 @@ export default class BrowserTracker {
     info(
       `[BrowserTracker] attached ${this._openTabs.length} tabs to browser with id ${browser.id};`
     );
+  }
+
+  // simple hash function form https://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript
+  private createHash(url: string): string {
+    let hash = 0;
+    if (url.length === 0) return hash.toString();
+    for (let i = 0; i < url.length; i++) {
+      const chr = url.charCodeAt(i);
+      hash = (hash << 5) - hash + chr;
+      hash |= 0; // Convert to 32bit integer
+    }
+    return hash.toString();
   }
 
   public sendTabOpeningRequest(urls: string[], label?: string) {
