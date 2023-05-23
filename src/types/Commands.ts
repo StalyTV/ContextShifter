@@ -12,6 +12,7 @@ import IDEFile from 'main/entity/IDEFile';
 import IDE from '../main/entity/IDE';
 import ExtensionsStatus from './ExtensionsStatus';
 import KnownApplication from 'main/entity/KnownApplication';
+import UserSettings from './UserSettings';
 
 type Commands = {
   'get-snapshot-by-id': (id: number) => Snapshot | null;
@@ -22,8 +23,6 @@ type Commands = {
   'save-snapshot': (snapshot: Snapshot) => Promise<void>;
   'save-snapshot-and-close-applications': (snapshot: Snapshot) => Promise<void>;
   'postpone-snapshot': (snapshot: Snapshot, timeInMin: number) => void;
-  'toggle-color-theme': () => void;
-  'is-dark-mode-enabled': () => boolean;
 
   // instant curation
   'instant-curation-curate-now': (snapshotId: number, name: string) => void;
@@ -49,6 +48,8 @@ type Commands = {
   'open-config': () => void;
   'get-known-applications': () => KnownApplication[];
   'update-known-application': (app: KnownApplication) => void;
+  'get-settings': () => Promise<UserSettings>;
+  'set-settings': (settings: UserSettings) => void;
 };
 
 export default Commands;

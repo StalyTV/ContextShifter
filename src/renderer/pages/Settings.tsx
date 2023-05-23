@@ -12,6 +12,7 @@ import TaskSnapToggle from 'renderer/components/Toggle/TaskSnapToggle';
 import KnownApplicationEntity from '../../main/entity/KnownApplication';
 import PlusIcon from '../components/Icons/PlusIcon';
 import InfoIcon from 'renderer/components/Icons/InfoIcon';
+import UserSettings from 'types/UserSettings';
 
 export default function Settings() {
   let loopRef: NodeJS.Timeout | undefined;
@@ -21,6 +22,7 @@ export default function Settings() {
   });
   const [deviceStatus, setDeviceStatus] = useState<boolean>(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+  const [isDataAnonymized, setIsDataAnonymized] = useState<boolean>(false);
   const [neverCloseApplications, setNeverCloseApplications] = useState<
     KnownApplicationEntity[]
   >([]);
@@ -28,6 +30,22 @@ export default function Settings() {
     KnownApplicationEntity[]
   >([]);
   const [isFetchingSettings, setIsFetchingSettings] = useState<boolean>(false);
+
+  const getSettings = async () => {
+    setIsFetchingSettings(true);
+    try {
+      const settings = await window.electron.ipcRenderer.invoke('get-settings');
+      setIsDarkMode(settings.isDarkModeEnabled);
+      setIsDataAnonymized(settings.isDataAnonymized);
+    } catch (err) {
+      console.error(err);
+    }
+    setIsFetchingSettings(false);
+  };
+
+  const setSettings = async (settings: UserSettings) => {
+    await window.electron.ipcRenderer.invoke('set-settings', settings);
+  };
 
   const getConnectionStatus = async () => {
     try {
@@ -43,19 +61,6 @@ export default function Settings() {
     } catch (err) {
       console.error(err);
     }
-  };
-
-  const getColorTheme = async () => {
-    setIsFetchingSettings(true);
-    try {
-      const isDarkModeEnabled = await window.electron.ipcRenderer.invoke(
-        'is-dark-mode-enabled'
-      );
-      setIsDarkMode(isDarkModeEnabled);
-    } catch (err) {
-      console.error(err);
-    }
-    setIsFetchingSettings(false);
   };
 
   const getKnownApplications = async () => {
@@ -108,12 +113,26 @@ export default function Settings() {
   };
 
   const onToggleColorTheme = async () => {
-    await window.electron.ipcRenderer.invoke('toggle-color-theme');
+    const updatedSettings: UserSettings = {
+      isDarkModeEnabled: !isDarkMode,
+      isDataAnonymized: isDataAnonymized,
+    };
+    setIsDarkMode(!isDarkMode);
+    setSettings(updatedSettings);
+  };
+
+  const onToggleDataAnonymization = async () => {
+    const updatedSettings: UserSettings = {
+      isDarkModeEnabled: isDarkMode,
+      isDataAnonymized: !isDataAnonymized,
+    };
+    setIsDataAnonymized(!isDataAnonymized);
+    setSettings(updatedSettings);
   };
 
   useEffect(() => {
+    getSettings();
     getKnownApplications();
-    getColorTheme();
     getConnectionStatus();
     loopRef = setInterval(() => {
       getConnectionStatus();
@@ -127,15 +146,25 @@ export default function Settings() {
   return (
     <div className={styles.settingsContainer}>
       <h3>Settings</h3>
-      <h4>Color Theme</h4>
       {isFetchingSettings ? null : (
-        <TaskSnapToggle
-          defaultChecked={isDarkMode}
-          leftLabel={'light'}
-          rightLabel={'dark'}
-          icons={false}
-          onChange={onToggleColorTheme}
-        />
+        <div>
+          <h4>Color Theme</h4>
+          <TaskSnapToggle
+            defaultChecked={isDarkMode}
+            leftLabel={'light'}
+            rightLabel={'dark'}
+            icons={false}
+            onChange={onToggleColorTheme}
+          />
+          <h4>Anonymize Data</h4>
+          <TaskSnapToggle
+            defaultChecked={isDataAnonymized}
+            leftLabel={'no'}
+            rightLabel={'yes'}
+            icons={false}
+            onChange={onToggleDataAnonymization}
+          />
+        </div>
       )}
 
       <h4>Connection Status</h4>

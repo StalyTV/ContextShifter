@@ -14,6 +14,9 @@ import TaskSnap from '../TaskSnap';
 import path from 'path';
 import UsageData from '../entity/UsageData';
 import DeviceManager from '../HID/DeviceManager';
+import UserSettings from 'types/UserSettings';
+import Settings from '../entity/Settings';
+import { Database } from '../database';
 
 typedIpcMain.handle('open-artifact', async (e, artifact) => {
   await UsageData.addEntry('open-artifact', false, JSON.stringify(artifact));
@@ -61,18 +64,6 @@ typedIpcMain.handle('postpone-snapshot', async (e, snapshot, timeInMin) => {
     'snapshot-window'
   );
   WindowManager.snapshotWindow?.close();
-});
-
-typedIpcMain.handle('toggle-color-theme', () => {
-  if (nativeTheme.shouldUseDarkColors) {
-    nativeTheme.themeSource = 'light';
-  } else {
-    nativeTheme.themeSource = 'dark';
-  }
-});
-
-typedIpcMain.handle('is-dark-mode-enabled', () => {
-  return nativeTheme.shouldUseDarkColors;
 });
 
 // instant curation
@@ -158,6 +149,27 @@ typedIpcMain.handle('get-total-num-snapshots', async () => {
 });
 
 // settings
+typedIpcMain.handle('get-settings', async () => {
+  const userSettings: UserSettings = {
+    isDarkModeEnabled: nativeTheme.shouldUseDarkColors,
+    isDataAnonymized: await Settings.getIsDataAnonymized(),
+  };
+  return userSettings;
+});
+
+typedIpcMain.handle('set-settings', (e, updatedSettings) => {
+  if (updatedSettings.isDarkModeEnabled) {
+    nativeTheme.themeSource = 'dark';
+  } else {
+    nativeTheme.themeSource = 'light';
+  }
+
+  Database.manager.save(Settings, {
+    key: 'isDataAnonymized',
+    value: updatedSettings.isDataAnonymized ? 'true' : 'false',
+  });
+});
+
 typedIpcMain.handle('get-extensions-status', async () => {
   return TaskSnap.getInstance().getExtensionsStatus();
 });

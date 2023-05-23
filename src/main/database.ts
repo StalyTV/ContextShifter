@@ -21,6 +21,7 @@ import UsageData from './entity/UsageData';
 import KnownApplication from './entity/KnownApplication';
 import ActiveBrowserTab from './entity/ActiveBrowserTab';
 import IDEFileEvent from './entity/IDEFileEvent';
+import Settings from './entity/Settings';
 
 const dbPath = path.join(
   app.getPath('appData'),
@@ -46,6 +47,7 @@ export const Database = new DataSource({
     KnownApplication,
     ActiveBrowserTab,
     IDEFileEvent,
+    Settings,
   ],
   synchronize: true,
 });
