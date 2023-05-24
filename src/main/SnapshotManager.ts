@@ -132,7 +132,7 @@ export default class SnapshotManager {
             return notCloseApp.path === browser.path;
           }
         );
-        if (!doNotCloseThisApp) {
+        if (browser.isSelected && !doNotCloseThisApp) {
           closeApplication(browser);
         }
       }
@@ -154,7 +154,7 @@ export default class SnapshotManager {
             return notCloseApp.path === ide.path;
           }
         );
-        if (!doNotCloseThisApp) {
+        if (ide.isSelected && !doNotCloseThisApp) {
           closeApplication(ide);
         }
       }
