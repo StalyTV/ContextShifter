@@ -137,20 +137,20 @@ export default function InstantCuration() {
           </div>
           {isSnapshotReady ? (
             <div className={styles.buttonContainer}>
-              <Button
-                className={styles.deleteButton}
-                isFilled={true}
-                onClick={() => onClickDelete()}
-              >
-                <TrashIcon />
+              <Button isFilled={true} onClick={() => onClickCurateNow()}>
+                Curate Now
               </Button>
               <PostponeButton
                 isFilled={false}
                 title={'PostponeCuration'}
                 onSelect={postponeSnapshot}
               />
-              <Button isFilled={true} onClick={() => onClickCurateNow()}>
-                Curate Now
+              <Button
+                className={styles.deleteButton}
+                isFilled={true}
+                onClick={() => onClickDelete()}
+              >
+                <TrashIcon />
               </Button>
             </div>
           ) : (
