@@ -157,17 +157,22 @@ typedIpcMain.handle('get-settings', async () => {
   return userSettings;
 });
 
-typedIpcMain.handle('set-settings', (e, updatedSettings) => {
+typedIpcMain.handle('set-settings', async (e, updatedSettings) => {
   if (updatedSettings.isDarkModeEnabled) {
     nativeTheme.themeSource = 'dark';
   } else {
     nativeTheme.themeSource = 'light';
   }
 
-  Database.manager.save(Settings, {
+  await Database.manager.save(Settings, {
     key: 'isDataAnonymized',
     value: updatedSettings.isDataAnonymized ? 'true' : 'false',
   });
+  await UsageData.addEntry(
+    'update-settings',
+    false,
+    JSON.stringify(updatedSettings)
+  );
 });
 
 typedIpcMain.handle('get-extensions-status', async () => {

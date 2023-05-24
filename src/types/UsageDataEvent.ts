@@ -40,4 +40,5 @@ export type UsageDataEvent =
   | 'save-snapshot-and-close-applications'
   | 'connect-supported-usb-device'
   | 'disconnect-supported-usb-device'
-  | 'update-known-application';
+  | 'update-known-application'
+  | 'update-settings'
