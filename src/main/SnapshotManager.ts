@@ -124,7 +124,7 @@ export default class SnapshotManager {
           tabsToClose.push(tab);
         }
       }
-      TaskSnap.getInstance().closeBrowserTabs(tabsToClose); // TODO: Add real support for multiple browsers
+      TaskSnap.getInstance().closeBrowserTabs(browser, tabsToClose);
       // if all tabs were closed, quit browser
       if (browser.browserTabs.length === tabsToClose.length) {
         const doNotCloseThisApp = appsThatShouldNeverBeClosed.some(

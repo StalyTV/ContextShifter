@@ -25,7 +25,7 @@ import { BrowserType } from 'types/BrowserType';
 export default class BrowserTracker {
   private _port = 8083;
   private _server: WebSocketServer;
-  private _lastUsedSocket: WebSocket | undefined;
+  private _wsClients: Map<BrowserType, WebSocket> = new Map();
   private _connectionListeners: Array<() => void> = [];
   private _openTabs: Map<BrowserType, Tabs.Tab[]> = new Map();
 
@@ -48,18 +48,14 @@ export default class BrowserTracker {
 
       // actually establishing the socket
       socket.on('open', function () {
-        self._lastUsedSocket = socket;
         debug('[BrowserTracker] Socket opened');
       });
 
       socket.on('error', function (error) {
-        self._lastUsedSocket = undefined;
         debug('[BrowserTracker] Socket error', error);
       });
 
       socket.on('message', async function (msg: string) {
-        self._lastUsedSocket = socket;
-        self.notifyConnectionListeners();
         const obj = JSON.parse(msg) as {
           endpoint: ServerEndpoints;
           data: unknown;
@@ -71,21 +67,33 @@ export default class BrowserTracker {
             `[BrowserTracker] "event" msg received of type "${data.type}" from "${data.runtimeInfo.browserInfo.name}"`
           );
           runtimeInfo = data.runtimeInfo as RuntimeInfo;
+          const browserType = self.getBrowserTypeFromRuntimeInfo(runtimeInfo);
+          self._wsClients.set(browserType, socket);
           await self.handleEvent(data, runtimeInfo);
         } else if (obj.endpoint === 'sequence') {
           const data = obj.data as WebNavigationSequenceUpdate;
-          self.handleSequence(
-            data as WebNavigationSequenceUpdate,
-            data.runtimeInfo as RuntimeInfo
-          );
+          runtimeInfo = data.runtimeInfo as RuntimeInfo;
+          const browserType = self.getBrowserTypeFromRuntimeInfo(runtimeInfo);
+          self._wsClients.set(browserType, socket);
+          self.handleSequence(data, runtimeInfo);
         } else if (obj.endpoint === 'navigation') {
           self.handleNavigation(obj.data as WebNavigationDetail);
         }
+
+        self.notifyConnectionListeners();
       });
 
       // When a socket closes, or disconnects, remove it from the array.
       socket.on('close', function () {
-        self._lastUsedSocket = undefined;
+        let browserToRemove: BrowserType | undefined;
+        for (let [type, storedSocket] of self._wsClients.entries()) {
+          if (storedSocket === socket) {
+            browserToRemove = type;
+          }
+        }
+        if (browserToRemove) {
+          self._wsClients.delete(browserToRemove);
+        }
         debug('[BrowserTracker] Socket closed');
       });
     });
@@ -200,34 +208,42 @@ export default class BrowserTracker {
     return hash.toString();
   }
 
-  public sendTabOpeningRequest(urls: string[], label?: string) {
+  public sendTabOpeningRequest(
+    browserType: BrowserType,
+    urls: string[],
+    label?: string
+  ) {
     const data: OpenTabClientRequest = { urls, label };
-    if (this._lastUsedSocket) {
-      // only send the event to the last browser the user interacted with
-      return this._lastUsedSocket.send(
-        JSON.stringify({ endpoint: 'open-tabs', data })
-      );
-    } else {
-      // fallback, let's broadcast to what we have...
-      this._server.clients.forEach((client) => {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify({ endpoint: 'open-tabs', data }));
-        }
-      });
+
+    const connection = this._wsClients.get(browserType);
+    if (connection && connection.readyState === WebSocket.OPEN) {
+      connection.send(JSON.stringify({ endpoint: 'open-tabs', data }));
     }
   }
 
-  // broadcast to all browsers
-  public async sendTabClosingRequest(data: CloseTabClientRequest[]) {
-    this._server.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify({ endpoint: 'close-tabs', data }));
-      }
-    });
+  public async sendTabClosingRequest(
+    browserType: BrowserType,
+    data: CloseTabClientRequest[]
+  ) {
+    const connection = this._wsClients.get(browserType);
+    if (connection && connection.readyState === WebSocket.OPEN) {
+      connection.send(JSON.stringify({ endpoint: 'close-tabs', data }));
+    }
   }
 
-  public isSocketOpen(): boolean {
-    return this._lastUsedSocket?.readyState === WebSocket.OPEN;
+  public isSocketOpen(browserType?: BrowserType): boolean {
+    if (!browserType) {
+      return Array.from(this._wsClients.values()).some(
+        (connection) => connection.readyState === WebSocket.OPEN
+      );
+    } else {
+      const socketOfBrowser = this._wsClients.get(browserType);
+      if (socketOfBrowser) {
+        return socketOfBrowser.readyState === WebSocket.OPEN;
+      } else {
+        return false;
+      }
+    }
   }
 
   private notifyConnectionListeners() {
@@ -235,5 +251,17 @@ export default class BrowserTracker {
       fn();
     }
     this._connectionListeners = [];
+  }
+
+  private getBrowserTypeFromRuntimeInfo(
+    runtimeInfo: RuntimeInfo
+  ): 'chrome' | 'firefox' | 'edge' {
+    if (runtimeInfo.browserInfo.name === 'Edge') {
+      return 'edge';
+    } else if (runtimeInfo.browserInfo.name === 'Firefox') {
+      return 'firefox';
+    } else {
+      return 'chrome';
+    }
   }
 }

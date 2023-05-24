@@ -236,10 +236,10 @@ export default class TaskSnap {
 
     // if websocket is not open, wait until browser is ready (sends any kind of message)
     if (this._browserTracker.isSocketOpen()) {
-      this._browserTracker.sendTabOpeningRequest(urlsToOpen, label);
+      this._browserTracker.sendTabOpeningRequest(browser.type, urlsToOpen, label);
     } else {
       this._browserTracker.subscribeToConnection(() => {
-        this._browserTracker.sendTabOpeningRequest(urlsToOpen, label);
+        this._browserTracker.sendTabOpeningRequest(browser.type, urlsToOpen, label);
       });
     }
   }
@@ -261,11 +261,11 @@ export default class TaskSnap {
     }
   }
 
-  public closeBrowserTabs(tabsToClose: BrowserTabEntity[]): void {
+  public closeBrowserTabs(browser: Browser, tabsToClose: BrowserTabEntity[]): void {
     const closeRequest: CloseTabClientRequest[] = tabsToClose.map((tab) => {
       return { url: tab.url };
     });
-    this._browserTracker.sendTabClosingRequest(closeRequest);
+    this._browserTracker.sendTabClosingRequest(browser.type, closeRequest);
   }
 
   public closeIDEFiles(filesToClose: IDEFileEntity[]): void {
