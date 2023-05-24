@@ -52,7 +52,7 @@ export async function getOpenFileExplorerPaths(): Promise<string[]> {
     listOfPaths = listOfPaths.map((path) => path.replace(/^\s*/g, '')); // remove spaces in front
     return listOfPaths.map((path) => path.replace(/\/$/g, '')); // remove last slash of paths
   } else {
-    const command = `@((New-Object -com shell.application).Windows()).Document.Folder | foreach { $_.Self.Path }`;
+    const command = `@((New-Object -com shell.application).Windows()).Document.Folder.Self.Path`;
     const res = await asyncExec(command, { shell: 'powershell.exe' });
     const filePaths = res.stdout.split('\r\n');
     filePaths.pop(); // remove last element as empty
@@ -67,14 +67,21 @@ export async function closeFileExplorerPath(folderPath: string): Promise<void> {
     if (windowIndex > -1) {
       try {
         await asyncExec(
-          `osascript -e 'tell application "Finder"' -e 'close window ${windowIndex + 1}' -e 'end tell'`
+          `osascript -e 'tell application "Finder"' -e 'close window ${
+            windowIndex + 1
+          }' -e 'end tell'`
         );
       } catch (err) {
-        error(err)
+        error(err);
       }
     }
   } else {
-    error('[osCommands] closeFileExplorerPath() is not yet supported on Windows');
+    try {
+      const command = `@((New-Object -com shell.application).Windows()) | Where-Object { $_.Document.Folder.Self.Path -like "${folderPath}" } | ForEach-Object { $_.Quit() }`;
+      await asyncExec(command, { shell: 'powershell.exe' });
+    } catch (err) {
+      error(err);
+    }
   }
 }
 
