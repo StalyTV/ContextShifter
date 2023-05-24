@@ -40,6 +40,7 @@ import KnownApplication from './entity/KnownApplication';
 import ActiveWindow from './entity/ActiveWindow';
 import { TypedWebContents } from './ipc/types/electron-typed-ipc';
 import Events from '../types/Events';
+import { BrowserType } from '../types/BrowserType';
 const fileIcon = require('extract-file-icon');
 const sound = require('sound-play');
 
@@ -135,7 +136,7 @@ export default class TaskSnap {
 
     // latest tabs are already stored in memory. Save them to db.
     if (openBrowsers.length > 0) {
-      this._browserTracker.saveOpenTabsToDb(openBrowsers[0]); // TODO: improve this
+      this._browserTracker.saveOpenTabsToDb(openBrowsers);
     }
 
     // same for vscode
@@ -322,8 +323,18 @@ export default class TaskSnap {
         appName.includes('Firefox') ||
         appName.includes('Edge')
       ) {
+        let browserType: BrowserType;
+        if (appName.includes('Edge')) {
+          browserType = 'edge';
+        } else if (appName.includes('Firefox')) {
+          browserType = 'firefox';
+        } else {
+          browserType = 'chrome';
+        }
+
         const browser = new Browser();
         browser.name = appName;
+        browser.type = browserType;
         browser.path = appPath;
         browser.icon = this.getApplicationIcon(appPath);
         browser.title = win.title;

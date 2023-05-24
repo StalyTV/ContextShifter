@@ -5,7 +5,7 @@
  */
 
 import { WebSocketServer, WebSocket } from 'ws';
-import { info, debug } from 'electron-log';
+import { info, debug, error } from 'electron-log';
 import {
   BrowserEvent,
   CloseTabClientRequest,
@@ -20,13 +20,14 @@ import Browser from '../entity/Browser';
 import BrowserTab from '../entity/BrowserTab';
 import ActiveBrowserTab from '../entity/ActiveBrowserTab';
 import Settings from '../entity/Settings';
+import { BrowserType } from 'types/BrowserType';
 
 export default class BrowserTracker {
   private _port = 8083;
   private _server: WebSocketServer;
   private _lastUsedSocket: WebSocket | undefined;
   private _connectionListeners: Array<() => void> = [];
-  private _openTabs: Tabs.Tab[] = [];
+  private _openTabs: Map<BrowserType, Tabs.Tab[]> = new Map();
 
   constructor() {
     this._server = new WebSocketServer({ port: this._port });
@@ -66,7 +67,9 @@ export default class BrowserTracker {
 
         if (obj.endpoint === 'event') {
           const data = obj.data as BrowserEvent;
-          debug(`[BrowserTracker] "event" msg received of type "${data.type}"`);
+          debug(
+            `[BrowserTracker] "event" msg received of type "${data.type}" from "${data.runtimeInfo.browserInfo.name}"`
+          );
           runtimeInfo = data.runtimeInfo as RuntimeInfo;
           await self.handleEvent(data, runtimeInfo);
         } else if (obj.endpoint === 'sequence') {
@@ -98,7 +101,16 @@ export default class BrowserTracker {
         allTabs.push(...filteredTabs);
       }
     });
-    this._openTabs = allTabs;
+
+    let browserType: BrowserType;
+    if (runtimeInfo.browserInfo.name === 'Edge') {
+      browserType = 'edge';
+    } else if (runtimeInfo.browserInfo.name === 'Firefox') {
+      browserType = 'firefox';
+    } else {
+      browserType = 'chrome';
+    }
+    this._openTabs.set(browserType, allTabs);
 
     // store currently active tab for smart pre-selection
     const activeTab = allTabs.find((tab) => {
@@ -128,41 +140,52 @@ export default class BrowserTracker {
     );
   }
 
-  public async saveOpenTabsToDb(browser: Browser) {
+  public async saveOpenTabsToDb(browsers: Browser[]) {
     // for smart pre-selection, look which urls were active within the last 10 minutes - TODO: update this condition
     const timeMinus10Min = Date.now() - 10 * 60 * 1000;
     const recentlyActiveUrls = await ActiveBrowserTab.getRecentlyActiveURLs(
       new Date(timeMinus10Min)
     );
 
-    const isDataAnonymized = await Settings.getIsDataAnonymized();
+    for await (const browser of browsers) {
+      const browserType = browser.type;
+      const tabsOfBrowser = this._openTabs.get(browserType);
+      if (!tabsOfBrowser) {
+        error(
+          `[BrowserTracker] No tab information found for browser of type ${browserType}`
+        );
+        return;
+      }
 
-    for await (const tab of this._openTabs) {
-      if (!tab.url) continue;
+      const isDataAnonymized = await Settings.getIsDataAnonymized();
 
-      const wasTabRecentlyActive = recentlyActiveUrls.includes(
-        isDataAnonymized ? this.createHash(tab.url) : tab.url
+      for await (const tab of tabsOfBrowser) {
+        if (!tab.url) continue;
+
+        const wasTabRecentlyActive = recentlyActiveUrls.includes(
+          isDataAnonymized ? this.createHash(tab.url) : tab.url
+        );
+
+        const tabEntity = new BrowserTab();
+        tabEntity.url = tab.url;
+        tabEntity.title = tab.title;
+        tabEntity.favIconUrl = tab.favIconUrl;
+        tabEntity.index = tab.index;
+        tabEntity.isActive = tab.active;
+        tabEntity.browser = browser;
+        tabEntity.isSelected = wasTabRecentlyActive;
+        tabEntity.save();
+      }
+
+      // if no tabs are open, deselect browser by default
+      if (tabsOfBrowser.length === 0) {
+        browser.isSelected = false;
+        browser.save();
+      }
+      info(
+        `[BrowserTracker] attached ${tabsOfBrowser.length} tabs to browser with id ${browser.id};`
       );
-
-      const tabEntity = new BrowserTab();
-      tabEntity.url = tab.url;
-      tabEntity.title = tab.title;
-      tabEntity.favIconUrl = tab.favIconUrl;
-      tabEntity.index = tab.index;
-      tabEntity.isActive = tab.active;
-      tabEntity.browser = browser;
-      tabEntity.isSelected = wasTabRecentlyActive;
-      tabEntity.save();
     }
-
-    // if no tabs are open, deselect browser by default
-    if (this._openTabs.length === 0) {
-      browser.isSelected = false;
-      browser.save();
-    }
-    info(
-      `[BrowserTracker] attached ${this._openTabs.length} tabs to browser with id ${browser.id};`
-    );
   }
 
   // simple hash function form https://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript
