@@ -22,4 +22,12 @@ export default class Settings extends BaseEntity {
     }
     return false;
   }
+
+  static async getSnapshotShortcut(): Promise<string> {
+    const shortcut = (await this.findOneBy({ key: 'snapshotShortcut' }))?.value;
+    if (shortcut) {
+      return shortcut;
+    }
+    return 'Ctrl+Shift+S';
+  }
 }

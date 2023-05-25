@@ -47,7 +47,6 @@ type Commands = {
   // settings
   'get-extensions-status': () => ExtensionsStatus;
   'get-device-status': () => boolean;
-  'open-config': () => void;
   'get-known-applications': () => KnownApplication[];
   'update-known-application': (app: KnownApplication) => void;
   'get-settings': () => Promise<UserSettings>;

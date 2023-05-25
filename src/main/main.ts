@@ -15,11 +15,11 @@ import TaskSnap from './TaskSnap';
 import { Database } from './database';
 import Log from './entity/Log';
 import WindowManager from './WindowManager';
-import AppConfig from './AppConfig';
 import UsageData from './entity/UsageData';
 import path from 'path';
 import DeviceManager from './HID/DeviceManager';
 import AppUpdater from './AppUpdater';
+import Settings from './entity/Settings';
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
@@ -80,9 +80,6 @@ app
 
     // create connection with database
     await Database.initialize();
-
-    // load config file
-    await AppConfig.loadConfig();
   })
   .then(async () => {
     await UsageData.addEntry('start', true, `version ${app.getVersion()}`);
@@ -95,7 +92,7 @@ app
     taskSnap.start();
 
     // create shortcut
-    const keys = AppConfig.getSnapshotShortcut();
+    const keys = await Settings.getSnapshotShortcut();
     globalShortcut.register(keys, () => taskSnap.createNewSnapshot('shortcut'));
 
     new AppUpdater();

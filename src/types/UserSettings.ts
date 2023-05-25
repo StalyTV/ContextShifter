@@ -7,6 +7,7 @@
 type UserSettings = {
   isDarkModeEnabled: boolean;
   isDataAnonymized: boolean;
+  snapshotShortcut: string;
 };
 
 export default UserSettings;

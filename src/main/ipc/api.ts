@@ -166,6 +166,7 @@ typedIpcMain.handle('get-settings', async () => {
   const userSettings: UserSettings = {
     isDarkModeEnabled: nativeTheme.shouldUseDarkColors,
     isDataAnonymized: await Settings.getIsDataAnonymized(),
+    snapshotShortcut: await Settings.getSnapshotShortcut(),
   };
   return userSettings;
 });
@@ -181,6 +182,10 @@ typedIpcMain.handle('set-settings', async (e, updatedSettings) => {
     key: 'isDataAnonymized',
     value: updatedSettings.isDataAnonymized ? 'true' : 'false',
   });
+  await Database.manager.save(Settings, {
+    key: 'snapshotShortcut',
+    value: updatedSettings.snapshotShortcut,
+  });
   await UsageData.addEntry(
     'update-settings',
     false,
@@ -194,12 +199,6 @@ typedIpcMain.handle('get-extensions-status', async () => {
 
 typedIpcMain.handle('get-device-status', async () => {
   return DeviceManager.getInstance().isDeviceConnected();
-});
-
-typedIpcMain.handle('open-config', async () => {
-  shell.showItemInFolder(
-    path.join(app.getPath('appData'), app.name, 'config', 'config.yaml')
-  );
 });
 
 typedIpcMain.handle('get-known-applications', async () => {

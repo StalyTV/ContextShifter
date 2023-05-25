@@ -10,8 +10,8 @@ import getAssetPath from './helpers/getAssetPath';
 import path from 'path';
 import TaskSnap from './TaskSnap';
 import WindowManager from './WindowManager';
-import AppConfig from './AppConfig';
 import Snapshot from './entity/Snapshot';
+import Settings from './entity/Settings';
 
 export default class TrayManager {
   private static _tray: Tray | null = null;
@@ -37,7 +37,7 @@ export default class TrayManager {
         click: async () => {
           await this._taskSnapInstance.createNewSnapshot('tray');
         },
-        accelerator: AppConfig.getSnapshotShortcut(),
+        accelerator: await Settings.getSnapshotShortcut(),
       },
       {
         label: 'Restore Recent Snapshot',

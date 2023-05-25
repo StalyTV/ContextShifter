@@ -217,7 +217,7 @@ export default function InstantCuration() {
                 name="select-merge"
                 id="select-merge"
               >
-                <option value="">Merge into Snapshot</option>
+                <option value="">Add to Snapshot</option>
                 {mergeRecommendations.map((mRec) => (
                   <option key={mRec.id} value={mRec.id}>
                     {mRec.name}

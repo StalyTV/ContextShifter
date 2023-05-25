@@ -31,7 +31,6 @@ import BrowserTabEntity from './entity/BrowserTab';
 import { CloseTabClientRequest } from '../types/context-browser-extension-types/types';
 import Browser from './entity/Browser';
 import VSCodeTracker from './trackers/VSCodeTracker';
-import AppConfig from './AppConfig';
 import getAssetPath from './helpers/getAssetPath';
 import ExtensionsStatus from '../types/ExtensionsStatus';
 import UsageData from './entity/UsageData';
@@ -314,7 +313,6 @@ export default class TaskSnap {
       const appName = win.owner.name;
       const appPath = win.owner.path;
 
-      if (AppConfig.getExcludedApplications().includes(appName)) continue;
       if (appName === app.getName()) continue;
 
       const wasAppRecentlyActive = recentlyActiveApps.includes(appName);
