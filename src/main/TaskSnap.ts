@@ -40,6 +40,7 @@ import ActiveWindow from './entity/ActiveWindow';
 import { TypedWebContents } from './ipc/types/electron-typed-ipc';
 import Events from '../types/Events';
 import { BrowserType } from '../types/BrowserType';
+import { UsageDataOrigin } from '../types/UsageDataOrigin';
 const fileIcon = require('extract-file-icon');
 const sound = require('sound-play');
 
@@ -84,7 +85,7 @@ export default class TaskSnap {
     this._fileSystemWatcher.stop();
   }
 
-  public async createNewSnapshot(origin: string) {
+  public async createNewSnapshot(origin: UsageDataOrigin) {
     info('[TaskSnap] New snapshot created');
     sound.play(this._cameraShutterSoundPath);
     this._deviceManager.showLightPulse();
@@ -165,10 +166,10 @@ export default class TaskSnap {
     const latestSnapshot = await this._snapshotManager.getLatestSnapshot();
     if (!latestSnapshot) return;
 
-    await this.restoreSnapshot(latestSnapshot, 'tray');
+    await this.restoreSnapshot(latestSnapshot, UsageDataOrigin.Tray);
   }
 
-  public async restoreSnapshot(snapshot: Snapshot, origin: string) {
+  public async restoreSnapshot(snapshot: Snapshot, origin: UsageDataOrigin) {
     info(`[TaskSnap] Restore snapshot "${snapshot.name}"`);
     // the snapshot given as parameter might not be from the db, but coming from the renderer process
     // therefore, quickly load it here to update the timestamp

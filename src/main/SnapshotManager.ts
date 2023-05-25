@@ -20,6 +20,7 @@ import Events from 'types/Events';
 import UsageData from './entity/UsageData';
 import KnownApplication from './entity/KnownApplication';
 import TrayManager from './TrayManager';
+import { UsageDataOrigin } from '../types/UsageDataOrigin';
 
 export default class SnapshotManager {
   private static _instance: SnapshotManager;
@@ -217,7 +218,7 @@ export default class SnapshotManager {
     }
   }
 
-  public async deleteSnapshot(snapshotId: number, origin: string) {
+  public async deleteSnapshot(snapshotId: number, origin: UsageDataOrigin) {
     await UsageData.addEntry(
       'delete-snapshot',
       false,
@@ -236,7 +237,7 @@ export default class SnapshotManager {
   public async postponeSnapshot(
     snapshotId: number,
     timeInMin: number,
-    origin: string
+    origin: UsageDataOrigin
   ) {
     this._postponeTimeoutRef = setTimeout(async () => {
       await this.openSnapshotInSnapshotWindow(snapshotId);

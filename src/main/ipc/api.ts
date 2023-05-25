@@ -6,17 +6,17 @@
 
 import typedIpcMain from './typedIpcMain';
 import SnapshotManager from '../SnapshotManager';
-import { app, nativeTheme, shell } from 'electron';
+import { nativeTheme } from 'electron';
 import { openArtifact } from '../helpers/osCommands';
 import WindowManager from '../WindowManager';
 import SnapshotEntity from '../entity/Snapshot';
 import TaskSnap from '../TaskSnap';
-import path from 'path';
 import UsageData from '../entity/UsageData';
 import DeviceManager from '../HID/DeviceManager';
 import UserSettings from 'types/UserSettings';
 import Settings from '../entity/Settings';
 import { Database } from '../database';
+import { UsageDataOrigin } from '../../types/UsageDataOrigin';
 
 typedIpcMain.handle('open-artifact', async (e, artifact) => {
   await UsageData.addEntry('open-artifact', false, JSON.stringify(artifact));
@@ -50,7 +50,7 @@ typedIpcMain.handle(
     await UsageData.addEntry(
       'save-snapshot-and-close-applications',
       false,
-      `id: ${snapshot.id}, origin: curation-window`
+      `id: ${snapshot.id}, origin: ${UsageDataOrigin.SnapshotWindow}`
     );
     await SnapshotManager.getInstance().saveAndCloseApplications(snapshot);
   }
@@ -122,7 +122,7 @@ typedIpcMain.handle(
     await UsageData.addEntry(
       'save-snapshot-and-close-applications',
       false,
-      `id: ${snapshotId}, origin: instant-curation`
+      `id: ${snapshotId}, origin: ${UsageDataOrigin.InstantCurationWindow}`
     );
     await SnapshotManager.getInstance().updateSnapshotNameAndCloseApplications(
       snapshotId,
