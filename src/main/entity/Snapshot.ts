@@ -47,7 +47,9 @@ export default class Snapshot extends BaseEntity {
   @OneToMany(() => Application, (app) => app.snapshot)
   applications!: Application[];
 
-  @OneToMany(() => Browser, (browser) => browser.snapshot)
+  @OneToMany(() => Browser, (browser) => browser.snapshot, {
+    cascade: ['insert', 'update'],
+  })
   browsers!: Browser[];
 
   @OneToMany(() => IDE, (ide) => ide.snapshot)
@@ -98,7 +100,7 @@ export default class Snapshot extends BaseEntity {
 
   static async getLatestNSnapshots(n: number): Promise<Snapshot[]> {
     const lastNSnapshots = await this.find({
-      where: {},
+      where: { isArchived: false },
       order: { lastChange: 'DESC' },
       take: n,
     });

@@ -42,3 +42,4 @@ export type UsageDataEvent =
   | 'disconnect-supported-usb-device'
   | 'update-known-application'
   | 'update-settings'
+  | 'merge-snapshots'

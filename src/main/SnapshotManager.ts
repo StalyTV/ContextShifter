@@ -238,6 +238,101 @@ export default class SnapshotManager {
     );
   }
 
+  public async mergeSnapshots(fromSnap: Snapshot, toSnap: Snapshot) {
+    toSnap.summary = fromSnap.summary + '\n\n' + toSnap.summary; // new summary should be before old summary
+    toSnap.intent = fromSnap.intent + '\n\n' + toSnap.intent;
+    for await (const fromBrowser of fromSnap.browsers) {
+      const toBrowser = toSnap.browsers.find(
+        (toBrowser) => fromBrowser.type == toBrowser.type
+      );
+      if (toBrowser) {
+        for await (const fromTab of fromBrowser.browserTabs) {
+          const toTab = toBrowser.browserTabs.find(
+            (toTab) => fromTab.url == toTab.url
+          );
+          if (toTab) {
+            toTab.isActive = fromTab.isActive;
+            toTab.isSelected = fromTab.isSelected;
+            await toTab.save();
+          } else {
+            fromTab.browser = toBrowser;
+            toBrowser.browserTabs.push(fromTab);
+            await toBrowser.save();
+          }
+        }
+      } else {
+        fromBrowser.snapshot = toSnap;
+        toSnap.browsers.push(fromBrowser);
+        await toSnap.save();
+      }
+    }
+
+    for await (const fromIDE of fromSnap.ides) {
+      const toIDE = toSnap.ides.find((toIDE) => fromIDE.path == toIDE.path);
+      if (toIDE) {
+        for await (const fromFile of fromIDE.ideFiles) {
+          const toFile = toIDE.ideFiles.find(
+            (toFile) => fromFile.path == toFile.path
+          );
+          if (toFile) {
+            toFile.isActive = fromFile.isActive;
+            toFile.isSelected = fromFile.isSelected;
+            await toFile.save();
+          } else {
+            fromFile.ide = toIDE;
+            toIDE.ideFiles.push(fromFile);
+            await toIDE.save();
+          }
+        }
+      } else {
+        fromIDE.snapshot = toSnap;
+        toSnap.ides.push(fromIDE);
+        await toSnap.save();
+      }
+    }
+
+    for await (const fromApp of fromSnap.applications) {
+      const toApp = toSnap.applications.find(
+        (toApp) => fromApp.path == toApp.path
+      );
+      if (toApp) {
+        for await (const fromFile of fromApp.files) {
+          const toFile = toApp.files.find(
+            (toFile) => fromFile.path == toFile.path
+          );
+          if (toFile) {
+            toFile.isSelected = fromFile.isSelected;
+            await toFile.save();
+          } else {
+            fromFile.application = toApp;
+            toApp.files.push(fromFile);
+            await toApp.save();
+          }
+        }
+      } else {
+        fromApp.snapshot = toSnap;
+        toSnap.applications.push(fromApp);
+        await toSnap.save();
+      }
+    }
+
+    const timestamp = new Date().toISOString();
+    fromSnap.isArchived = true;
+    fromSnap.edited = timestamp;
+    fromSnap.lastChange = timestamp;
+    fromSnap.save();
+
+    toSnap.edited = timestamp;
+    toSnap.lastChange = timestamp;
+    toSnap.save();
+
+    await UsageData.addEntry(
+      'merge-snapshots',
+      false,
+      `fromId: ${fromSnap.id}, toId: ${toSnap.id}`
+    );
+  }
+
   public async openSnapshotInSnapshotWindow(snapshotId: number) {
     if (!WindowManager.snapshotWindow) {
       await WindowManager.createSnapshotWindow(() => {

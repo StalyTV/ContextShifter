@@ -15,9 +15,7 @@ import TrashIcon from 'renderer/components/Icons/TrashIcon';
 import LoadingAnimation from 'renderer/components/LoadingAnimation';
 
 export default function InstantCuration() {
-  const [latestSnapshot, setLatestSnapshot] = useState<SnapshotEntity | null>(
-    null
-  );
+  const [snapshot, setSnapshot] = useState<SnapshotEntity | null>(null);
   const [snapshotName, setSnapshotName] = useState<string>('');
   const [isSnapshotReady, setIsSnapshotReady] = useState<boolean>(false);
 
@@ -35,19 +33,31 @@ export default function InstantCuration() {
   };
 
   const fetchLatestSnapshot = async () => {
-    const snapshot = await window.electron.ipcRenderer.invoke(
+    const latestSnapshot = await window.electron.ipcRenderer.invoke(
       'get-latest-snapshot'
     );
-    if (!snapshot) return;
-
-    setLatestSnapshot(snapshot);
-    setSnapshotName(snapshot.name);
-    setIsSnapshotReady(snapshot.isReady);
-    if (snapshot.isReady) {
+    if (!latestSnapshot) return;
+    setFetchedSnapshot(latestSnapshot);
+    if (latestSnapshot.isReady) {
       toast('Saved Snapshot', {
         type: 'success',
       });
     }
+  };
+
+  const fetchSnapshotById = async (id: number) => {
+    const requestedSnapshot = await window.electron.ipcRenderer.invoke(
+      'get-snapshot-by-id',
+      id
+    );
+    if (!requestedSnapshot) return;
+    setFetchedSnapshot(requestedSnapshot);
+  };
+
+  const setFetchedSnapshot = async (snapshot: SnapshotEntity) => {
+    setSnapshot(snapshot);
+    setSnapshotName(snapshot.name);
+    setIsSnapshotReady(snapshot.isReady);
   };
 
   const onNameChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -55,13 +65,13 @@ export default function InstantCuration() {
   };
 
   const onClickCurateNow = async () => {
-    if (!latestSnapshot) return;
+    if (!snapshot) return;
 
     toast.promise(
       async () =>
         await window.electron.ipcRenderer.invoke(
           'instant-curation-curate-now',
-          latestSnapshot.id,
+          snapshot.id,
           snapshotName
         ),
       {
@@ -73,7 +83,7 @@ export default function InstantCuration() {
   };
 
   const onClickDelete = async () => {
-    if (!latestSnapshot) return;
+    if (!snapshot) return;
 
     if (
       confirm(`Are you sure that you want to delete "${snapshotName}"?`) ===
@@ -83,7 +93,7 @@ export default function InstantCuration() {
         async () =>
           await window.electron.ipcRenderer.invoke(
             'instant-curation-delete-snapshot',
-            latestSnapshot.id
+            snapshot.id
           ),
         {
           pending: 'Deleting Snapshot...',
@@ -94,14 +104,40 @@ export default function InstantCuration() {
     }
   };
 
+  const onClickMerge = async () => {
+    if (!snapshot) return;
+
+    if (
+      confirm(
+        `Are you sure you want to merge this snapshot with [other snapshot]?`
+      ) === true
+    ) {
+      toast.promise(
+        async () => {
+          await window.electron.ipcRenderer.invoke(
+            'merge-snapshots',
+            snapshot.id,
+            43 //TODO Don't hardcode this
+          ),
+            await fetchSnapshotById(43);
+        },
+        {
+          pending: 'Merging Snapshots...',
+          success: 'Snapshots Merged',
+          error: 'Something went wrong',
+        }
+      );
+    }
+  };
+
   const postponeSnapshot = (timeInMin: number) => {
-    if (!latestSnapshot) return;
+    if (!snapshot) return;
 
     toast.promise(
       async () =>
         await window.electron.ipcRenderer.invoke(
           'instant-curation-postpone',
-          latestSnapshot.id,
+          snapshot.id,
           snapshotName,
           timeInMin
         ),
@@ -124,14 +160,14 @@ export default function InstantCuration() {
 
   return (
     <>
-      {latestSnapshot ? (
+      {snapshot ? (
         <>
           <div className={styles.headerContainer}>
             <SnapshotHeader
               snapshotName={snapshotName}
               onNameChange={onNameChange}
-              createTimestamp={latestSnapshot.created}
-              editTimestamp={latestSnapshot.edited}
+              createTimestamp={snapshot.created}
+              editTimestamp={snapshot.edited}
               showTimestamp={false}
             />
           </div>
@@ -151,6 +187,9 @@ export default function InstantCuration() {
                 onClick={() => onClickDelete()}
               >
                 <TrashIcon />
+              </Button>
+              <Button isFilled={false} onClick={() => onClickMerge()}>
+                {'Merge into snapshot'}
               </Button>
             </div>
           ) : (

@@ -66,6 +66,15 @@ typedIpcMain.handle('postpone-snapshot', async (e, snapshot, timeInMin) => {
   WindowManager.snapshotWindow?.close();
 });
 
+typedIpcMain.handle('merge-snapshots', async (e, fromId, toId) => {
+  const snapshotManager = SnapshotManager.getInstance();
+  const fromSnapshot = await snapshotManager.getSnapshotById(fromId);
+  const toSnapshot = await snapshotManager.getSnapshotById(toId);
+  if (fromSnapshot && toSnapshot) {
+    await snapshotManager.mergeSnapshots(fromSnapshot, toSnapshot);
+  }
+});
+
 // instant curation
 typedIpcMain.handle(
   'instant-curation-curate-now',
