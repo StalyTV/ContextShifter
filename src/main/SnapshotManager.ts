@@ -239,8 +239,14 @@ export default class SnapshotManager {
   }
 
   public async mergeSnapshots(fromSnap: Snapshot, toSnap: Snapshot) {
-    toSnap.summary = fromSnap.summary + '\n\n' + toSnap.summary; // new summary should be before old summary
-    toSnap.intent = fromSnap.intent + '\n\n' + toSnap.intent;
+    if (fromSnap.summary) {
+      toSnap.summary =
+        fromSnap.summary + (toSnap.summary ? '\n\n' + toSnap.summary : ''); // new summary should be before old summary
+    }
+    if (fromSnap.intent) {
+      toSnap.intent =
+        fromSnap.intent + (toSnap.intent ? '\n\n' + toSnap.intent : '');
+    }
     for await (const fromBrowser of fromSnap.browsers) {
       const toBrowser = toSnap.browsers.find(
         (toBrowser) => fromBrowser.type == toBrowser.type
