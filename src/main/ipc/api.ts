@@ -50,7 +50,7 @@ typedIpcMain.handle(
     await UsageData.addEntry(
       'save-snapshot-and-close-applications',
       false,
-      `id: ${snapshot.id}`
+      `id: ${snapshot.id}, origin: curation-window`
     );
     await SnapshotManager.getInstance().saveAndCloseApplications(snapshot);
   }
@@ -113,6 +113,21 @@ typedIpcMain.handle(
       'instant-curation'
     );
     WindowManager.instantCurationWindow?.close();
+  }
+);
+
+typedIpcMain.handle(
+  'instant-curation-close-applications',
+  async (e, snapshotId, updatedName) => {
+    await UsageData.addEntry(
+      'save-snapshot-and-close-applications',
+      false,
+      `id: ${snapshotId}, origin: instant-curation`
+    );
+    await SnapshotManager.getInstance().updateSnapshotNameAndCloseApplications(
+      snapshotId,
+      updatedName
+    );
   }
 );
 

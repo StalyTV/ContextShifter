@@ -112,11 +112,25 @@ export default class SnapshotManager {
 
   public async saveAndCloseApplications(updatedSnapshot: Snapshot) {
     await this.saveSnapshot(updatedSnapshot);
+    await this.closeApplications(updatedSnapshot);
+  }
 
+  public async updateSnapshotNameAndCloseApplications(
+    snapshotId: number,
+    updatedName: string
+  ) {
+    await this.updateSnapshotName(snapshotId, updatedName);
+    const snapshot = await this.getSnapshotById(snapshotId);
+    if (snapshot) {
+      await this.closeApplications(snapshot);
+    }
+  }
+
+  public async closeApplications(snapshot: Snapshot) {
     const appsThatShouldNeverBeClosed =
       await KnownApplication.getAppsThatShouldNeverBeClosed();
 
-    for (const browser of updatedSnapshot.browsers) {
+    for (const browser of snapshot.browsers) {
       const tabsToClose: BrowserTabEntity[] = [];
 
       for (const tab of browser.browserTabs) {
@@ -138,7 +152,7 @@ export default class SnapshotManager {
       }
     }
 
-    for (const ide of updatedSnapshot.ides) {
+    for (const ide of snapshot.ides) {
       const ideFilesToClose: IDEFileEntity[] = [];
 
       for (const file of ide.ideFiles) {
@@ -160,7 +174,7 @@ export default class SnapshotManager {
       }
     }
 
-    for (const app of updatedSnapshot.applications) {
+    for (const app of snapshot.applications) {
       const filesToClose: File[] = [];
 
       for (const file of app.files) {

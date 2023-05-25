@@ -170,8 +170,14 @@ export default class TaskSnap {
 
   public async restoreSnapshot(snapshot: Snapshot, origin: string) {
     info(`[TaskSnap] Restore snapshot "${snapshot.name}"`);
-    snapshot.lastRestore = new Date().toISOString();
-    snapshot.save();
+    // the snapshot given as parameter might not be from the db, but coming from the renderer process
+    // therefore, quickly load it here to update the timestamp
+    const dbEntry = await this._snapshotManager.getSnapshotById(snapshot.id);
+    if (dbEntry) {
+      dbEntry.lastRestore = new Date().toISOString();
+      await dbEntry.save();
+    }
+
     await UsageData.addEntry(
       'restore-snapshot',
       false,
@@ -237,10 +243,18 @@ export default class TaskSnap {
 
     // if websocket is not open, wait until browser is ready (sends any kind of message)
     if (this._browserTracker.isSocketOpen()) {
-      this._browserTracker.sendTabOpeningRequest(browser.type, urlsToOpen, label);
+      this._browserTracker.sendTabOpeningRequest(
+        browser.type,
+        urlsToOpen,
+        label
+      );
     } else {
       this._browserTracker.subscribeToConnection(() => {
-        this._browserTracker.sendTabOpeningRequest(browser.type, urlsToOpen, label);
+        this._browserTracker.sendTabOpeningRequest(
+          browser.type,
+          urlsToOpen,
+          label
+        );
       });
     }
   }
@@ -262,7 +276,10 @@ export default class TaskSnap {
     }
   }
 
-  public closeBrowserTabs(browser: Browser, tabsToClose: BrowserTabEntity[]): void {
+  public closeBrowserTabs(
+    browser: Browser,
+    tabsToClose: BrowserTabEntity[]
+  ): void {
     const closeRequest: CloseTabClientRequest[] = tabsToClose.map((tab) => {
       return { url: tab.url };
     });
@@ -312,8 +329,7 @@ export default class TaskSnap {
     for await (const win of openWindows) {
       const appName = win.owner.name;
       const appPath = win.owner.path;
-
-      if (appName === app.getName()) continue;
+      if (appName === app.getName() || appName === 'Electron') continue;
 
       const wasAppRecentlyActive = recentlyActiveApps.includes(appName);
 

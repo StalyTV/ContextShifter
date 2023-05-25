@@ -33,6 +33,10 @@ type Commands = {
     updatedName: string,
     timeInMin: number
   ) => void;
+  'instant-curation-close-applications': (
+    snapshotId: number,
+    updatedName: string
+  ) => Promise<void>;
   'instant-curation-delete-snapshot': (snapshotId: number) => Promise<void>;
 
   // snapshot gallery

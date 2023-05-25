@@ -97,6 +97,24 @@ export default function InstantCuration() {
     );
   };
 
+  const onClickCloseApps = async () => {
+    if (!snapshot) return;
+
+    toast.promise(
+      async () =>
+        await window.electron.ipcRenderer.invoke(
+          'instant-curation-close-applications',
+          snapshot.id,
+          snapshotName
+        ),
+      {
+        pending: 'Saving Snapshot...',
+        success: 'Saved Snapshot, Closed Applications',
+        error: 'Something went wrong',
+      }
+    );
+  };
+
   const onClickDelete = async () => {
     if (!snapshot) return;
 
@@ -205,12 +223,8 @@ export default function InstantCuration() {
                 title={'PostponeCuration'}
                 onSelect={postponeSnapshot}
               />
-              <Button
-                className={styles.deleteButton}
-                isFilled={true}
-                onClick={() => onClickDelete()}
-              >
-                <TrashIcon />
+              <Button isFilled={false} onClick={() => onClickCloseApps()}>
+                Close Applications
               </Button>
               <select
                 onChange={onSelectMergeDestination}
@@ -224,6 +238,13 @@ export default function InstantCuration() {
                   </option>
                 ))}
               </select>
+              <Button
+                className={styles.deleteButton}
+                isFilled={true}
+                onClick={() => onClickDelete()}
+              >
+                <TrashIcon />
+              </Button>
             </div>
           ) : (
             <div className={styles.loadingContainer}>
