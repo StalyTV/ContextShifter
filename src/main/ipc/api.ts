@@ -24,7 +24,10 @@ typedIpcMain.handle('open-artifact', async (e, artifact) => {
 });
 
 typedIpcMain.handle('open-all-artifacts-of-snapshot', async (e, snapshot) => {
-  TaskSnap.getInstance().restoreSnapshot(snapshot, 'curation_window');
+  TaskSnap.getInstance().restoreSnapshot(
+    snapshot,
+    UsageDataOrigin.SnapshotWindow
+  );
 });
 
 typedIpcMain.handle('get-snapshot-by-id', async (e, id) => {
@@ -61,7 +64,7 @@ typedIpcMain.handle('postpone-snapshot', async (e, snapshot, timeInMin) => {
   await SnapshotManager.getInstance().postponeSnapshot(
     snapshot.id,
     timeInMin,
-    'snapshot-window'
+    UsageDataOrigin.SnapshotWindow
   );
   WindowManager.snapshotWindow?.close();
 });
@@ -99,7 +102,7 @@ typedIpcMain.handle(
     await SnapshotManager.getInstance().postponeSnapshot(
       snapshotId,
       timeInMin,
-      'instant-curation-window'
+      UsageDataOrigin.InstantCurationWindow
     );
     WindowManager.instantCurationWindow?.close();
   }
@@ -110,7 +113,7 @@ typedIpcMain.handle(
   async (e, snapshotId) => {
     await SnapshotManager.getInstance().deleteSnapshot(
       snapshotId,
-      'instant-curation'
+      UsageDataOrigin.InstantCurationWindow
     );
     WindowManager.instantCurationWindow?.close();
   }
@@ -140,7 +143,7 @@ typedIpcMain.handle('open-snapshot', async (e, snapshotId) => {
 typedIpcMain.handle('delete-snapshot', async (e, snapshotId) => {
   await SnapshotManager.getInstance().deleteSnapshot(
     snapshotId,
-    'snapshot-gallery'
+    UsageDataOrigin.SnapshotGalleryWindow
   );
 });
 
@@ -149,7 +152,7 @@ typedIpcMain.handle('restore-snapshot', async (e, snapshotId) => {
   if (snapshot) {
     await TaskSnap.getInstance().restoreSnapshot(
       snapshot,
-      'snapshot-gallery-window'
+      UsageDataOrigin.SnapshotGalleryWindow
     );
   }
 });

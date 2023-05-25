@@ -7,5 +7,6 @@
 export enum UsageDataOrigin {
   SnapshotWindow = 'snapshot-window',
   InstantCurationWindow = 'instant-curation-window',
+  SnapshotGalleryWindow = 'snapshot-gallery-window',
   Tray = 'tray',
 }
