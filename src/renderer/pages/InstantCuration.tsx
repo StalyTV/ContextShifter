@@ -35,7 +35,7 @@ export default function InstantCuration() {
     window.electron.removeOnSnapshotReady();
   };
 
-  const fetchLatestSnapshot = async () => {
+  const init = async () => {
     const latestSnapshot = await window.electron.ipcRenderer.invoke(
       'get-latest-snapshot'
     );
@@ -46,13 +46,18 @@ export default function InstantCuration() {
         type: 'success',
       });
     }
+    fetchMergeRecommendations(latestSnapshot.id);
   };
 
-  const fetchMergeRecommendations = async () => {
+  const fetchMergeRecommendations = async (excludeId: number) => {
     const recommendations = await window.electron.ipcRenderer.invoke(
       'get-merge-recommendations'
     );
-    setMergeRecommendations(recommendations);
+    // filter out the snapshot that is currently edited
+    const filteredSnapshots = recommendations.filter(
+      (rec) => rec.id !== excludeId
+    );
+    setMergeRecommendations(filteredSnapshots);
   };
 
   const fetchSnapshotById = async (id: number) => {
@@ -119,7 +124,7 @@ export default function InstantCuration() {
   ) => {
     if (!snapshot) return;
     const targetId = parseInt(e.target.value);
-    e.target.value = "" // reset selection
+    e.target.value = ''; // reset selection
 
     const targetSnapshot = mergeRecommendations.find(
       (snap) => snap.id === targetId
@@ -169,8 +174,7 @@ export default function InstantCuration() {
   };
 
   useEffect(() => {
-    fetchLatestSnapshot();
-    fetchMergeRecommendations();
+    init();
     registerEventListeners();
 
     return () => {
