@@ -35,6 +35,9 @@ export default class Snapshot extends BaseEntity {
   @Column({ type: 'varchar', nullable: true })
   edited!: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  lastRestore!: string;
+
   @Column({ type: 'varchar', nullable: false })
   lastChange!: string; // needed for sorting
 
@@ -69,7 +72,7 @@ export default class Snapshot extends BaseEntity {
 
   static async getLatestSnapshot(): Promise<Snapshot | null> {
     const latestSnapshot = await this.findOne({
-      where: {},
+      where: { isArchived: false },
       order: { id: 'DESC' },
     });
     if (!latestSnapshot) {
@@ -126,5 +129,13 @@ export default class Snapshot extends BaseEntity {
 
   static async getTotalNumSnapshots(): Promise<number> {
     return this.count();
+  }
+
+  static async getLastRestoredSnapshot(): Promise<Snapshot | null> {
+    const lastRestoredSnap = await this.createQueryBuilder('snapshot')
+      .where('snapshot.lastRestore is not null')
+      .orderBy('snapshot.lastRestore', 'DESC')
+      .getOne();
+    return lastRestoredSnap;
   }
 }

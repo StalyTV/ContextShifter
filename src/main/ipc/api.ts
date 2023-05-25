@@ -75,6 +75,10 @@ typedIpcMain.handle('merge-snapshots', async (e, fromId, toId) => {
   }
 });
 
+typedIpcMain.handle('get-merge-recommendations', async () => {
+  return await SnapshotManager.getInstance().getMergeRecommendations();
+});
+
 // instant curation
 typedIpcMain.handle(
   'instant-curation-curate-now',

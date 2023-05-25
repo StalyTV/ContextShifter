@@ -171,6 +171,8 @@ export default class TaskSnap {
 
   public async restoreSnapshot(snapshot: Snapshot, origin: string) {
     info(`[TaskSnap] Restore snapshot "${snapshot.name}"`);
+    snapshot.lastRestore = new Date().toISOString();
+    snapshot.save();
     await UsageData.addEntry(
       'restore-snapshot',
       false,

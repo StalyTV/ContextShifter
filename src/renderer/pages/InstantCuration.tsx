@@ -18,6 +18,9 @@ export default function InstantCuration() {
   const [snapshot, setSnapshot] = useState<SnapshotEntity | null>(null);
   const [snapshotName, setSnapshotName] = useState<string>('');
   const [isSnapshotReady, setIsSnapshotReady] = useState<boolean>(false);
+  const [mergeRecommendations, setMergeRecommendations] = useState<
+    SnapshotEntity[]
+  >([]);
 
   const registerEventListeners = () => {
     window.electron.onSnapshotReady(() => {
@@ -43,6 +46,13 @@ export default function InstantCuration() {
         type: 'success',
       });
     }
+  };
+
+  const fetchMergeRecommendations = async () => {
+    const recommendations = await window.electron.ipcRenderer.invoke(
+      'get-merge-recommendations'
+    );
+    setMergeRecommendations(recommendations);
   };
 
   const fetchSnapshotById = async (id: number) => {
@@ -104,12 +114,21 @@ export default function InstantCuration() {
     }
   };
 
-  const onClickMerge = async () => {
+  const onSelectMergeDestination = async (
+    e: React.ChangeEvent<HTMLSelectElement>
+  ) => {
     if (!snapshot) return;
+    const targetId = parseInt(e.target.value);
+    e.target.value = "" // reset selection
+
+    const targetSnapshot = mergeRecommendations.find(
+      (snap) => snap.id === targetId
+    );
+    if (!targetSnapshot) return;
 
     if (
       confirm(
-        `Are you sure you want to merge this snapshot with [other snapshot]?`
+        `Are you sure you want to merge this snapshot with "${targetSnapshot.name}"?`
       ) === true
     ) {
       toast.promise(
@@ -117,9 +136,9 @@ export default function InstantCuration() {
           await window.electron.ipcRenderer.invoke(
             'merge-snapshots',
             snapshot.id,
-            43 //TODO Don't hardcode this
+            targetId
           ),
-            await fetchSnapshotById(43);
+            await fetchSnapshotById(targetId);
         },
         {
           pending: 'Merging Snapshots...',
@@ -151,6 +170,7 @@ export default function InstantCuration() {
 
   useEffect(() => {
     fetchLatestSnapshot();
+    fetchMergeRecommendations();
     registerEventListeners();
 
     return () => {
@@ -188,9 +208,18 @@ export default function InstantCuration() {
               >
                 <TrashIcon />
               </Button>
-              <Button isFilled={false} onClick={() => onClickMerge()}>
-                {'Merge into snapshot'}
-              </Button>
+              <select
+                onChange={onSelectMergeDestination}
+                name="select-merge"
+                id="select-merge"
+              >
+                <option value="">Merge into Snapshot</option>
+                {mergeRecommendations.map((mRec) => (
+                  <option key={mRec.id} value={mRec.id}>
+                    {mRec.name}
+                  </option>
+                ))}
+              </select>
             </div>
           ) : (
             <div className={styles.loadingContainer}>

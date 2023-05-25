@@ -24,6 +24,7 @@ type Commands = {
   'save-snapshot-and-close-applications': (snapshot: Snapshot) => Promise<void>;
   'postpone-snapshot': (snapshot: Snapshot, timeInMin: number) => void;
   'merge-snapshots': (fromId: number, toId: number) => void;
+  'get-merge-recommendations': () => Promise<Snapshot[]>;
 
   // instant curation
   'instant-curation-curate-now': (snapshotId: number, name: string) => void;

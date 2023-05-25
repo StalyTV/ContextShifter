@@ -333,6 +333,24 @@ export default class SnapshotManager {
     );
   }
 
+  public async getMergeRecommendations(): Promise<Snapshot[]> {
+    // merge recommendations are the last restored snapshot and a list of the last 10 snapshots
+    const lastRestored = await Snapshot.getLastRestoredSnapshot();
+    const latestNSnapshots = await Snapshot.getLatestNSnapshots(10);
+
+    if (!lastRestored) {
+      return latestNSnapshots;
+    }
+
+    // filter out lastRestored from list of last 10 snapshots
+    const filteredSnapshots = latestNSnapshots.filter(
+      (snap) => snap.id !== lastRestored.id
+    );
+
+    filteredSnapshots.unshift(lastRestored);
+    return filteredSnapshots;
+  }
+
   public async openSnapshotInSnapshotWindow(snapshotId: number) {
     if (!WindowManager.snapshotWindow) {
       await WindowManager.createSnapshotWindow(() => {
