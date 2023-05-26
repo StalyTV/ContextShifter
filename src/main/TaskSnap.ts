@@ -522,7 +522,14 @@ export default class TaskSnap {
         return appInList.path === appPath;
       });
 
-      if (!isAlreadyAdded && !isDuplicate && appName !== app.getName()) {
+      if (
+        !isAlreadyAdded &&
+        !isDuplicate &&
+        appName !== app.getName() &&
+        appName !== 'Electron' &&
+        appName !== 'Finder' && // closing the file system entirely leads to issues. Therefore, don't give the user this option
+        appName !== 'Windows Explorer'
+      ) {
         const newKnownApp = new KnownApplication();
         newKnownApp.name = appName;
         newKnownApp.path = appPath;

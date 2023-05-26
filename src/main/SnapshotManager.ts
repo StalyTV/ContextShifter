@@ -191,18 +191,21 @@ export default class SnapshotManager {
         }
       }
 
-      const doNotCloseThisApp = appsThatShouldNeverBeClosed.some(
-        (notCloseApp) => {
-          return notCloseApp.path === app.path;
-        }
-      );
+      // on the other hand, Finder and Explorer should NEVER be closed entirely (leads to issues)
+      else {
+        const doNotCloseThisApp = appsThatShouldNeverBeClosed.some(
+          (notCloseApp) => {
+            return notCloseApp.path === app.path;
+          }
+        );
 
-      if (
-        app.isSelected &&
-        filesToClose.length === app.files.length &&
-        !doNotCloseThisApp
-      ) {
-        closeApplication(app);
+        if (
+          app.isSelected &&
+          filesToClose.length === app.files.length &&
+          !doNotCloseThisApp
+        ) {
+          closeApplication(app);
+        }
       }
     }
   }
