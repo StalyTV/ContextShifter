@@ -12,6 +12,7 @@ import TaskSnap from './TaskSnap';
 import WindowManager from './WindowManager';
 import Snapshot from './entity/Snapshot';
 import Settings from './entity/Settings';
+import { UsageDataOrigin } from '../types/UsageDataOrigin';
 
 export default class TrayManager {
   private static _tray: Tray | null = null;
@@ -35,7 +36,7 @@ export default class TrayManager {
       {
         label: 'New Snapshot',
         click: async () => {
-          await this._taskSnapInstance.createNewSnapshot('tray');
+          await this._taskSnapInstance.createNewSnapshot(UsageDataOrigin.Tray);
         },
         accelerator: await Settings.getSnapshotShortcut(),
       },
@@ -90,7 +91,10 @@ export default class TrayManager {
         const entry: MenuItemConstructorOptions = {
           label: snap.name,
           click: async () => {
-            await TaskSnap.getInstance().restoreSnapshot(snap, 'tray');
+            await TaskSnap.getInstance().restoreSnapshot(
+              snap,
+              UsageDataOrigin.Tray
+            );
           },
         };
         return entry;
