@@ -41,6 +41,7 @@ import { TypedWebContents } from './ipc/types/electron-typed-ipc';
 import Events from '../types/Events';
 import { BrowserType } from '../types/BrowserType';
 import { UsageDataOrigin } from '../types/UsageDataOrigin';
+import Exporter from './Exporter';
 const fileIcon = require('extract-file-icon');
 const sound = require('sound-play');
 
@@ -76,6 +77,7 @@ export default class TaskSnap {
 
     this._windowTracker.start();
     this._fileSystemWatcher.start();
+    Exporter.startBackupLoop();
   }
 
   public stop() {

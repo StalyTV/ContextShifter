@@ -8,7 +8,7 @@ import path from 'path';
 import Snapshot from './entity/Snapshot';
 import fs from 'fs';
 import { app } from 'electron';
-import { info } from 'electron-log';
+import { info, debug } from 'electron-log';
 import { promisify } from 'util';
 import { error } from 'console';
 import { Database } from './database';
@@ -22,6 +22,21 @@ export default class Exporter {
     app.getName(),
     'backup'
   );
+
+  public static async startBackupLoop(): Promise<void> {
+    info('[Exporter] Started backup loop');
+
+    const loop = async () => {
+      debug('[Exporter] Checked to crate backup');
+      const lastExport = await Log.getLastExport();
+      if (!lastExport || lastExport.getDate() !== new Date().getDate()) {
+        await Exporter.createTextExport();
+      }
+    };
+
+    await loop();
+    setInterval(loop, 60 * 60 * 1000);
+  }
 
   public static async createTextExport(): Promise<void> {
     let exportContent: string = '';
