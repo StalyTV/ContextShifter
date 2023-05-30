@@ -20,6 +20,7 @@ import path from 'path';
 import DeviceManager from './HID/DeviceManager';
 import AppUpdater from './AppUpdater';
 import Settings from './entity/Settings';
+import { UsageDataOrigin } from '../types/UsageDataOrigin';
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
@@ -93,7 +94,7 @@ app
 
     // create shortcut
     const keys = await Settings.getSnapshotShortcut();
-    globalShortcut.register(keys, () => taskSnap.createNewSnapshot('shortcut'));
+    globalShortcut.register(keys, () => taskSnap.createNewSnapshot(UsageDataOrigin.Shortcut));
 
     new AppUpdater();
   })
