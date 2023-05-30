@@ -21,6 +21,8 @@ import DeviceManager from './HID/DeviceManager';
 import AppUpdater from './AppUpdater';
 import Settings from './entity/Settings';
 import { UsageDataOrigin } from '../types/UsageDataOrigin';
+import fs from 'fs';
+import Exporter from './Exporter';
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
@@ -81,6 +83,11 @@ app
 
     // create connection with database
     await Database.initialize();
+
+    // if export folder does not exist, create it
+    if (!fs.existsSync(Exporter._exportFolder)) {
+      fs.mkdirSync(Exporter._exportFolder, { recursive: true });
+    }
   })
   .then(async () => {
     await UsageData.addEntry('start', true, `version ${app.getVersion()}`);
@@ -94,7 +101,9 @@ app
 
     // create shortcut
     const keys = await Settings.getSnapshotShortcut();
-    globalShortcut.register(keys, () => taskSnap.createNewSnapshot(UsageDataOrigin.Shortcut));
+    globalShortcut.register(keys, () =>
+      taskSnap.createNewSnapshot(UsageDataOrigin.Shortcut)
+    );
 
     new AppUpdater();
   })
