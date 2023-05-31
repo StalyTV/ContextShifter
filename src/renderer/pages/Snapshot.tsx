@@ -199,18 +199,21 @@ export default function Snapshot() {
               createTimestamp={selectedSnapshot.created}
               editTimestamp={editTimestamp}
               onNameChange={onNameChange}
+              showTimestamp={true}
             />
           </div>
           <div className={styles.mainContainer}>
             <div className={styles.leftContainer}>
               <PostIt
                 title={'Now what was I doing?'}
-                content={`⏪ ${summary}`}
+                icon={'⏪'}
+                content={summary}
                 onTextChange={onSummaryChange}
               />
               <PostIt
                 title={'What was I about to do?'}
-                content={`💭 ${intent}`}
+                icon={'💭'}
+                content={intent}
                 infoMessage={`Uncommitted TODOs are automatically added to this section`}
                 onTextChange={onIntentChange}
               />
@@ -219,28 +222,30 @@ export default function Snapshot() {
               <div className={styles.header}>
                 {'Artifacts that I consider relevant for this task snapshot'}
               </div>
-              <div>
-                {[...browserMap.values()].map((browser) => (
-                  <Browser
-                    key={browser.id}
-                    browser={browser}
-                    updateBrowser={updateBrowser}
-                  />
-                ))}
-              </div>
-              <div>
-                {[...ideMap.values()].map((ide) => (
-                  <IDE key={ide.id} ide={ide} updateIDE={updateIDE} />
-                ))}
-              </div>
-              <div>
-                {[...applicationMap.values()].map((app) => (
-                  <Application
-                    key={app.id}
-                    app={app}
-                    updateApplication={updateApplication}
-                  />
-                ))}
+              <div className={styles.body}>
+                <div>
+                  {[...browserMap.values()].map((browser) => (
+                    <Browser
+                      key={browser.id}
+                      browser={browser}
+                      updateBrowser={updateBrowser}
+                    />
+                  ))}
+                </div>
+                <div>
+                  {[...ideMap.values()].map((ide) => (
+                    <IDE key={ide.id} ide={ide} updateIDE={updateIDE} />
+                  ))}
+                </div>
+                <div>
+                  {[...applicationMap.values()].map((app) => (
+                    <Application
+                      key={app.id}
+                      app={app}
+                      updateApplication={updateApplication}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
           </div>

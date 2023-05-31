@@ -4,8 +4,8 @@
  * Written by Roy Rutishauser <royadrian.rutishauser@uzh.ch>, Remy Egloff <remy.egloff@uzh.ch>, April 2023
  */
 
-import WebSocket from 'ws';
-import { info, debug } from 'electron-log';
+import { WebSocketServer, WebSocket } from 'ws';
+import { info, debug, error } from 'electron-log';
 import {
   BrowserEvent,
   CloseTabClientRequest,
@@ -19,18 +19,20 @@ import { Tabs } from 'webextension-polyfill';
 import Browser from '../entity/Browser';
 import BrowserTab from '../entity/BrowserTab';
 import ActiveBrowserTab from '../entity/ActiveBrowserTab';
+import Settings from '../entity/Settings';
+import { BrowserType } from 'types/BrowserType';
 
 export default class BrowserTracker {
   private _port = 8083;
-  private _server: WebSocket.Server;
-  private _lastUsedSocket: WebSocket | undefined;
+  private _server: WebSocketServer;
+  private _wsClients: Map<BrowserType, WebSocket> = new Map();
   private _connectionListeners: Array<() => void> = [];
-  private _openTabs: Tabs.Tab[] = [];
+  private _openTabs: Map<BrowserType, Tabs.Tab[]> = new Map();
 
   constructor() {
-    info(`[BrowserTracker] listening on port ${this._port}`);
-    this._server = new WebSocket.Server({ port: this._port });
+    this._server = new WebSocketServer({ port: this._port });
     this.initEventListeners();
+    info(`[BrowserTracker] listening on port ${this._port}`);
   }
 
   public subscribeToConnection(fn: () => void) {
@@ -46,18 +48,14 @@ export default class BrowserTracker {
 
       // actually establishing the socket
       socket.on('open', function () {
-        self._lastUsedSocket = socket;
         debug('[BrowserTracker] Socket opened');
       });
 
       socket.on('error', function (error) {
-        self._lastUsedSocket = undefined;
         debug('[BrowserTracker] Socket error', error);
       });
 
-      socket.on('message', function (msg: string) {
-        self._lastUsedSocket = socket;
-        self.notifyConnectionListeners();
+      socket.on('message', async function (msg: string) {
         const obj = JSON.parse(msg) as {
           endpoint: ServerEndpoints;
           data: unknown;
@@ -65,29 +63,43 @@ export default class BrowserTracker {
 
         if (obj.endpoint === 'event') {
           const data = obj.data as BrowserEvent;
-          debug(`[BrowserTracker] "event" msg received of type "${data.type}"`);
+          debug(
+            `[BrowserTracker] "event" msg received of type "${data.type}" from "${data.runtimeInfo.browserInfo.name}"`
+          );
           runtimeInfo = data.runtimeInfo as RuntimeInfo;
-          self.handleEvent(data, runtimeInfo);
+          const browserType = self.getBrowserTypeFromRuntimeInfo(runtimeInfo);
+          self._wsClients.set(browserType, socket);
+          await self.handleEvent(data, runtimeInfo);
         } else if (obj.endpoint === 'sequence') {
           const data = obj.data as WebNavigationSequenceUpdate;
-          self.handleSequence(
-            data as WebNavigationSequenceUpdate,
-            data.runtimeInfo as RuntimeInfo
-          );
+          runtimeInfo = data.runtimeInfo as RuntimeInfo;
+          const browserType = self.getBrowserTypeFromRuntimeInfo(runtimeInfo);
+          self._wsClients.set(browserType, socket);
+          self.handleSequence(data, runtimeInfo);
         } else if (obj.endpoint === 'navigation') {
           self.handleNavigation(obj.data as WebNavigationDetail);
         }
+
+        self.notifyConnectionListeners();
       });
 
       // When a socket closes, or disconnects, remove it from the array.
       socket.on('close', function () {
-        self._lastUsedSocket = undefined;
+        let browserToRemove: BrowserType | undefined;
+        for (let [type, storedSocket] of self._wsClients.entries()) {
+          if (storedSocket === socket) {
+            browserToRemove = type;
+          }
+        }
+        if (browserToRemove) {
+          self._wsClients.delete(browserToRemove);
+        }
         debug('[BrowserTracker] Socket closed');
       });
     });
   }
 
-  private handleEvent(data: BrowserEvent, runtimeInfo: RuntimeInfo) {
+  private async handleEvent(data: BrowserEvent, runtimeInfo: RuntimeInfo) {
     const allTabs: Tabs.Tab[] = [];
     data.windows.forEach((win) => {
       if (!win.incognito && win.tabs) {
@@ -97,15 +109,29 @@ export default class BrowserTracker {
         allTabs.push(...filteredTabs);
       }
     });
-    this._openTabs = allTabs;
+
+    let browserType: BrowserType;
+    if (runtimeInfo.browserInfo.name === 'Edge') {
+      browserType = 'edge';
+    } else if (runtimeInfo.browserInfo.name === 'Firefox') {
+      browserType = 'firefox';
+    } else {
+      browserType = 'chrome';
+    }
+    this._openTabs.set(browserType, allTabs);
 
     // store currently active tab for smart pre-selection
     const activeTab = allTabs.find((tab) => {
       return tab.active;
     });
     if (activeTab && activeTab.url) {
+      const isDataAnonymized = await Settings.getIsDataAnonymized();
+      const urlToStore = isDataAnonymized
+        ? this.createHash(activeTab.url)
+        : activeTab.url;
+
       const dbEntry = new ActiveBrowserTab();
-      dbEntry.url = activeTab.url;
+      dbEntry.url = urlToStore;
       dbEntry.ts = new Date().toISOString();
       dbEntry.save();
     }
@@ -122,61 +148,102 @@ export default class BrowserTracker {
     );
   }
 
-  public async saveOpenTabsToDb(browser: Browser) {
+  public async saveOpenTabsToDb(browsers: Browser[]) {
     // for smart pre-selection, look which urls were active within the last 10 minutes - TODO: update this condition
     const timeMinus10Min = Date.now() - 10 * 60 * 1000;
     const recentlyActiveUrls = await ActiveBrowserTab.getRecentlyActiveURLs(
       new Date(timeMinus10Min)
     );
 
-    for await (const tab of this._openTabs) {
-      if (!tab.url) continue;
+    for await (const browser of browsers) {
+      const browserType = browser.type;
+      const tabsOfBrowser = this._openTabs.get(browserType);
+      if (!tabsOfBrowser) {
+        error(
+          `[BrowserTracker] No tab information found for browser of type ${browserType}`
+        );
+        return;
+      }
 
-      const wasTabRecentlyActive = recentlyActiveUrls.includes(tab.url);
+      const isDataAnonymized = await Settings.getIsDataAnonymized();
 
-      const tabEntity = new BrowserTab();
-      tabEntity.url = tab.url;
-      tabEntity.title = tab.title;
-      tabEntity.favIconUrl = tab.favIconUrl;
-      tabEntity.index = tab.index;
-      tabEntity.isActive = tab.active;
-      tabEntity.browser = browser;
-      tabEntity.isSelected = wasTabRecentlyActive;
-      tabEntity.save();
+      for await (const tab of tabsOfBrowser) {
+        if (!tab.url) continue;
+
+        const wasTabRecentlyActive = recentlyActiveUrls.includes(
+          isDataAnonymized ? this.createHash(tab.url) : tab.url
+        );
+
+        const tabEntity = new BrowserTab();
+        tabEntity.url = tab.url;
+        tabEntity.title = tab.title;
+        tabEntity.favIconUrl = tab.favIconUrl;
+        tabEntity.index = tab.index;
+        tabEntity.isActive = tab.active;
+        tabEntity.browser = browser;
+        tabEntity.isSelected = wasTabRecentlyActive;
+        tabEntity.save();
+      }
+
+      // if no tabs are open, deselect browser by default
+      if (tabsOfBrowser.length === 0) {
+        browser.isSelected = false;
+        browser.save();
+      }
+      info(
+        `[BrowserTracker] attached ${tabsOfBrowser.length} tabs to browser with id ${browser.id};`
+      );
     }
-    info(
-      `[BrowserTracker] attached ${this._openTabs.length} tabs to browser with id ${browser.id};`
-    );
   }
 
-  public sendTabOpeningRequest(urls: string[], label?: string) {
+  // simple hash function form https://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript
+  private createHash(url: string): string {
+    let hash = 0;
+    if (url.length === 0) return hash.toString();
+    for (let i = 0; i < url.length; i++) {
+      const chr = url.charCodeAt(i);
+      hash = (hash << 5) - hash + chr;
+      hash |= 0; // Convert to 32bit integer
+    }
+    return hash.toString();
+  }
+
+  public sendTabOpeningRequest(
+    browserType: BrowserType,
+    urls: string[],
+    label?: string
+  ) {
     const data: OpenTabClientRequest = { urls, label };
-    if (this._lastUsedSocket) {
-      // only send the event to the last browser the user interacted with
-      return this._lastUsedSocket.send(
-        JSON.stringify({ endpoint: 'open-tabs', data })
+
+    const connection = this._wsClients.get(browserType);
+    if (connection && connection.readyState === WebSocket.OPEN) {
+      connection.send(JSON.stringify({ endpoint: 'open-tabs', data }));
+    }
+  }
+
+  public async sendTabClosingRequest(
+    browserType: BrowserType,
+    data: CloseTabClientRequest[]
+  ) {
+    const connection = this._wsClients.get(browserType);
+    if (connection && connection.readyState === WebSocket.OPEN) {
+      connection.send(JSON.stringify({ endpoint: 'close-tabs', data }));
+    }
+  }
+
+  public isSocketOpen(browserType?: BrowserType): boolean {
+    if (!browserType) {
+      return Array.from(this._wsClients.values()).some(
+        (connection) => connection.readyState === WebSocket.OPEN
       );
     } else {
-      // fallback, let's broadcast to what we have...
-      this._server.clients.forEach((client) => {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify({ endpoint: 'open-tabs', data }));
-        }
-      });
-    }
-  }
-
-  // broadcast to all browsers
-  public async sendTabClosingRequest(data: CloseTabClientRequest[]) {
-    this._server.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify({ endpoint: 'close-tabs', data }));
+      const socketOfBrowser = this._wsClients.get(browserType);
+      if (socketOfBrowser) {
+        return socketOfBrowser.readyState === WebSocket.OPEN;
+      } else {
+        return false;
       }
-    });
-  }
-
-  public isSocketOpen(): boolean {
-    return this._lastUsedSocket?.readyState === WebSocket.OPEN;
+    }
   }
 
   private notifyConnectionListeners() {
@@ -184,5 +251,17 @@ export default class BrowserTracker {
       fn();
     }
     this._connectionListeners = [];
+  }
+
+  private getBrowserTypeFromRuntimeInfo(
+    runtimeInfo: RuntimeInfo
+  ): 'chrome' | 'firefox' | 'edge' {
+    if (runtimeInfo.browserInfo.name === 'Edge') {
+      return 'edge';
+    } else if (runtimeInfo.browserInfo.name === 'Firefox') {
+      return 'firefox';
+    } else {
+      return 'chrome';
+    }
   }
 }

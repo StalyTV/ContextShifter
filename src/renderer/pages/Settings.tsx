@@ -7,11 +7,12 @@
 import { useEffect, useState } from 'react';
 import styles from './Settings.module.scss';
 import ExtensionsStatus from '../../types/ExtensionsStatus';
-import Button from 'renderer/components/Button';
-import TaskSnapToggle from 'renderer/components/Toggle/TaskSnapToggle';
+import TaskSnapToggle from '../components/Toggle/TaskSnapToggle';
 import KnownApplicationEntity from '../../main/entity/KnownApplication';
 import PlusIcon from '../components/Icons/PlusIcon';
-import InfoIcon from 'renderer/components/Icons/InfoIcon';
+import InfoIcon from '../components/Icons/InfoIcon';
+import UserSettings from 'types/UserSettings';
+import Input from '../components/Input';
 
 export default function Settings() {
   let loopRef: NodeJS.Timeout | undefined;
@@ -21,6 +22,8 @@ export default function Settings() {
   });
   const [deviceStatus, setDeviceStatus] = useState<boolean>(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+  const [isDataAnonymized, setIsDataAnonymized] = useState<boolean>(false);
+  const [snapshotShortcut, setSnapshotShortcut] = useState<string>('');
   const [neverCloseApplications, setNeverCloseApplications] = useState<
     KnownApplicationEntity[]
   >([]);
@@ -28,6 +31,23 @@ export default function Settings() {
     KnownApplicationEntity[]
   >([]);
   const [isFetchingSettings, setIsFetchingSettings] = useState<boolean>(false);
+
+  const getSettings = async () => {
+    setIsFetchingSettings(true);
+    try {
+      const settings = await window.electron.ipcRenderer.invoke('get-settings');
+      setIsDarkMode(settings.isDarkModeEnabled);
+      setIsDataAnonymized(settings.isDataAnonymized);
+      setSnapshotShortcut(settings.snapshotShortcut);
+    } catch (err) {
+      console.error(err);
+    }
+    setIsFetchingSettings(false);
+  };
+
+  const setSettings = async (settings: UserSettings) => {
+    await window.electron.ipcRenderer.invoke('set-settings', settings);
+  };
 
   const getConnectionStatus = async () => {
     try {
@@ -43,19 +63,6 @@ export default function Settings() {
     } catch (err) {
       console.error(err);
     }
-  };
-
-  const getColorTheme = async () => {
-    setIsFetchingSettings(true);
-    try {
-      const isDarkModeEnabled = await window.electron.ipcRenderer.invoke(
-        'is-dark-mode-enabled'
-      );
-      setIsDarkMode(isDarkModeEnabled);
-    } catch (err) {
-      console.error(err);
-    }
-    setIsFetchingSettings(false);
   };
 
   const getKnownApplications = async () => {
@@ -103,17 +110,40 @@ export default function Settings() {
     await window.electron.ipcRenderer.invoke('update-known-application', app);
   };
 
-  const onClickOpenConfig = async () => {
-    await window.electron.ipcRenderer.invoke('open-config');
+  const onToggleColorTheme = async () => {
+    const updatedSettings: UserSettings = {
+      isDarkModeEnabled: !isDarkMode,
+      isDataAnonymized: isDataAnonymized,
+      snapshotShortcut: snapshotShortcut,
+    };
+    setIsDarkMode(!isDarkMode);
+    setSettings(updatedSettings);
   };
 
-  const onToggleColorTheme = async () => {
-    await window.electron.ipcRenderer.invoke('toggle-color-theme');
+  const onToggleDataAnonymization = async () => {
+    const updatedSettings: UserSettings = {
+      isDarkModeEnabled: isDarkMode,
+      isDataAnonymized: !isDataAnonymized,
+      snapshotShortcut: snapshotShortcut,
+    };
+    setIsDataAnonymized(!isDataAnonymized);
+    setSettings(updatedSettings);
+  };
+
+  const onShortcutChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const updatedShortcut = e.target.value;
+    const updatedSettings: UserSettings = {
+      isDarkModeEnabled: isDarkMode,
+      isDataAnonymized: !isDataAnonymized,
+      snapshotShortcut: updatedShortcut,
+    };
+    setSnapshotShortcut(updatedShortcut);
+    setSettings(updatedSettings);
   };
 
   useEffect(() => {
+    getSettings();
     getKnownApplications();
-    getColorTheme();
     getConnectionStatus();
     loopRef = setInterval(() => {
       getConnectionStatus();
@@ -127,15 +157,36 @@ export default function Settings() {
   return (
     <div className={styles.settingsContainer}>
       <h3>Settings</h3>
-      <h4>Color Theme</h4>
       {isFetchingSettings ? null : (
-        <TaskSnapToggle
-          defaultChecked={isDarkMode}
-          leftLabel={'light'}
-          rightLabel={'dark'}
-          icons={false}
-          onChange={onToggleColorTheme}
-        />
+        <div>
+          <h4>Color Theme</h4>
+          <TaskSnapToggle
+            defaultChecked={isDarkMode}
+            leftLabel={'light'}
+            rightLabel={'dark'}
+            icons={false}
+            onChange={onToggleColorTheme}
+          />
+          <h4>Anonymize Data</h4>
+          <TaskSnapToggle
+            defaultChecked={isDataAnonymized}
+            leftLabel={'no'}
+            rightLabel={'yes'}
+            icons={false}
+            onChange={onToggleDataAnonymization}
+          />
+          <div className={styles.titleWithInfo}>
+            <h4>Snapshot Shortcut</h4>
+            <InfoIcon
+              className={styles.infoIcon}
+              data-tooltip-id={'task-snap'}
+              data-tooltip-html={'Restart required'}
+            />
+          </div>
+          <div className={styles.inputContainer}>
+            <Input value={snapshotShortcut} onChange={onShortcutChange} />
+          </div>
+        </div>
       )}
 
       <h4>Connection Status</h4>
@@ -205,11 +256,6 @@ export default function Settings() {
           );
         })}
       </div>
-
-      <h4>Configuration</h4>
-      <Button isFilled={false} onClick={() => onClickOpenConfig()}>
-        Open Config File
-      </Button>
     </div>
   );
 }

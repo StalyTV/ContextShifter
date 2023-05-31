@@ -2,6 +2,28 @@ h1 {
   font-weight: 500;
 }
 
+.searchContainer {
+  position: absolute;
+  right: 6rem;
+  top: 1rem;
+  display: flex;
+  width: 15rem;
+  height: 1rem;
+  padding: 0.4rem;
+  background-color: var(--bg-color-3);
+  border-radius: var(--border-radius);
+
+  .icon {
+    height: 1rem;
+    fill: var(--border-color);
+  }
+
+  input {
+    font-size: small;
+    margin-left: 0.3rem;
+  }
+}
+
 .groupOfSnapshots {
   margin-bottom: 2rem;
 }

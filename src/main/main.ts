@@ -15,11 +15,14 @@ import TaskSnap from './TaskSnap';
 import { Database } from './database';
 import Log from './entity/Log';
 import WindowManager from './WindowManager';
-import AppConfig from './AppConfig';
 import UsageData from './entity/UsageData';
 import path from 'path';
 import DeviceManager from './HID/DeviceManager';
 import AppUpdater from './AppUpdater';
+import Settings from './entity/Settings';
+import { UsageDataOrigin } from '../types/UsageDataOrigin';
+import fs from 'fs';
+import Exporter from './Exporter';
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
@@ -81,8 +84,10 @@ app
     // create connection with database
     await Database.initialize();
 
-    // load config file
-    await AppConfig.loadConfig();
+    // if export folder does not exist, create it
+    if (!fs.existsSync(Exporter._exportFolder)) {
+      fs.mkdirSync(Exporter._exportFolder, { recursive: true });
+    }
   })
   .then(async () => {
     await UsageData.addEntry('start', true, `version ${app.getVersion()}`);
@@ -95,8 +100,10 @@ app
     taskSnap.start();
 
     // create shortcut
-    const keys = AppConfig.getSnapshotShortcut();
-    globalShortcut.register(keys, () => taskSnap.createNewSnapshot('shortcut'));
+    const keys = await Settings.getSnapshotShortcut();
+    globalShortcut.register(keys, () =>
+      taskSnap.createNewSnapshot(UsageDataOrigin.Shortcut)
+    );
 
     new AppUpdater();
   })

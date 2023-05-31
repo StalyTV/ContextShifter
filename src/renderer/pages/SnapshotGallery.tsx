@@ -10,8 +10,11 @@ import SnapshotEntity from '../../main/entity/Snapshot';
 import SnapshotPreview from '../components/Gallery/SnapshotPreview';
 import NavBar from '../components/Navigation/NavBar';
 import Button from 'renderer/components/Button';
+import Input from 'renderer/components/Input';
+import SearchIcon from 'renderer/components/Icons/SearchIcon';
 
 export default function SnapshotGallery() {
+  const [snapshots, setSnapshots] = useState<SnapshotEntity[]>([]);
   const [snapshotMap, setSnapshotMap] = useState<Map<number, SnapshotEntity[]>>(
     new Map()
   );
@@ -31,22 +34,30 @@ export default function SnapshotGallery() {
       'get-total-num-snapshots'
     );
     setTotalNumSnapshots(numSnapshots);
-    const snapshots = await window.electron.ipcRenderer.invoke(
+    const fetchedSnapshots = await window.electron.ipcRenderer.invoke(
       'get-latest-n-snapshots',
       amount
     );
 
-    const initialMap: Map<number, SnapshotEntity[]> = new Map();
+    setSnapshots(fetchedSnapshots);
+    const initialMap = createMap(fetchedSnapshots);
+    setSnapshotMap(initialMap);
+  };
+
+  const createMap = (
+    snapshots: SnapshotEntity[]
+  ): Map<number, SnapshotEntity[]> => {
+    const map: Map<number, SnapshotEntity[]> = new Map();
     snapshots.forEach((snapshot) => {
       const lastChangeDate = new Date(snapshot.lastChange);
       const key: number = lastChangeDate.setHours(0, 0, 0, 0);
-      if (initialMap.has(key)) {
-        initialMap.get(key)!.push(snapshot);
+      if (map.has(key)) {
+        map.get(key)!.push(snapshot);
       } else {
-        initialMap.set(key, [snapshot]);
+        map.set(key, [snapshot]);
       }
     });
-    setSnapshotMap(initialMap);
+    return map;
   };
 
   const onDelete = () => {
@@ -57,6 +68,80 @@ export default function SnapshotGallery() {
     const newAmount = shownNumSnapshots + 10;
     setShownNumSnapshots(newAmount);
     fetchSnapshots(newAmount);
+  };
+
+  const onSearchChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const searchString = e.target.value.toLowerCase();
+    const filteredSnapshots = snapshots.filter((snap) => {
+      let isMatch = false;
+      if (snap.name.toLowerCase().includes(searchString)) {
+        isMatch = true;
+      }
+      if (snap.summary && snap.summary.toLowerCase().includes(searchString)) {
+        isMatch = true;
+      }
+      if (snap.intent && snap.intent.toLowerCase().includes(searchString)) {
+        isMatch = true;
+      }
+
+      // browser
+      snap.browsers.forEach((browser) => {
+        if (
+          browser.isSelected &&
+          browser.name.toLowerCase().includes(searchString)
+        ) {
+          isMatch = true;
+        }
+        browser.browserTabs.forEach((tab) => {
+          if (tab.isSelected) {
+            if (
+              tab.url.includes(searchString) ||
+              tab.title?.toLowerCase().includes(searchString)
+            ) {
+              isMatch = true;
+            }
+          }
+        });
+      });
+
+      // ide
+      snap.ides.forEach((ide) => {
+        if (ide.isSelected && ide.name.toLowerCase().includes(searchString)) {
+          isMatch = true;
+        }
+        ide.ideFiles.forEach((file) => {
+          if (
+            file.isSelected &&
+            file.name.toLowerCase().includes(searchString)
+          ) {
+            isMatch = true;
+          }
+        });
+      });
+
+      // applications
+      snap.applications.forEach((app) => {
+        if (
+          app.isSelected &&
+          (app.name.toLowerCase().includes(searchString) ||
+            app.title.toLowerCase().includes(searchString))
+        ) {
+          isMatch = true;
+        }
+        app.files.forEach((file) => {
+          if (
+            file.isSelected &&
+            file.name.toLowerCase().includes(searchString)
+          ) {
+            isMatch = true;
+          }
+        });
+      });
+
+      return isMatch;
+    });
+    const filteredMap = createMap(filteredSnapshots);
+    setSnapshotMap(filteredMap);
   };
 
   const getFormattedDateFromKey = (key: number): string => {
@@ -81,6 +166,10 @@ export default function SnapshotGallery() {
     <>
       <NavBar />
       <h1>Snapshot Gallery</h1>
+      <div className={styles.searchContainer}>
+        <SearchIcon className={styles.icon} />
+        <Input onChange={onSearchChange} />
+      </div>
       {[...snapshotMap.keys()].map((key) => {
         return (
           <div key={key} className={styles.groupOfSnapshots}>

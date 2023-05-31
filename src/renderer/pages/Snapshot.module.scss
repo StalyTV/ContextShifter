@@ -17,14 +17,17 @@
     border: solid var(--border-color) 1px;
     border-radius: var(--border-radius);
     font-size: small;
-    overflow-y: scroll;
-    max-height: 39rem;
-    width: 100%;
 
     .header {
       padding: 0.5rem 0.5rem 0.5rem 1rem;
       border-bottom: var(--border-color) solid 1px;
       font-weight: 700;
+    }
+
+    .body {
+      overflow-y: scroll;
+      max-height: 35rem;
+      width: 34rem;
     }
   }
 }

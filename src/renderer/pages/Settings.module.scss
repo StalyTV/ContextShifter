@@ -4,7 +4,7 @@
   right: 1rem;
   top: 3rem;
   width: 20rem;
-  height: 30rem;
+  height: 35rem;
   padding: 1rem;
   background-color: var(--overlay-color);
   border-radius: var(--border-radius);
@@ -51,6 +51,16 @@
     }
   }
 
+  .inputContainer {
+    background-color: var(--bg-color-3);
+    border-radius: var(--border-radius);
+    padding: 0.3rem 1.5rem 0.3rem 0.3rem;
+
+    input {
+      font-size: small;
+    }
+  }
+
   .neverCloseApplications {
     display: flex;
     align-items: center;
@@ -63,6 +73,7 @@
 
     img {
       cursor: pointer;
+      margin-right: 0.3rem;
     }
   }
 
@@ -79,6 +90,7 @@
 
     img {
       cursor: pointer;
+      margin-right: 0.3rem;
     }
   }
 

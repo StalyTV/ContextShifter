@@ -78,7 +78,6 @@
     "sound-play": "^1.1.0"
   },
   "devDependencies": {
-    "@types/vscode": "^1.78.0",
     "@electron/notarize": "^1.2.3",
     "@electron/rebuild": "^3.2.10",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.10",
@@ -95,6 +94,7 @@
     "@types/react-test-renderer": "^18.0.0",
     "@types/react-toggle": "^4.0.3",
     "@types/terser-webpack-plugin": "^5.0.4",
+    "@types/vscode": "^1.78.0",
     "@types/webextension-polyfill": "^0.10.0",
     "@types/webpack-bundle-analyzer": "^4.6.0",
     "@typescript-eslint/eslint-plugin": "^5.51.0",

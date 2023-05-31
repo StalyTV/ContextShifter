@@ -5,9 +5,37 @@
 .buttonContainer {
   margin-top: 1rem;
   display: flex;
-  justify-content: flex-end;
 
   button {
-    margin-left: 0.5rem;
+    margin-right: 0.4rem;
+  }
+
+  .deleteButton {
+    background-color: red;
+    border-color: red;
+  }
+
+  select {
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    margin-right: 0.4rem;
+    transition: all ease-in 0.1s;
+  }
+
+  select:hover {
+    transform: scale(1.05);
+  }
+}
+
+.loadingContainer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 1rem;
+  width: 50%;
+
+
+  span {
+    white-space: nowrap;
   }
 }

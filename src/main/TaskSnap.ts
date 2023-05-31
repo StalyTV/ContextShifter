@@ -4,6 +4,7 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
+import { app, dialog } from 'electron';
 import { info } from 'electron-log';
 import WindowTracker from './trackers/WindowTracker';
 import FileSystemWatcher from './trackers/FileSystemWatcher';
@@ -18,7 +19,11 @@ import WindowManager from './WindowManager';
 import SnapshotManager from './SnapshotManager';
 import { lsof, Options, ProcessInfo } from 'list-open-files';
 import Artifact from 'types/Artifact';
-import { getRecentlyOpenedFilePaths, openArtifact } from './helpers/osCommands';
+import {
+  getOpenFileExplorerPaths,
+  getRecentlyOpenedFilePaths,
+  openArtifact,
+} from './helpers/osCommands';
 import { getFileNameFromPath } from './helpers/getFileNameFromPath';
 import isMac from './helpers/isMac';
 import BrowserTracker from './trackers/BrowserTracker';
@@ -26,13 +31,17 @@ import BrowserTabEntity from './entity/BrowserTab';
 import { CloseTabClientRequest } from '../types/context-browser-extension-types/types';
 import Browser from './entity/Browser';
 import VSCodeTracker from './trackers/VSCodeTracker';
-import AppConfig from './AppConfig';
 import getAssetPath from './helpers/getAssetPath';
 import ExtensionsStatus from '../types/ExtensionsStatus';
 import UsageData from './entity/UsageData';
 import DeviceManager from './HID/DeviceManager';
 import KnownApplication from './entity/KnownApplication';
 import ActiveWindow from './entity/ActiveWindow';
+import { TypedWebContents } from './ipc/types/electron-typed-ipc';
+import Events from '../types/Events';
+import { BrowserType } from '../types/BrowserType';
+import { UsageDataOrigin } from '../types/UsageDataOrigin';
+import Exporter from './Exporter';
 const fileIcon = require('extract-file-icon');
 const sound = require('sound-play');
 
@@ -68,6 +77,7 @@ export default class TaskSnap {
 
     this._windowTracker.start();
     this._fileSystemWatcher.start();
+    Exporter.startBackupLoop();
   }
 
   public stop() {
@@ -77,39 +87,58 @@ export default class TaskSnap {
     this._fileSystemWatcher.stop();
   }
 
-  public async createNewSnapshot(origin: string) {
+  public async createNewSnapshot(origin: UsageDataOrigin) {
     info('[TaskSnap] New snapshot created');
     sound.play(this._cameraShutterSoundPath);
     this._deviceManager.showLightPulse();
 
-    const res = await this.getCurrentlyOpenApplications();
-    const openBrowsers = res[0];
-    const openIDEs = res[1];
-    const openApplications = res[2];
-
-    await Browser.save(openBrowsers);
-    await IDE.save(openIDEs);
-    await Application.save(openApplications);
-
+    // immediately create snapshot and open instant curation view, later add open applications and files to snapshot.
     const timestamp = new Date().toISOString();
     const nextId = await Snapshot.getNextId();
     const newSnapshot = new Snapshot();
     newSnapshot.created = timestamp;
     newSnapshot.lastChange = timestamp;
     newSnapshot.name = `Snapshot ${nextId}`;
-    newSnapshot.browsers = openBrowsers;
-    newSnapshot.ides = openIDEs;
-    newSnapshot.applications = openApplications;
     await Snapshot.save(newSnapshot);
+
+    await WindowManager.createInstantCurationWindow();
     await UsageData.addEntry(
       'create-snapshot',
       false,
       `id: ${newSnapshot.id}, origin: ${origin}`
     );
 
+    const res = await this.getCurrentlyOpenApplications();
+    const openBrowsers = res[0];
+    const openIDEs = res[1];
+    const openApplications = res[2];
+
+    // when no artifacts to attach, show error message
+    if (
+      openBrowsers.length === 0 &&
+      openIDEs.length === 0 &&
+      openApplications.length === 0
+    ) {
+      dialog.showMessageBox({
+        message: 'No open windows to attach to a snapshot',
+        type: 'error',
+      });
+      return;
+    }
+
+    await Browser.save(openBrowsers);
+    await IDE.save(openIDEs);
+    await Application.save(openApplications);
+
+    newSnapshot.browsers = openBrowsers;
+    newSnapshot.ides = openIDEs;
+    newSnapshot.applications = openApplications;
+    newSnapshot.isReady = true;
+    await newSnapshot.save();
+
     // latest tabs are already stored in memory. Save them to db.
     if (openBrowsers.length > 0) {
-      this._browserTracker.saveOpenTabsToDb(openBrowsers[0]); // TODO: improve this
+      this._browserTracker.saveOpenTabsToDb(openBrowsers);
     }
 
     // same for vscode
@@ -117,21 +146,41 @@ export default class TaskSnap {
       this._vscodeTracker.sendGetVSCodeSnapshotRequest();
     }
 
-    WindowManager.createInstantCurationWindow();
+    // notify instant curation window that snapshot is ready
+    this.notifyInstantCurationWindow();
 
     // update snapshot gallery window
     this._snapshotManager.updateSnapshotGalleryWindow();
+
+    // update tray menu
+    await TrayManager.updateTray();
+  }
+
+  private notifyInstantCurationWindow(): void {
+    if (WindowManager.instantCurationWindow) {
+      const destination = WindowManager.instantCurationWindow
+        .webContents as TypedWebContents<Events>;
+      destination?.send('snapshot-ready');
+    }
   }
 
   public async restoreLatestSnapshot() {
     const latestSnapshot = await this._snapshotManager.getLatestSnapshot();
     if (!latestSnapshot) return;
 
-    await this.restoreSnapshot(latestSnapshot, 'tray');
+    await this.restoreSnapshot(latestSnapshot, UsageDataOrigin.Tray);
   }
 
-  public async restoreSnapshot(snapshot: Snapshot, origin: string) {
+  public async restoreSnapshot(snapshot: Snapshot, origin: UsageDataOrigin) {
     info(`[TaskSnap] Restore snapshot "${snapshot.name}"`);
+    // the snapshot given as parameter might not be from the db, but coming from the renderer process
+    // therefore, quickly load it here to update the timestamp
+    const dbEntry = await this._snapshotManager.getSnapshotById(snapshot.id);
+    if (dbEntry) {
+      dbEntry.lastRestore = new Date().toISOString();
+      await dbEntry.save();
+    }
+
     await UsageData.addEntry(
       'restore-snapshot',
       false,
@@ -197,10 +246,18 @@ export default class TaskSnap {
 
     // if websocket is not open, wait until browser is ready (sends any kind of message)
     if (this._browserTracker.isSocketOpen()) {
-      this._browserTracker.sendTabOpeningRequest(urlsToOpen, label);
+      this._browserTracker.sendTabOpeningRequest(
+        browser.type,
+        urlsToOpen,
+        label
+      );
     } else {
       this._browserTracker.subscribeToConnection(() => {
-        this._browserTracker.sendTabOpeningRequest(urlsToOpen, label);
+        this._browserTracker.sendTabOpeningRequest(
+          browser.type,
+          urlsToOpen,
+          label
+        );
       });
     }
   }
@@ -222,11 +279,14 @@ export default class TaskSnap {
     }
   }
 
-  public closeBrowserTabs(tabsToClose: BrowserTabEntity[]): void {
+  public closeBrowserTabs(
+    browser: Browser,
+    tabsToClose: BrowserTabEntity[]
+  ): void {
     const closeRequest: CloseTabClientRequest[] = tabsToClose.map((tab) => {
       return { url: tab.url };
     });
-    this._browserTracker.sendTabClosingRequest(closeRequest);
+    this._browserTracker.sendTabClosingRequest(browser.type, closeRequest);
   }
 
   public closeIDEFiles(filesToClose: IDEFileEntity[]): void {
@@ -241,6 +301,9 @@ export default class TaskSnap {
     [Browser[], IDE[], Application[]]
   > {
     const openWindows = await activeWin.getOpenWindows();
+    if (!openWindows) {
+      return [[], [], []];
+    }
     const pidsOfApplications: number[] = openWindows.map((win) => {
       return win.owner.processId;
     });
@@ -269,8 +332,7 @@ export default class TaskSnap {
     for await (const win of openWindows) {
       const appName = win.owner.name;
       const appPath = win.owner.path;
-
-      if (AppConfig.getExcludedApplications().includes(appName)) continue;
+      if (appName === app.getName() || appName === 'Electron') continue;
 
       const wasAppRecentlyActive = recentlyActiveApps.includes(appName);
 
@@ -280,8 +342,18 @@ export default class TaskSnap {
         appName.includes('Firefox') ||
         appName.includes('Edge')
       ) {
+        let browserType: BrowserType;
+        if (appName.includes('Edge')) {
+          browserType = 'edge';
+        } else if (appName.includes('Firefox')) {
+          browserType = 'firefox';
+        } else {
+          browserType = 'chrome';
+        }
+
         const browser = new Browser();
         browser.name = appName;
+        browser.type = browserType;
         browser.path = appPath;
         browser.icon = this.getApplicationIcon(appPath);
         browser.title = win.title;
@@ -298,18 +370,65 @@ export default class TaskSnap {
         ide.isSelected = wasAppRecentlyActive;
         openIDEs.push(ide);
 
-        // regular application case
-      } else {
+        // file explorer
+      } else if (appName === 'Finder' || appName === 'Windows Explorer') {
+        // only add file explorer once
+        if (
+          openApplications.some(
+            (app) => app.name === 'Finder' || app.name === 'Windows Explorer'
+          )
+        ) {
+          continue;
+        }
+
         const app = new Application();
         app.name = appName;
         app.path = appPath;
         app.icon = this.getApplicationIcon(appPath);
-        app.title = win.title;
+        app.title = 'File System';
         app.isSelected = wasAppRecentlyActive;
         openApplications.push(app);
 
+        const associatedFolders: File[] = [];
+        const folderPaths = await getOpenFileExplorerPaths();
+        folderPaths.forEach((path) => {
+          const file = new File();
+          file.path = path;
+          file.name = path;
+          file.isSelected = wasAppRecentlyActive; // TODO: Improve this
+          associatedFolders.push(file);
+        });
+        if (associatedFolders.length > 0) {
+          await File.save(associatedFolders);
+        }
+        app.files = associatedFolders;
+
+        // regular application case
+      } else {
+        let app: Application;
+        // check if this application was already added -> just append file
+        const alreadyAddedApplication = openApplications.find(
+          (app) => app.name === appName
+        );
+
+        if (alreadyAddedApplication) {
+          app = alreadyAddedApplication;
+          app.title = appName; // use app name as multiple windows have multiple titles
+        } else {
+          app = new Application();
+          app.name = appName;
+          app.path = appPath;
+          app.icon = this.getApplicationIcon(appPath);
+          app.title = win.title;
+          app.isSelected = wasAppRecentlyActive;
+          openApplications.push(app);
+        }
+
+        const associatedFiles: File[] = alreadyAddedApplication
+          ? alreadyAddedApplication.files
+          : [];
+
         if (isMac) {
-          const associatedFiles: File[] = [];
           const processInfoOfApplication = processInfos.filter((process) => {
             return process.process.pid === win.owner.processId;
           });
@@ -346,7 +465,6 @@ export default class TaskSnap {
 
           // Windows case
         } else {
-          const associatedFiles: File[] = [];
           for await (const path of recentlyOpenedFiles) {
             const fileName = getFileNameFromPath(path, true);
             const lowerCaseFileName = fileName.toLowerCase();
@@ -406,7 +524,14 @@ export default class TaskSnap {
         return appInList.path === appPath;
       });
 
-      if (!isAlreadyAdded && !isDuplicate) {
+      if (
+        !isAlreadyAdded &&
+        !isDuplicate &&
+        appName !== app.getName() &&
+        appName !== 'Electron' &&
+        appName !== 'Finder' && // closing the file system entirely leads to issues. Therefore, don't give the user this option
+        appName !== 'Windows Explorer'
+      ) {
         const newKnownApp = new KnownApplication();
         newKnownApp.name = appName;
         newKnownApp.path = appPath;

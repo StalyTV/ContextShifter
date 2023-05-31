@@ -14,6 +14,7 @@ import {
 } from 'typeorm';
 import Snapshot from './Snapshot';
 import BrowserTab from './BrowserTab';
+import { BrowserType } from '../../types/BrowserType';
 
 @Entity({ name: 'browser' })
 export default class Browser extends BaseEntity {
@@ -22,6 +23,9 @@ export default class Browser extends BaseEntity {
 
   @Column({ type: 'varchar', nullable: false })
   name!: string;
+
+  @Column({ type: 'varchar', nullable: false })
+  type!: BrowserType;
 
   @Column({ type: 'varchar', nullable: false })
   path!: string;

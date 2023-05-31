@@ -14,6 +14,7 @@ type Props = {
   createTimestamp: string;
   editTimestamp: string;
   onNameChange: (e: React.ChangeEvent<HTMLInputElement>) => {};
+  showTimestamp: boolean;
 };
 
 export default function SnapshotHeader(props: Props) {
@@ -33,18 +34,20 @@ export default function SnapshotHeader(props: Props) {
       <div className={styles.titleContainer}>
         <Input value={props.snapshotName} onChange={props.onNameChange} />
       </div>
-      <div className={styles.timestamps}>
-        <div className={styles.timestamp}>
-          <CameraIcon className={styles.icon} />
-          {getFormattedDate(props.createTimestamp)}
-        </div>
-        {props.editTimestamp ? (
+      {props.showTimestamp ? (
+        <div className={styles.timestamps}>
           <div className={styles.timestamp}>
-            <EditIcon className={styles.icon} />
-            {getFormattedDate(props.editTimestamp)}
+            <CameraIcon className={styles.icon} />
+            {getFormattedDate(props.createTimestamp)}
           </div>
-        ) : null}
-      </div>
+          {props.editTimestamp ? (
+            <div className={styles.timestamp}>
+              <EditIcon className={styles.icon} />
+              {getFormattedDate(props.editTimestamp)}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

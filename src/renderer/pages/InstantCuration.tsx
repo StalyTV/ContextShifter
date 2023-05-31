@@ -11,24 +11,68 @@ import SnapshotEntity from 'main/entity/Snapshot';
 import Button from 'renderer/components/Button';
 import { toast } from 'react-toastify';
 import PostponeButton from 'renderer/components/PostponeButton';
+import TrashIcon from 'renderer/components/Icons/TrashIcon';
+import LoadingAnimation from 'renderer/components/LoadingAnimation';
 
 export default function InstantCuration() {
-  const [latestSnapshot, setLatestSnapshot] = useState<SnapshotEntity | null>(
-    null
-  );
+  const [snapshot, setSnapshot] = useState<SnapshotEntity | null>(null);
   const [snapshotName, setSnapshotName] = useState<string>('');
+  const [isSnapshotReady, setIsSnapshotReady] = useState<boolean>(false);
+  const [mergeRecommendations, setMergeRecommendations] = useState<
+    SnapshotEntity[]
+  >([]);
 
-  const fetchLatestSnapshot = async () => {
-    const snapshot = await window.electron.ipcRenderer.invoke(
+  const registerEventListeners = () => {
+    window.electron.onSnapshotReady(() => {
+      setIsSnapshotReady(true);
+      toast('Saved Snapshot', {
+        type: 'success',
+      });
+    });
+  };
+
+  const unRegisterEventListeners = () => {
+    window.electron.removeOnSnapshotReady();
+  };
+
+  const init = async () => {
+    const latestSnapshot = await window.electron.ipcRenderer.invoke(
       'get-latest-snapshot'
     );
-    if (!snapshot) return;
+    if (!latestSnapshot) return;
+    setFetchedSnapshot(latestSnapshot);
+    if (latestSnapshot.isReady) {
+      toast('Saved Snapshot', {
+        type: 'success',
+      });
+    }
+    fetchMergeRecommendations(latestSnapshot.id);
+  };
 
-    setLatestSnapshot(snapshot);
+  const fetchMergeRecommendations = async (excludeId: number) => {
+    const recommendations = await window.electron.ipcRenderer.invoke(
+      'get-merge-recommendations'
+    );
+    // filter out the snapshot that is currently edited
+    const filteredSnapshots = recommendations.filter(
+      (rec) => rec.id !== excludeId
+    );
+    setMergeRecommendations(filteredSnapshots);
+  };
+
+  const fetchSnapshotById = async (id: number) => {
+    const requestedSnapshot = await window.electron.ipcRenderer.invoke(
+      'get-snapshot-by-id',
+      id
+    );
+    if (!requestedSnapshot) return;
+    setFetchedSnapshot(requestedSnapshot);
+  };
+
+  const setFetchedSnapshot = async (snapshot: SnapshotEntity) => {
+    setSnapshot(snapshot);
     setSnapshotName(snapshot.name);
-    toast('Saved Snapshot', {
-      type: 'success',
-    });
+    setIsSnapshotReady(snapshot.isReady);
   };
 
   const onNameChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -36,13 +80,13 @@ export default function InstantCuration() {
   };
 
   const onClickCurateNow = async () => {
-    if (!latestSnapshot) return;
+    if (!snapshot) return;
 
     toast.promise(
       async () =>
         await window.electron.ipcRenderer.invoke(
           'instant-curation-curate-now',
-          latestSnapshot.id,
+          snapshot.id,
           snapshotName
         ),
       {
@@ -53,14 +97,89 @@ export default function InstantCuration() {
     );
   };
 
+  const onClickCloseApps = async () => {
+    if (!snapshot) return;
+
+    toast.promise(
+      async () =>
+        await window.electron.ipcRenderer.invoke(
+          'instant-curation-close-applications',
+          snapshot.id,
+          snapshotName
+        ),
+      {
+        pending: 'Saving Snapshot...',
+        success: 'Saved Snapshot, Closed Applications',
+        error: 'Something went wrong',
+      }
+    );
+  };
+
+  const onClickDelete = async () => {
+    if (!snapshot) return;
+
+    if (
+      confirm(`Are you sure that you want to delete "${snapshotName}"?`) ===
+      true
+    ) {
+      toast.promise(
+        async () =>
+          await window.electron.ipcRenderer.invoke(
+            'instant-curation-delete-snapshot',
+            snapshot.id
+          ),
+        {
+          pending: 'Deleting Snapshot...',
+          success: 'Snapshot Deleted',
+          error: 'Something went wrong',
+        }
+      );
+    }
+  };
+
+  const onSelectMergeDestination = async (
+    e: React.ChangeEvent<HTMLSelectElement>
+  ) => {
+    if (!snapshot) return;
+    const targetId = parseInt(e.target.value);
+    e.target.value = ''; // reset selection
+
+    const targetSnapshot = mergeRecommendations.find(
+      (snap) => snap.id === targetId
+    );
+    if (!targetSnapshot) return;
+
+    if (
+      confirm(
+        `Are you sure you want to merge this snapshot with "${targetSnapshot.name}"?`
+      ) === true
+    ) {
+      toast.promise(
+        async () => {
+          await window.electron.ipcRenderer.invoke(
+            'merge-snapshots',
+            snapshot.id,
+            targetId
+          ),
+            await fetchSnapshotById(targetId);
+        },
+        {
+          pending: 'Merging Snapshots...',
+          success: 'Snapshots Merged',
+          error: 'Something went wrong',
+        }
+      );
+    }
+  };
+
   const postponeSnapshot = (timeInMin: number) => {
-    if (!latestSnapshot) return;
+    if (!snapshot) return;
 
     toast.promise(
       async () =>
         await window.electron.ipcRenderer.invoke(
           'instant-curation-postpone',
-          latestSnapshot.id,
+          snapshot.id,
           snapshotName,
           timeInMin
         ),
@@ -73,31 +192,66 @@ export default function InstantCuration() {
   };
 
   useEffect(() => {
-    fetchLatestSnapshot();
+    init();
+    registerEventListeners();
+
+    return () => {
+      unRegisterEventListeners();
+    };
   }, []);
 
   return (
     <>
-      {latestSnapshot ? (
+      {snapshot ? (
         <>
           <div className={styles.headerContainer}>
             <SnapshotHeader
               snapshotName={snapshotName}
               onNameChange={onNameChange}
-              createTimestamp={latestSnapshot.created}
-              editTimestamp={latestSnapshot.edited}
+              createTimestamp={snapshot.created}
+              editTimestamp={snapshot.edited}
+              showTimestamp={false}
             />
           </div>
-          <div className={styles.buttonContainer}>
-            <PostponeButton
-              isFilled={false}
-              title={'PostponeCuration'}
-              onSelect={postponeSnapshot}
-            />
-            <Button isFilled={true} onClick={() => onClickCurateNow()}>
-              Curate Now
-            </Button>
-          </div>
+          {isSnapshotReady ? (
+            <div className={styles.buttonContainer}>
+              <Button isFilled={true} onClick={() => onClickCurateNow()}>
+                Curate Now
+              </Button>
+              <PostponeButton
+                isFilled={false}
+                title={'PostponeCuration'}
+                onSelect={postponeSnapshot}
+              />
+              <Button isFilled={false} onClick={() => onClickCloseApps()}>
+                Close Applications
+              </Button>
+              <select
+                onChange={onSelectMergeDestination}
+                name="select-merge"
+                id="select-merge"
+              >
+                <option value="">Add to Snapshot</option>
+                {mergeRecommendations.map((mRec) => (
+                  <option key={mRec.id} value={mRec.id}>
+                    {mRec.name}
+                  </option>
+                ))}
+              </select>
+              <Button
+                className={styles.deleteButton}
+                isFilled={true}
+                onClick={() => onClickDelete()}
+              >
+                <TrashIcon />
+              </Button>
+            </div>
+          ) : (
+            <div className={styles.loadingContainer}>
+              <LoadingAnimation />
+              <span>Preparing Snapshot...</span>
+            </div>
+          )}
         </>
       ) : null}
     </>

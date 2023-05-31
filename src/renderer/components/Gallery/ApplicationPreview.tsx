@@ -13,6 +13,10 @@ type Props = {
 };
 
 export default function ApplicationPreview(props: Props) {
+  const getFiles = () => {
+    return props.app.files.filter((file) => file.isSelected);
+  };
+
   const onClickApplicationIcon = async (e: React.MouseEvent) => {
     // makes sure Preview is not expanded
     e.stopPropagation();
@@ -34,8 +38,16 @@ export default function ApplicationPreview(props: Props) {
     await window.electron.ipcRenderer.invoke('open-artifact', artifact);
   };
 
+  const hasFiles = (): boolean => {
+    return getFiles().length > 0;
+  };
+
   return (
-    <div className={styles.previewContainer}>
+    <div
+      className={`${styles.previewContainer} ${
+        hasFiles() ? styles.hasFiles : undefined
+      }`}
+    >
       <img
         className={styles.appIcon}
         src={props.app.icon}
@@ -43,7 +55,7 @@ export default function ApplicationPreview(props: Props) {
         data-tooltip-content={props.app.title}
         onClick={onClickApplicationIcon}
       />
-      {props.app.files.map((file) => {
+      {getFiles().map((file) => {
         return (
           <div
             key={file.id}

@@ -7,14 +7,13 @@
 import { info, debug, error } from 'electron-log';
 import watcher from '@parcel/watcher';
 import FileSystemEvent from '../entity/FileSystemEvent';
-import AppConfig from '../AppConfig';
 
 export default class FileSystemWatcher {
   private _subscriptions: watcher.AsyncSubscription[];
   private _watchedDirectories: string[];
 
   public constructor() {
-    this._watchedDirectories = AppConfig.getWatchedDirectories();
+    this._watchedDirectories = [] // NOTE: tracker currently not used;
     this._subscriptions = [];
   }
 

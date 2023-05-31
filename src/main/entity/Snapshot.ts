@@ -35,16 +35,24 @@ export default class Snapshot extends BaseEntity {
   @Column({ type: 'varchar', nullable: true })
   edited!: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  lastRestore!: string;
+
   @Column({ type: 'varchar', nullable: false })
   lastChange!: string; // needed for sorting
 
   @Column({ type: 'tinyint', nullable: false, default: false })
   isArchived!: boolean;
 
+  @Column({ type: 'tinyint', nullable: false, default: false })
+  isReady!: boolean;
+
   @OneToMany(() => Application, (app) => app.snapshot)
   applications!: Application[];
 
-  @OneToMany(() => Browser, (browser) => browser.snapshot)
+  @OneToMany(() => Browser, (browser) => browser.snapshot, {
+    cascade: ['insert', 'update'],
+  })
   browsers!: Browser[];
 
   @OneToMany(() => IDE, (ide) => ide.snapshot)
@@ -64,7 +72,7 @@ export default class Snapshot extends BaseEntity {
 
   static async getLatestSnapshot(): Promise<Snapshot | null> {
     const latestSnapshot = await this.findOne({
-      where: {},
+      where: { isArchived: false },
       order: { id: 'DESC' },
     });
     if (!latestSnapshot) {
@@ -95,7 +103,7 @@ export default class Snapshot extends BaseEntity {
 
   static async getLatestNSnapshots(n: number): Promise<Snapshot[]> {
     const lastNSnapshots = await this.find({
-      where: {},
+      where: { isArchived: false },
       order: { lastChange: 'DESC' },
       take: n,
     });
@@ -121,5 +129,13 @@ export default class Snapshot extends BaseEntity {
 
   static async getTotalNumSnapshots(): Promise<number> {
     return this.count();
+  }
+
+  static async getLastRestoredSnapshot(): Promise<Snapshot | null> {
+    const lastRestoredSnap = await this.createQueryBuilder('snapshot')
+      .where('snapshot.lastRestore is not null')
+      .orderBy('snapshot.lastRestore', 'DESC')
+      .getOne();
+    return lastRestoredSnap;
   }
 }

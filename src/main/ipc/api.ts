@@ -6,14 +6,17 @@
 
 import typedIpcMain from './typedIpcMain';
 import SnapshotManager from '../SnapshotManager';
-import { app, nativeTheme, shell } from 'electron';
+import { nativeTheme } from 'electron';
 import { openArtifact } from '../helpers/osCommands';
 import WindowManager from '../WindowManager';
 import SnapshotEntity from '../entity/Snapshot';
 import TaskSnap from '../TaskSnap';
-import path from 'path';
 import UsageData from '../entity/UsageData';
 import DeviceManager from '../HID/DeviceManager';
+import UserSettings from 'types/UserSettings';
+import Settings from '../entity/Settings';
+import { Database } from '../database';
+import { UsageDataOrigin } from '../../types/UsageDataOrigin';
 
 typedIpcMain.handle('open-artifact', async (e, artifact) => {
   await UsageData.addEntry('open-artifact', false, JSON.stringify(artifact));
@@ -21,7 +24,10 @@ typedIpcMain.handle('open-artifact', async (e, artifact) => {
 });
 
 typedIpcMain.handle('open-all-artifacts-of-snapshot', async (e, snapshot) => {
-  TaskSnap.getInstance().restoreSnapshot(snapshot, 'curation_window');
+  TaskSnap.getInstance().restoreSnapshot(
+    snapshot,
+    UsageDataOrigin.SnapshotWindow
+  );
 });
 
 typedIpcMain.handle('get-snapshot-by-id', async (e, id) => {
@@ -47,7 +53,7 @@ typedIpcMain.handle(
     await UsageData.addEntry(
       'save-snapshot-and-close-applications',
       false,
-      `id: ${snapshot.id}`
+      `id: ${snapshot.id}, origin: ${UsageDataOrigin.SnapshotWindow}`
     );
     await SnapshotManager.getInstance().saveAndCloseApplications(snapshot);
   }
@@ -58,21 +64,22 @@ typedIpcMain.handle('postpone-snapshot', async (e, snapshot, timeInMin) => {
   await SnapshotManager.getInstance().postponeSnapshot(
     snapshot.id,
     timeInMin,
-    'snapshot-window'
+    UsageDataOrigin.SnapshotWindow
   );
   WindowManager.snapshotWindow?.close();
 });
 
-typedIpcMain.handle('toggle-color-theme', () => {
-  if (nativeTheme.shouldUseDarkColors) {
-    nativeTheme.themeSource = 'light';
-  } else {
-    nativeTheme.themeSource = 'dark';
+typedIpcMain.handle('merge-snapshots', async (e, fromId, toId) => {
+  const snapshotManager = SnapshotManager.getInstance();
+  const fromSnapshot = await snapshotManager.getSnapshotById(fromId);
+  const toSnapshot = await snapshotManager.getSnapshotById(toId);
+  if (fromSnapshot && toSnapshot) {
+    await snapshotManager.mergeSnapshots(fromSnapshot, toSnapshot);
   }
 });
 
-typedIpcMain.handle('is-dark-mode-enabled', () => {
-  return nativeTheme.shouldUseDarkColors;
+typedIpcMain.handle('get-merge-recommendations', async () => {
+  return await SnapshotManager.getInstance().getMergeRecommendations();
 });
 
 // instant curation
@@ -95,9 +102,35 @@ typedIpcMain.handle(
     await SnapshotManager.getInstance().postponeSnapshot(
       snapshotId,
       timeInMin,
-      'instant-curation-window'
+      UsageDataOrigin.InstantCurationWindow
     );
     WindowManager.instantCurationWindow?.close();
+  }
+);
+
+typedIpcMain.handle(
+  'instant-curation-delete-snapshot',
+  async (e, snapshotId) => {
+    await SnapshotManager.getInstance().deleteSnapshot(
+      snapshotId,
+      UsageDataOrigin.InstantCurationWindow
+    );
+    WindowManager.instantCurationWindow?.close();
+  }
+);
+
+typedIpcMain.handle(
+  'instant-curation-close-applications',
+  async (e, snapshotId, updatedName) => {
+    await UsageData.addEntry(
+      'save-snapshot-and-close-applications',
+      false,
+      `id: ${snapshotId}, origin: ${UsageDataOrigin.InstantCurationWindow}`
+    );
+    await SnapshotManager.getInstance().updateSnapshotNameAndCloseApplications(
+      snapshotId,
+      updatedName
+    );
   }
 );
 
@@ -108,8 +141,10 @@ typedIpcMain.handle('open-snapshot', async (e, snapshotId) => {
 });
 
 typedIpcMain.handle('delete-snapshot', async (e, snapshotId) => {
-  await UsageData.addEntry('delete-snapshot', false, `id: ${snapshotId}`);
-  await SnapshotManager.getInstance().deleteSnapshot(snapshotId);
+  await SnapshotManager.getInstance().deleteSnapshot(
+    snapshotId,
+    UsageDataOrigin.SnapshotGalleryWindow
+  );
 });
 
 typedIpcMain.handle('restore-snapshot', async (e, snapshotId) => {
@@ -117,7 +152,7 @@ typedIpcMain.handle('restore-snapshot', async (e, snapshotId) => {
   if (snapshot) {
     await TaskSnap.getInstance().restoreSnapshot(
       snapshot,
-      'snapshot-gallery-window'
+      UsageDataOrigin.SnapshotGalleryWindow
     );
   }
 });
@@ -145,18 +180,43 @@ typedIpcMain.handle('get-total-num-snapshots', async () => {
 });
 
 // settings
+typedIpcMain.handle('get-settings', async () => {
+  const userSettings: UserSettings = {
+    isDarkModeEnabled: nativeTheme.shouldUseDarkColors,
+    isDataAnonymized: await Settings.getIsDataAnonymized(),
+    snapshotShortcut: await Settings.getSnapshotShortcut(),
+  };
+  return userSettings;
+});
+
+typedIpcMain.handle('set-settings', async (e, updatedSettings) => {
+  if (updatedSettings.isDarkModeEnabled) {
+    nativeTheme.themeSource = 'dark';
+  } else {
+    nativeTheme.themeSource = 'light';
+  }
+
+  await Database.manager.save(Settings, {
+    key: 'isDataAnonymized',
+    value: updatedSettings.isDataAnonymized ? 'true' : 'false',
+  });
+  await Database.manager.save(Settings, {
+    key: 'snapshotShortcut',
+    value: updatedSettings.snapshotShortcut,
+  });
+  await UsageData.addEntry(
+    'update-settings',
+    false,
+    JSON.stringify(updatedSettings)
+  );
+});
+
 typedIpcMain.handle('get-extensions-status', async () => {
   return TaskSnap.getInstance().getExtensionsStatus();
 });
 
 typedIpcMain.handle('get-device-status', async () => {
   return DeviceManager.getInstance().isDeviceConnected();
-});
-
-typedIpcMain.handle('open-config', async () => {
-  shell.showItemInFolder(
-    path.join(app.getPath('appData'), app.name, 'config', 'config.yaml')
-  );
 });
 
 typedIpcMain.handle('get-known-applications', async () => {

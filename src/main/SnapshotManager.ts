@@ -13,12 +13,14 @@ import BrowserTabEntity from './entity/BrowserTab';
 import IDEEntity from './entity/IDE';
 import IDEFileEntity from './entity/IDEFile';
 import { info } from 'electron-log';
-import { closeApplication } from './helpers/osCommands';
+import { closeApplication, closeFileExplorerPath } from './helpers/osCommands';
 import WindowManager from './WindowManager';
 import { TypedWebContents } from './ipc/types/electron-typed-ipc';
 import Events from 'types/Events';
 import UsageData from './entity/UsageData';
 import KnownApplication from './entity/KnownApplication';
+import TrayManager from './TrayManager';
+import { UsageDataOrigin } from '../types/UsageDataOrigin';
 
 export default class SnapshotManager {
   private static _instance: SnapshotManager;
@@ -103,42 +105,107 @@ export default class SnapshotManager {
 
       // update snapshot gallery window
       this.updateSnapshotGalleryWindow();
+
+      // update tray
+      await TrayManager.updateTray();
     }
   }
 
   public async saveAndCloseApplications(updatedSnapshot: Snapshot) {
     await this.saveSnapshot(updatedSnapshot);
+    await this.closeApplications(updatedSnapshot);
+  }
 
-    const tabsToClose: BrowserTabEntity[] = [];
-    for (const browser of updatedSnapshot.browsers) {
+  public async updateSnapshotNameAndCloseApplications(
+    snapshotId: number,
+    updatedName: string
+  ) {
+    await this.updateSnapshotName(snapshotId, updatedName);
+    const snapshot = await this.getSnapshotById(snapshotId);
+    if (snapshot) {
+      await this.closeApplications(snapshot);
+    }
+  }
+
+  public async closeApplications(snapshot: Snapshot) {
+    const appsThatShouldNeverBeClosed =
+      await KnownApplication.getAppsThatShouldNeverBeClosed();
+
+    for (const browser of snapshot.browsers) {
+      const tabsToClose: BrowserTabEntity[] = [];
+
       for (const tab of browser.browserTabs) {
         if (tab.isSelected) {
           tabsToClose.push(tab);
         }
       }
+      TaskSnap.getInstance().closeBrowserTabs(browser, tabsToClose);
+      // if all tabs were closed, quit browser
+      if (browser.browserTabs.length === tabsToClose.length) {
+        const doNotCloseThisApp = appsThatShouldNeverBeClosed.some(
+          (notCloseApp) => {
+            return notCloseApp.path === browser.path;
+          }
+        );
+        if (browser.isSelected && !doNotCloseThisApp) {
+          closeApplication(browser);
+        }
+      }
     }
-    TaskSnap.getInstance().closeBrowserTabs(tabsToClose);
 
-    const ideFilesToClose: IDEFileEntity[] = [];
-    for (const ide of updatedSnapshot.ides) {
+    for (const ide of snapshot.ides) {
+      const ideFilesToClose: IDEFileEntity[] = [];
+
       for (const file of ide.ideFiles) {
         if (file.isSelected) {
           ideFilesToClose.push(file);
         }
       }
-    }
-    TaskSnap.getInstance().closeIDEFiles(ideFilesToClose);
-
-    const appsThatShouldNeverBeClosed =
-      await KnownApplication.getAppsThatShouldNeverBeClosed();
-    for (const app of updatedSnapshot.applications) {
-      const doNotCloseThisApp = appsThatShouldNeverBeClosed.some(
-        (notCloseApp) => {
-          return notCloseApp.path === app.path;
+      TaskSnap.getInstance().closeIDEFiles(ideFilesToClose);
+      // if all files were closed, quit IDE
+      if (ide.ideFiles.length === ideFilesToClose.length) {
+        const doNotCloseThisApp = appsThatShouldNeverBeClosed.some(
+          (notCloseApp) => {
+            return notCloseApp.path === ide.path;
+          }
+        );
+        if (ide.isSelected && !doNotCloseThisApp) {
+          closeApplication(ide);
         }
-      );
-      if (app.isSelected && !doNotCloseThisApp) {
-        closeApplication(app);
+      }
+    }
+
+    for (const app of snapshot.applications) {
+      const filesToClose: File[] = [];
+
+      for (const file of app.files) {
+        if (file.isSelected) {
+          filesToClose.push(file);
+        }
+      }
+
+      // we are only able to close specific windows / tabs of the Finder / Explorer
+      if (app.name === 'Finder' || app.name === 'Windows Explorer') {
+        for await (const folder of filesToClose) {
+          await closeFileExplorerPath(folder.path);
+        }
+      }
+
+      // on the other hand, Finder and Explorer should NEVER be closed entirely (leads to issues)
+      else {
+        const doNotCloseThisApp = appsThatShouldNeverBeClosed.some(
+          (notCloseApp) => {
+            return notCloseApp.path === app.path;
+          }
+        );
+
+        if (
+          app.isSelected &&
+          filesToClose.length === app.files.length &&
+          !doNotCloseThisApp
+        ) {
+          closeApplication(app);
+        }
       }
     }
   }
@@ -147,22 +214,33 @@ export default class SnapshotManager {
     const snapshotInDb = await Snapshot.findOneBy({ id: snapshotId });
     if (snapshotInDb) {
       snapshotInDb.name = name;
-      snapshotInDb.save();
+      await snapshotInDb.save();
+
+      // update tray
+      await TrayManager.updateTray();
     }
   }
 
-  public async deleteSnapshot(snapshotId: number) {
+  public async deleteSnapshot(snapshotId: number, origin: UsageDataOrigin) {
+    await UsageData.addEntry(
+      'delete-snapshot',
+      false,
+      `id: ${snapshotId}, origin: ${origin}`
+    );
     const snapshotInDb = await Snapshot.findOneBy({ id: snapshotId });
     if (snapshotInDb) {
-      snapshotInDb.remove();
-      info`[SnapshotManager] Deleted snapshot "${snapshotInDb.name}"`;
+      await snapshotInDb.remove();
+      info(`[SnapshotManager] Deleted snapshot "${snapshotInDb.name}"`);
+
+      // update tray
+      await TrayManager.updateTray();
     }
   }
 
   public async postponeSnapshot(
     snapshotId: number,
     timeInMin: number,
-    origin: string
+    origin: UsageDataOrigin
   ) {
     this._postponeTimeoutRef = setTimeout(async () => {
       await this.openSnapshotInSnapshotWindow(snapshotId);
@@ -176,6 +254,125 @@ export default class SnapshotManager {
       false,
       `id: ${snapshotId}, time: ${timeInMin}, origin: ${origin}`
     );
+  }
+
+  public async mergeSnapshots(fromSnap: Snapshot, toSnap: Snapshot) {
+    if (fromSnap.summary) {
+      toSnap.summary =
+        fromSnap.summary + (toSnap.summary ? '\n\n' + toSnap.summary : ''); // new summary should be before old summary
+    }
+    if (fromSnap.intent) {
+      toSnap.intent =
+        fromSnap.intent + (toSnap.intent ? '\n\n' + toSnap.intent : '');
+    }
+    for await (const fromBrowser of fromSnap.browsers) {
+      const toBrowser = toSnap.browsers.find(
+        (toBrowser) => fromBrowser.type == toBrowser.type
+      );
+      if (toBrowser) {
+        for await (const fromTab of fromBrowser.browserTabs) {
+          const toTab = toBrowser.browserTabs.find(
+            (toTab) => fromTab.url == toTab.url
+          );
+          if (toTab) {
+            toTab.isActive = fromTab.isActive;
+            toTab.isSelected = fromTab.isSelected;
+            await toTab.save();
+          } else {
+            fromTab.browser = toBrowser;
+            toBrowser.browserTabs.push(fromTab);
+            await toBrowser.save();
+          }
+        }
+      } else {
+        fromBrowser.snapshot = toSnap;
+        toSnap.browsers.push(fromBrowser);
+        await toSnap.save();
+      }
+    }
+
+    for await (const fromIDE of fromSnap.ides) {
+      const toIDE = toSnap.ides.find((toIDE) => fromIDE.path == toIDE.path);
+      if (toIDE) {
+        for await (const fromFile of fromIDE.ideFiles) {
+          const toFile = toIDE.ideFiles.find(
+            (toFile) => fromFile.path == toFile.path
+          );
+          if (toFile) {
+            toFile.isActive = fromFile.isActive;
+            toFile.isSelected = fromFile.isSelected;
+            await toFile.save();
+          } else {
+            fromFile.ide = toIDE;
+            toIDE.ideFiles.push(fromFile);
+            await toIDE.save();
+          }
+        }
+      } else {
+        fromIDE.snapshot = toSnap;
+        toSnap.ides.push(fromIDE);
+        await toSnap.save();
+      }
+    }
+
+    for await (const fromApp of fromSnap.applications) {
+      const toApp = toSnap.applications.find(
+        (toApp) => fromApp.path == toApp.path
+      );
+      if (toApp) {
+        for await (const fromFile of fromApp.files) {
+          const toFile = toApp.files.find(
+            (toFile) => fromFile.path == toFile.path
+          );
+          if (toFile) {
+            toFile.isSelected = fromFile.isSelected;
+            await toFile.save();
+          } else {
+            fromFile.application = toApp;
+            toApp.files.push(fromFile);
+            await toApp.save();
+          }
+        }
+      } else {
+        fromApp.snapshot = toSnap;
+        toSnap.applications.push(fromApp);
+        await toSnap.save();
+      }
+    }
+
+    const timestamp = new Date().toISOString();
+    fromSnap.isArchived = true;
+    fromSnap.edited = timestamp;
+    fromSnap.lastChange = timestamp;
+    fromSnap.save();
+
+    toSnap.edited = timestamp;
+    toSnap.lastChange = timestamp;
+    toSnap.save();
+
+    await UsageData.addEntry(
+      'merge-snapshots',
+      false,
+      `fromId: ${fromSnap.id}, toId: ${toSnap.id}`
+    );
+  }
+
+  public async getMergeRecommendations(): Promise<Snapshot[]> {
+    // merge recommendations are the last restored snapshot and a list of the last 10 snapshots
+    const lastRestored = await Snapshot.getLastRestoredSnapshot();
+    const latestNSnapshots = await Snapshot.getLatestNSnapshots(10);
+
+    if (!lastRestored) {
+      return latestNSnapshots;
+    }
+
+    // filter out lastRestored from list of last 10 snapshots
+    const filteredSnapshots = latestNSnapshots.filter(
+      (snap) => snap.id !== lastRestored.id
+    );
+
+    filteredSnapshots.unshift(lastRestored);
+    return filteredSnapshots;
   }
 
   public async openSnapshotInSnapshotWindow(snapshotId: number) {
