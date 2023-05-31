@@ -23,7 +23,7 @@ import Settings from '../entity/Settings';
 import { BrowserType } from 'types/BrowserType';
 
 export default class BrowserTracker {
-  private _port = 8083;
+  private _port = 8084;
   private _server: WebSocketServer;
   private _wsClients: Map<BrowserType, WebSocket> = new Map();
   private _connectionListeners: Array<() => void> = [];
