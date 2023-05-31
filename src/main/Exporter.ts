@@ -49,14 +49,20 @@ export default class Exporter {
       exportContent += '\n\n ######################################### \n\n';
     });
 
-    const timestamp = new Date().toISOString();
-    const exportPath = path.join(Exporter._exportFolder, `${timestamp}.txt`);
+    const now = new Date();
+    const formattedDate = `${now.getFullYear()}-${
+      now.getMonth() + 1
+    }-${now.getDate()}`;
+    const exportPath = path.join(
+      Exporter._exportFolder,
+      `${formattedDate}.txt`
+    );
     try {
       await writeFile(exportPath, exportContent);
       info(`[Exporter] Saved backup to ${exportPath}`);
       Database.manager.save(Log, {
         key: 'lastExport',
-        value: timestamp,
+        value: now.toISOString(),
       });
     } catch (err) {
       error(err);
