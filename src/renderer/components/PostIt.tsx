@@ -10,7 +10,6 @@ import InfoIcon from './Icons/InfoIcon';
 
 type Props = {
   title: string;
-  icon: string;
   content: string;
   infoMessage?: string;
   onTextChange: (text: string) => {};
@@ -18,9 +17,7 @@ type Props = {
 
 export default function PostIt(props: Props) {
   const onTextChange = async (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    // remove icon from text area
-    const cleanedString = e.target.value.replace(props.icon, '');
-    props.onTextChange(cleanedString);
+    props.onTextChange(e.target.value);
   };
 
   const onClickClear = async () => {
@@ -53,10 +50,7 @@ export default function PostIt(props: Props) {
         </div>
       </div>
       <div className={styles.postItBody}>
-        <textarea
-          value={`${props.icon}${props.content}`}
-          onChange={onTextChange}
-        />
+        <textarea value={props.content} onChange={onTextChange} />
       </div>
     </div>
   );
