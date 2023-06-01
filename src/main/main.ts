@@ -62,6 +62,12 @@ const installExtensions = async () => {
     .catch(console.log);
 };
 
+// only allow one application instance
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+}
+
 /**
  * Add event listeners...
  */
