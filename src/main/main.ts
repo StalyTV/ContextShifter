@@ -10,6 +10,7 @@
  */
 import './ipc/api';
 import { app, globalShortcut, powerMonitor } from 'electron';
+import log from "electron-log";
 import { info } from 'electron-log';
 import TaskSnap from './TaskSnap';
 import { Database } from './database';
@@ -35,6 +36,9 @@ const isDebug =
 if (isDebug) {
   require('electron-debug')();
 }
+
+// set log size
+log.transports.file.maxSize = 10485760; // 10MB
 
 // auto-start (https://www.electronjs.org/docs/latest/api/app#appsetloginitemsettingssettings-macos-windows)
 const appFolder = path.dirname(process.execPath);
