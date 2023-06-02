@@ -252,7 +252,7 @@ export default class TaskSnap {
         label
       );
     } else {
-      this._browserTracker.subscribeToConnection(() => {
+      this._browserTracker.subscribeToConnection(browser.type, () => {
         this._browserTracker.sendTabOpeningRequest(
           browser.type,
           urlsToOpen,

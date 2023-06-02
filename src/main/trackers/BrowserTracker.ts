@@ -26,7 +26,11 @@ export default class BrowserTracker {
   private _port = 8084;
   private _server: WebSocketServer;
   private _wsClients: Map<BrowserType, WebSocket> = new Map();
-  private _connectionListeners: Array<() => void> = [];
+  private _connectionListeners: Map<BrowserType, Array<() => void>> = new Map([
+    ['chrome', []],
+    ['firefox', []],
+    ['edge', []],
+  ]);
   private _openTabs: Map<BrowserType, Tabs.Tab[]> = new Map();
 
   constructor() {
@@ -35,8 +39,11 @@ export default class BrowserTracker {
     info(`[BrowserTracker] listening on port ${this._port}`);
   }
 
-  public subscribeToConnection(fn: () => void) {
-    this._connectionListeners.push(fn);
+  public subscribeToConnection(browserType: BrowserType, fn: () => void) {
+    const subscribers = this._connectionListeners.get(browserType);
+    if (subscribers) {
+      subscribers.push(fn);
+    }
   }
 
   private initEventListeners() {
@@ -70,6 +77,8 @@ export default class BrowserTracker {
           const browserType = self.getBrowserTypeFromRuntimeInfo(runtimeInfo);
           self._wsClients.set(browserType, socket);
           await self.handleEvent(data, runtimeInfo);
+
+          self.notifyConnectionListeners(browserType);
         } else if (obj.endpoint === 'sequence') {
           const data = obj.data as WebNavigationSequenceUpdate;
           runtimeInfo = data.runtimeInfo as RuntimeInfo;
@@ -79,8 +88,6 @@ export default class BrowserTracker {
         } else if (obj.endpoint === 'navigation') {
           self.handleNavigation(obj.data as WebNavigationDetail);
         }
-
-        self.notifyConnectionListeners();
       });
 
       // When a socket closes, or disconnects, remove it from the array.
@@ -246,16 +253,17 @@ export default class BrowserTracker {
     }
   }
 
-  private notifyConnectionListeners() {
-    for (const fn of this._connectionListeners) {
-      fn();
+  private notifyConnectionListeners(browserType: BrowserType) {
+    const subscribers = this._connectionListeners.get(browserType);
+    if (subscribers) {
+      for (const fn of subscribers) {
+        fn();
+      }
+      this._connectionListeners.set(browserType, []);
     }
-    this._connectionListeners = [];
   }
 
-  private getBrowserTypeFromRuntimeInfo(
-    runtimeInfo: RuntimeInfo
-  ): 'chrome' | 'firefox' | 'edge' {
+  private getBrowserTypeFromRuntimeInfo(runtimeInfo: RuntimeInfo): BrowserType {
     if (runtimeInfo.browserInfo.name === 'Edge') {
       return 'edge';
     } else if (runtimeInfo.browserInfo.name === 'Firefox') {
