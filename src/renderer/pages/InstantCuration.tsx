@@ -220,13 +220,14 @@ export default function InstantCuration() {
               </Button>
               <PostponeButton
                 isFilled={false}
-                title={'PostponeCuration'}
+                title={'Postpone Curation'}
                 onSelect={postponeSnapshot}
               />
               <Button isFilled={false} onClick={() => onClickCloseApps()}>
                 Close Applications
               </Button>
               <select
+                className={styles.mergeButton}
                 onChange={onSelectMergeDestination}
                 name="select-merge"
                 id="select-merge"

@@ -10,19 +10,24 @@
     margin-right: 0.4rem;
   }
 
+  select {
+    margin-right: 0.4rem;
+  }
+
   .deleteButton {
     background-color: red;
     border-color: red;
   }
 
-  select {
+  .mergeButton {
     border-radius: var(--border-radius);
+    border: solid var(--accent-color-1) 2px;
     cursor: pointer;
-    margin-right: 0.4rem;
+    padding-left: 0.3rem;
     transition: all ease-in 0.1s;
   }
 
-  select:hover {
+  .mergeButton:hover {
     transform: scale(1.05);
   }
 }

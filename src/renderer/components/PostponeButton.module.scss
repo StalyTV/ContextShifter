@@ -1,31 +1,11 @@
 .postponeButton {
   border: solid var(--accent-color-2) 2px;
-}
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: all ease-in 0.1s;
+  padding-left: 0.3rem;
 
-.dropdown {
-  font-size: small;
-  position: relative;
-  display: inline-block;
-
-  .dropdownOptions {
-    display: flex;
-    position: absolute;
-    left: -9.5rem;
-    top: 2.5rem;
-    background-color: var(--bg-color-1);
-    border-radius: var(--border-radius);
-    border: solid var(--border-color) 1px;
-    z-index: 1;
-
-    .dropdownOption {
-      cursor: pointer;
-      white-space: nowrap;
-      padding: 0.5rem 0.5rem;
-
-      &:hover {
-        background-color: var(--bg-color-2);
-        border-radius: var(--border-radius);
-      }
-    }
+  &:hover {
+    transform: scale(1.05);
   }
 }
