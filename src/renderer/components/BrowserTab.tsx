@@ -30,7 +30,11 @@ export default function BrowserTab(props: Props) {
       }`}
       onClick={toggleSelect}
     >
-      <img src={props.tab.favIconUrl} alt="favicon"></img>
+      {props.tab.favIconUrl ? (
+        <img src={props.tab.favIconUrl} alt="favicon"></img>
+      ) : (
+        <div className={styles.favIconPlaceholder}></div>
+      )}
       <span>{props.tab.title}</span>
       {props.tab.isActive ? <EyeIcon className={styles.icon} /> : null}
     </div>
