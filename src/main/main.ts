@@ -121,7 +121,7 @@ app
 
 app.on('before-quit', async (e) => {
   const taskSnap = TaskSnap.getInstance();
-  taskSnap.stop();
+  await taskSnap.stop();
   globalShortcut.unregisterAll();
   DeviceManager.getInstance().stopMonitoring();
   await UsageData.addEntry('quit', true);
@@ -129,10 +129,14 @@ app.on('before-quit', async (e) => {
 
 powerMonitor.on('lock-screen', async () => {
   info('[main] lock-screen');
+  const taskSnap = TaskSnap.getInstance();
+  await taskSnap.stopTrackers();
   await UsageData.addEntry('lock-screen', true);
 });
 
 powerMonitor.on('unlock-screen', async () => {
   info('[main] unlock-screen');
+  const taskSnap = TaskSnap.getInstance();
+  taskSnap.startTrackers();
   await UsageData.addEntry('unlock-screen', true);
 });

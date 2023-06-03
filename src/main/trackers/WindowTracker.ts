@@ -4,7 +4,8 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
-import { info, debug } from 'electron-log';
+import { info } from 'electron-log';
+import { powerMonitor } from 'electron';
 import { WindowsActivityTracker } from '../../../release/app/PA.WindowsActivityTracker/typescript/src/index';
 import ActiveWindow from '../../../release/app/PA.WindowsActivityTracker/typescript/src/types/ActiveWindow';
 import ActiveWindowDb from '../entity/ActiveWindow';
@@ -12,6 +13,8 @@ import Settings from '../entity/Settings';
 
 export default class WindowTracker {
   private _tracker: WindowsActivityTracker;
+  private _currentWindow: ActiveWindow | null = null;
+  private _idleCheckLoopRef: NodeJS.Timeout | undefined;
 
   public constructor() {
     this._tracker = new WindowsActivityTracker((activeWin) =>
@@ -19,26 +22,50 @@ export default class WindowTracker {
     );
   }
 
-  private async onWindowChange(activeWindow: ActiveWindow) {
-    // check if user wants data anonymized
-    const isDataAnonymized = await Settings.getIsDataAnonymized();
+  private async onWindowChange(newActiveWindow: ActiveWindow) {
+    await this.storeCurrentWindow();
+    this._currentWindow = newActiveWindow;
+  }
 
-    await ActiveWindowDb.insert({
-      ts: activeWindow.ts.toISOString(),
-      application: activeWindow.process,
-      activity: activeWindow.activity,
-      title: isDataAnonymized ? 'anonymized' : activeWindow.windowTitle,
-      url: isDataAnonymized ? 'anonymized' : activeWindow.url,
-    });
+  public async storeCurrentWindow() {
+    const isDataAnonymized = await Settings.getIsDataAnonymized();
+    if (this._currentWindow) {
+      await ActiveWindowDb.insert({
+        tsStart: this._currentWindow.ts.toISOString(),
+        application: this._currentWindow.process,
+        activity: this._currentWindow.activity,
+        title: isDataAnonymized
+          ? 'anonymized'
+          : this._currentWindow.windowTitle,
+        url: isDataAnonymized ? 'anonymized' : this._currentWindow.url,
+        duration: Date.now() - this._currentWindow.ts.getTime(),
+      });
+      this._currentWindow = null;
+    }
   }
 
   public start() {
     info('[WindowTracker] Starting window tracker');
+    this.startIdleCheck();
     this._tracker.start();
   }
 
-  public stop() {
+  public async stop() {
     info('[WindowTracker] Stopping window tracker');
+    await this.storeCurrentWindow();
+    await this.stopIdleCheck();
     this._tracker.stop();
+  }
+
+  public startIdleCheck() {
+    this._idleCheckLoopRef = setInterval(async () => {
+      if (powerMonitor.getSystemIdleTime() > 5 * 60) {
+        this.storeCurrentWindow();
+      }
+    }, 10000);
+  }
+
+  public async stopIdleCheck() {
+    clearInterval(this._idleCheckLoopRef);
   }
 }

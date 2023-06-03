@@ -12,7 +12,7 @@ export default class ActiveWindow extends BaseEntity {
   id!: number;
 
   @Column('varchar')
-  ts!: string;
+  tsStart!: string;
 
   @Column({ type: 'varchar', nullable: true })
   application!: string;
@@ -26,9 +26,12 @@ export default class ActiveWindow extends BaseEntity {
   @Column({ type: 'varchar', nullable: true })
   url!: string;
 
+  @Column({ type: 'int', nullable: false })
+  public duration!: number;
+
   static async getRecentlyActiveApps(startTime: Date): Promise<string[]> {
     const entries = await this.createQueryBuilder('active_window')
-      .where('active_window.ts >= :tsStart', {
+      .where('active_window.tsStart >= :tsStart', {
         tsStart: startTime.toISOString(),
       })
       .groupBy('application')
@@ -37,5 +40,49 @@ export default class ActiveWindow extends BaseEntity {
       return entry.application;
     });
     return appNames;
+  }
+
+  static async getLastAppAccess(appName: string): Promise<Date | null> {
+    const lastAccess = await this.findOne({
+      where: { application: appName },
+      order: { tsStart: 'DESC' },
+    });
+    if (lastAccess) {
+      return new Date(lastAccess.tsStart);
+    } else {
+      return null;
+    }
+  }
+
+  static async getAccessCount(
+    appName: string,
+    startTime: Date
+  ): Promise<number> {
+    const count = await this.createQueryBuilder('active_window')
+      .where('active_window.tsStart >= :tsStart', {
+        tsStart: startTime.toISOString(),
+      })
+      .andWhere('active_window.application == :appName', {
+        appName: appName,
+      })
+      .getCount();
+
+    return count;
+  }
+
+  static async getAccessDuration(
+    appName: string,
+    startTime: Date
+  ): Promise<number> {
+    const sum = await this.createQueryBuilder('active_window')
+      .where('active_window.tsStart >= :tsStart', {
+        tsStart: startTime.toISOString(),
+      })
+      .andWhere('active_window.application == :appName', {
+        appName: appName,
+      })
+      .select('SUM(active_window.duration)', 'totalDuration')
+      .getRawOne();
+    return sum.totalDuration || 0;
   }
 }
