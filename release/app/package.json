@@ -2,7 +2,7 @@
   "name": "tasksnap",
   "productName": "TaskSnap",
   "version": "0.1.2",
-  "description": "Master Thesis of Remy Egloff",
+  "description": "Tool that supports task resumption",
   "license": "MIT",
   "author": {
     "name": "Remy Egloff",
