@@ -339,10 +339,15 @@ export default class TaskSnap {
     const relevances = await FDACalculator.getRelevanceOfApplications(
       appNamesOfOpenWindows
     );
-    console.info("[TaskSnap] Relevances:", relevances);
+    let loggingString = ''; // Somehow logging a map does not work
+    relevances.forEach((value, key) => {
+      loggingString += `([${key}] ${value}),`;
+    });
+    info('[TaskSnap] Relevances:', loggingString);
     const relevantApps: string[] = [];
     relevances.forEach((val, appName) => {
-      if (val > 1) { // TODO: Make this more sophisticated
+      if (val > 1) {
+        // TODO: Make this more sophisticated
         relevantApps.push(appName);
       }
     });
