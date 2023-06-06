@@ -6,7 +6,7 @@
   .snapshotPreviewContainer {
     display: flex;
     justify-content: space-between;
-    width: 43rem;
+    width: 47rem;
     background-color: var(--bg-color-3);
     padding: 1rem;
     border: solid var(--bg-color-1) 2px;
@@ -56,15 +56,19 @@
         border-radius: var(--border-radius);
         padding: 0.2rem;
         height: 5rem;
-        width: 15rem;
+        width: 20rem;
         font-size: small;
         margin-left: 1rem;
         color: var(--postIt-text-color);
-        overflow: hidden;
+        overflow-y: scroll;
         text-overflow: ellipsis;
 
         .postItIcon {
           margin-right: 0.3rem;
+        }
+
+        &::-webkit-scrollbar-track {
+          background-color: var(--postIt-bg-color-2);
         }
       }
 
@@ -80,7 +84,7 @@
     align-items: center;
 
     .dot {
-      margin-left: 1.5rem;
+      margin-left: 1rem;
       background-color: var(--accent-color-2);
       border-radius: 50%;
       width: 2rem;
@@ -120,11 +124,11 @@
 
       span {
         display: none;
-        font-size: small;
+        font-size: x-small;
       }
 
       &:hover {
-        width: 6rem;
+        width: 5.2rem;
         border-radius: 2rem / 2rem;
 
         span {
