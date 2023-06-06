@@ -1,5 +1,23 @@
-.headerContainer {
-  width: 90%;
+.header {
+  display: flex;
+  align-items: center;
+
+  .snapshotHeaderContainer {
+    width: 85%;
+  }
+
+  .icon {
+    margin-left: 1rem;
+    height: 1rem;
+    cursor: pointer;
+    fill: var(--border-color);
+
+    &:hover {
+      transform: scale(1.2);
+      transition: all ease-in 0.1s;
+      cursor: pointer;
+    }
+  }
 }
 
 .buttonContainer {
@@ -14,14 +32,11 @@
     margin-right: 0.4rem;
   }
 
-  .deleteButton {
-    background-color: red;
-    border-color: red;
-  }
-
   .mergeButton {
+    color: var(--text-color);
     border-radius: var(--border-radius);
     border: solid var(--accent-color-1) 2px;
+    background: none;
     cursor: pointer;
     padding-left: 0.3rem;
     transition: all ease-in 0.1s;

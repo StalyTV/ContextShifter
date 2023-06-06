@@ -204,13 +204,19 @@ export default function InstantCuration() {
     <>
       {snapshot ? (
         <>
-          <div className={styles.headerContainer}>
-            <SnapshotHeader
-              snapshotName={snapshotName}
-              onNameChange={onNameChange}
-              createTimestamp={snapshot.created}
-              editTimestamp={snapshot.edited}
-              showTimestamp={false}
+          <div className={styles.header}>
+            <div className={styles.snapshotHeaderContainer}>
+              <SnapshotHeader
+                snapshotName={snapshotName}
+                onNameChange={onNameChange}
+                createTimestamp={snapshot.created}
+                editTimestamp={snapshot.edited}
+                showTimestamp={false}
+              />
+            </div>
+            <TrashIcon
+              className={styles.icon}
+              onClick={() => onClickDelete()}
             />
           </div>
           {isSnapshotReady ? (
@@ -223,28 +229,21 @@ export default function InstantCuration() {
                 title={'Postpone Curation'}
                 onSelect={postponeSnapshot}
               />
-              <Button isFilled={false} onClick={() => onClickCloseApps()}>
-                Close Applications
-              </Button>
               <select
                 className={styles.mergeButton}
                 onChange={onSelectMergeDestination}
                 name="select-merge"
                 id="select-merge"
               >
-                <option value="">Add to Snapshot</option>
+                <option value="">Amend Snapshot</option>
                 {mergeRecommendations.map((mRec) => (
                   <option key={mRec.id} value={mRec.id}>
                     {mRec.name}
                   </option>
                 ))}
               </select>
-              <Button
-                className={styles.deleteButton}
-                isFilled={true}
-                onClick={() => onClickDelete()}
-              >
-                <TrashIcon />
+              <Button isFilled={false} onClick={() => onClickCloseApps()}>
+                Close Applications
               </Button>
             </div>
           ) : (

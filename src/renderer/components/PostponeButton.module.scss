@@ -1,6 +1,8 @@
 .postponeButton {
+  color: var(--text-color);
   border: solid var(--accent-color-2) 2px;
   border-radius: var(--border-radius);
+  background: none;
   cursor: pointer;
   transition: all ease-in 0.1s;
   padding-left: 0.3rem;
