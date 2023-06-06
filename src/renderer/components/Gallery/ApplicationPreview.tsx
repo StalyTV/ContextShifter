@@ -64,7 +64,7 @@ export default function ApplicationPreview(props: Props) {
             data-tooltip-id={'task-snap'}
             data-tooltip-html={file.path}
           >
-            {file.name}
+            <span>{file.name}</span>
           </div>
         );
       })}
