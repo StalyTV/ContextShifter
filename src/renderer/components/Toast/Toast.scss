@@ -3,4 +3,6 @@
 .Toastify__toast {
   font-family: var(--font-family);
   font-size: small;
+  background-color: var(--overlay-color);
+  color: var(--text-color);
 }
