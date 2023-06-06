@@ -38,6 +38,7 @@ if (isDebug) {
 }
 
 // set log size
+log.transports.file.level = 'info';
 log.transports.file.maxSize = 10485760; // 10MB
 
 // auto-start (https://www.electronjs.org/docs/latest/api/app#appsetloginitemsettingssettings-macos-windows)

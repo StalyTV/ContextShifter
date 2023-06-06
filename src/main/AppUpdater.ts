@@ -4,20 +4,21 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, Dario Bugmann <darionicola.bugmann@uzh.ch>, May 2023
  */
 
-import { autoUpdater } from 'electron-updater';
-import log, { info, error } from 'electron-log';
-import { app, dialog } from 'electron';
+import { info, error } from 'electron-log';
+import { app, dialog, autoUpdater } from 'electron';
 
 export default class AppUpdater {
   private server = 'https://tasksnap-updater.vercel.app';
 
   constructor() {
-    log.transports.file.level = 'info';
-    autoUpdater.logger = log;
     this.registerEventListeners();
+    let platform: string = process.platform;
+    if (process.arch === 'arm64') {
+      platform = `${platform}_${process.arch}`;
+    }
 
-    const url = `${this.server}/update/${process.platform}/${app.getVersion()}`;
-    autoUpdater.setFeedURL(url);
+    const url = `${this.server}/update/${platform}/${app.getVersion()}`;
+    autoUpdater.setFeedURL({ url });
 
     // check for updates every 30 minutes
     autoUpdater.checkForUpdates();
