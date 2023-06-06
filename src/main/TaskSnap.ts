@@ -423,7 +423,7 @@ export default class TaskSnap {
         folderPaths.forEach((path) => {
           const file = new File();
           file.path = path;
-          file.name = path;
+          file.name = getFileNameFromPath(path);
           file.isSelected = isAppRelevantForTask; // TODO: Improve this
           associatedFolders.push(file);
         });

@@ -30,6 +30,8 @@ export default function File(props: Props) {
         props.file.isSelected ? styles.isSelected : undefined
       }`}
       onClick={toggleSelect}
+      data-tooltip-id={'task-snap'}
+      data-tooltip-html={props.file.path}
     >
       <span>{props.file.name}</span>
     </div>
