@@ -10,6 +10,7 @@
  */
 import './ipc/api';
 import { app, globalShortcut, powerMonitor } from 'electron';
+import log from "electron-log";
 import { info } from 'electron-log';
 import TaskSnap from './TaskSnap';
 import { Database } from './database';
@@ -36,6 +37,10 @@ if (isDebug) {
   require('electron-debug')();
 }
 
+// set log size
+log.transports.file.level = 'info';
+log.transports.file.maxSize = 10485760; // 10MB
+
 // auto-start (https://www.electronjs.org/docs/latest/api/app#appsetloginitemsettingssettings-macos-windows)
 const appFolder = path.dirname(process.execPath);
 const updateExe = path.resolve(appFolder, '..', 'Update.exe');
@@ -61,6 +66,12 @@ const installExtensions = async () => {
     )
     .catch(console.log);
 };
+
+// only allow one application instance
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+}
 
 /**
  * Add event listeners...
@@ -111,7 +122,7 @@ app
 
 app.on('before-quit', async (e) => {
   const taskSnap = TaskSnap.getInstance();
-  taskSnap.stop();
+  await taskSnap.stop();
   globalShortcut.unregisterAll();
   DeviceManager.getInstance().stopMonitoring();
   await UsageData.addEntry('quit', true);
@@ -119,10 +130,14 @@ app.on('before-quit', async (e) => {
 
 powerMonitor.on('lock-screen', async () => {
   info('[main] lock-screen');
+  const taskSnap = TaskSnap.getInstance();
+  await taskSnap.stopTrackers();
   await UsageData.addEntry('lock-screen', true);
 });
 
 powerMonitor.on('unlock-screen', async () => {
   info('[main] unlock-screen');
+  const taskSnap = TaskSnap.getInstance();
+  taskSnap.startTrackers();
   await UsageData.addEntry('unlock-screen', true);
 });

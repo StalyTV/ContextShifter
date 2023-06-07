@@ -61,8 +61,10 @@ export default function ApplicationPreview(props: Props) {
             key={file.id}
             className={styles.file}
             onClick={(e) => onClickFile(e, file.path)}
+            data-tooltip-id={'task-snap'}
+            data-tooltip-html={file.path}
           >
-            {file.name}
+            <span>{file.name}</span>
           </div>
         );
       })}

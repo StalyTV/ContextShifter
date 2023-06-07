@@ -35,6 +35,9 @@ export default class Application extends BaseEntity {
   @Column({ type: 'tinyint', nullable: false, default: true })
   isSelected!: boolean;
 
+  @Column({ type: 'double', nullable: false, default: 0 })
+  public relevance!: number;
+
   @ManyToOne(() => Snapshot, (snapshot) => snapshot.applications, {
     onDelete: 'CASCADE',
   })

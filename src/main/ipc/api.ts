@@ -56,6 +56,7 @@ typedIpcMain.handle(
       `id: ${snapshot.id}, origin: ${UsageDataOrigin.SnapshotWindow}`
     );
     await SnapshotManager.getInstance().saveAndCloseApplications(snapshot);
+    WindowManager.snapshotWindow?.close();
   }
 );
 

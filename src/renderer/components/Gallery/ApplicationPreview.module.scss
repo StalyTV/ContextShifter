@@ -26,5 +26,12 @@
     border-radius: var(--border-radius);
     padding: 0.2rem;
     margin: 0.1rem;
+    max-width: 22rem;
+
+    span {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
   }
 }

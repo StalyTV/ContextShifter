@@ -14,7 +14,7 @@ import StaticSettings from '../StaticSettings';
 import IDEFileEvent from '../entity/IDEFileEvent';
 
 export default class VSCodeTracker {
-  private _port = 8084;
+  private _port = 8086;
   private _server: WebSocketServer;
   private _lastUsedSocket: WebSocket | undefined;
   private _connectionListeners: Array<() => void> = [];

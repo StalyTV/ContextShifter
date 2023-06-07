@@ -5,9 +5,6 @@
  */
 
 import styles from './PostponeButton.module.scss';
-import { useState } from 'react';
-import Button from './Button';
-import ArrowIcon from './Icons/ArrowIcon';
 
 type Props = {
   title: string;
@@ -16,44 +13,32 @@ type Props = {
 };
 
 export default function PostponeButton(props: Props) {
-  const [isDropDownShown, setIsDropDownShown] = useState(false);
-
-  const toggleDropDown = () => {
-    setIsDropDownShown(!isDropDownShown);
-  };
-
-  const onClick = (timeInMin: number) => {
-    props.onSelect(timeInMin);
+  const onSelect = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    props.onSelect(parseInt(e.target.value));
   };
 
   return (
     <>
-      <Button
+      <select
+        onChange={onSelect}
+        name="select-postpone"
+        id="select-postpone"
         className={styles.postponeButton}
-        isFilled={props.isFilled}
-        onClick={() => toggleDropDown()}
       >
-        {props.title}
-        <ArrowIcon />
-      </Button>
-      {isDropDownShown ? (
-        <div className={styles.dropdown}>
-          <div className={styles.dropdownOptions}>
-            <div className={styles.dropdownOption} onClick={() => onClick(5)}>
-              5 min
-            </div>
-            <div className={styles.dropdownOption} onClick={() => onClick(15)}>
-              15 min
-            </div>
-            <div className={styles.dropdownOption} onClick={() => onClick(30)}>
-              30 min
-            </div>
-            <div className={styles.dropdownOption} onClick={() => onClick(60)}>
-              60 min
-            </div>
-          </div>
-        </div>
-      ) : null}
+        <option value="">{props.title}</option>
+        <option key={5} value={5}>
+          {'5 min'}
+        </option>
+        <option key={15} value={15}>
+          {'15 min'}
+        </option>
+        <option key={30} value={30}>
+          {'30 min'}
+        </option>
+        <option key={60} value={60}>
+          {'60 min'}
+        </option>
+      </select>
     </>
   );
 }

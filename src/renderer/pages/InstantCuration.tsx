@@ -12,7 +12,7 @@ import Button from 'renderer/components/Button';
 import { toast } from 'react-toastify';
 import PostponeButton from 'renderer/components/PostponeButton';
 import TrashIcon from 'renderer/components/Icons/TrashIcon';
-import LoadingAnimation from 'renderer/components/LoadingAnimation';
+import HourglassIcon from 'renderer/components/Icons/HourglassIcon';
 
 export default function InstantCuration() {
   const [snapshot, setSnapshot] = useState<SnapshotEntity | null>(null);
@@ -204,54 +204,57 @@ export default function InstantCuration() {
     <>
       {snapshot ? (
         <>
-          <div className={styles.headerContainer}>
-            <SnapshotHeader
-              snapshotName={snapshotName}
-              onNameChange={onNameChange}
-              createTimestamp={snapshot.created}
-              editTimestamp={snapshot.edited}
-              showTimestamp={false}
-            />
-          </div>
-          {isSnapshotReady ? (
-            <div className={styles.buttonContainer}>
-              <Button isFilled={true} onClick={() => onClickCurateNow()}>
-                Curate Now
-              </Button>
-              <PostponeButton
-                isFilled={false}
-                title={'PostponeCuration'}
-                onSelect={postponeSnapshot}
+          <div className={styles.header}>
+            <div className={styles.snapshotHeaderContainer}>
+              <SnapshotHeader
+                snapshotName={snapshotName}
+                onNameChange={onNameChange}
+                createTimestamp={snapshot.created}
+                editTimestamp={snapshot.edited}
+                showTimestamp={false}
               />
-              <Button isFilled={false} onClick={() => onClickCloseApps()}>
-                Close Applications
-              </Button>
-              <select
-                onChange={onSelectMergeDestination}
-                name="select-merge"
-                id="select-merge"
-              >
-                <option value="">Add to Snapshot</option>
-                {mergeRecommendations.map((mRec) => (
-                  <option key={mRec.id} value={mRec.id}>
-                    {mRec.name}
-                  </option>
-                ))}
-              </select>
-              <Button
-                className={styles.deleteButton}
-                isFilled={true}
+            </div>
+            {isSnapshotReady ? (
+              <TrashIcon
+                className={`${styles.icon} ${styles.clickable}`}
                 onClick={() => onClickDelete()}
-              >
-                <TrashIcon />
-              </Button>
-            </div>
-          ) : (
-            <div className={styles.loadingContainer}>
-              <LoadingAnimation />
-              <span>Preparing Snapshot...</span>
-            </div>
-          )}
+              />
+            ) : (
+              <HourglassIcon className={styles.icon} />
+            )}
+          </div>
+
+          <div className={styles.buttonContainer}>
+            <Button isFilled={true} onClick={() => onClickCurateNow()}>
+              Curate Now
+            </Button>
+            <PostponeButton
+              isFilled={false}
+              title={'Postpone Curation'}
+              onSelect={postponeSnapshot}
+            />
+            <select
+              className={styles.mergeButton}
+              onChange={onSelectMergeDestination}
+              name="select-merge"
+              id="select-merge"
+              disabled={isSnapshotReady ? false : true}
+            >
+              <option value="">Amend Snapshot</option>
+              {mergeRecommendations.map((mRec) => (
+                <option key={mRec.id} value={mRec.id}>
+                  {mRec.name}
+                </option>
+              ))}
+            </select>
+            <Button
+              isFilled={false}
+              onClick={() => onClickCloseApps()}
+              disabled={isSnapshotReady ? false : true}
+            >
+              Close Applications
+            </Button>
+          </div>
         </>
       ) : null}
     </>

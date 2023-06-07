@@ -46,17 +46,14 @@ export default class Exporter {
     consideredSnapshots.forEach((snapshot) => {
       const text = Exporter.getTextExportForSnapshot(snapshot);
       exportContent += text;
-      exportContent += '\n\n ######################################### \n\n';
+      exportContent += '\n---\n';
     });
 
     const now = new Date();
     const formattedDate = `${now.getFullYear()}-${
       now.getMonth() + 1
     }-${now.getDate()}`;
-    const exportPath = path.join(
-      Exporter._exportFolder,
-      `${formattedDate}.txt`
-    );
+    const exportPath = path.join(Exporter._exportFolder, `${formattedDate}.md`);
     try {
       await writeFile(exportPath, exportContent);
       info(`[Exporter] Saved backup to ${exportPath}`);
@@ -71,57 +68,83 @@ export default class Exporter {
 
   private static getTextExportForSnapshot(snapshot: Snapshot): string {
     let description = '';
-    description += `name: ${snapshot.name}\n`;
+    description += `# ${snapshot.name}\n`;
     description += `created: ${snapshot.created}\n`;
     description += `edited: ${snapshot.edited}\n`;
     description += '\n';
-    if (snapshot.summary) {
-      description += `summary:\n ${snapshot.summary}\n\n`;
-    }
-    if (snapshot.intent) {
-      description += `intent:\n ${snapshot.intent}\n`;
-    }
+    description += '## Summary\n';
+    description += snapshot.summary
+      ? `\`\`\`\n${snapshot.summary}\n\`\`\`\n`
+      : '_no summary provided_\n';
+    description += '\n';
+    description += '## Intent\n';
+    description += snapshot.intent
+      ? `\`\`\`\n${snapshot.intent}\n\`\`\`\n`
+      : '_no intent provided_\n';
     description += '\n';
 
-    // browser tabs
-    snapshot.browsers.forEach((browser) => {
-      if (browser.isSelected) {
-        description += `"${browser.name}"\n`;
-        browser.browserTabs.forEach((tab) => {
-          if (tab.isSelected) {
-            description += `\t${tab.url}\n`;
-          }
-        });
-        description += '\n';
-      }
+    description += '## Browsers\n';
+    const selectedBrowsers = snapshot.browsers.filter((browser) => {
+      return browser.isSelected;
     });
+    if (selectedBrowsers.length === 0) {
+      description += '_no browsers selected_\n';
+    } else {
+      selectedBrowsers.forEach((browser) => {
+        description += `### ${browser.name}\n`;
+        const selectedTabs = browser.browserTabs.filter((tab) => {
+          return tab.isSelected;
+        });
+        if (selectedTabs.length === 0) {
+          description += `_no tabs selected_\n`;
+        } else {
+          selectedTabs.forEach((tab) => {
+            description += `\`${tab.url}\`\n`;
+          });
+        }
+      });
+    }
+    description += '\n';
+    description += '## IDEs\n';
+    const selectedIDEs = snapshot.ides.filter((ide) => {
+      return ide.isSelected;
+    });
+    if (selectedIDEs.length === 0) {
+      description += '_no ide selected_\n';
+    } else {
+      selectedIDEs.forEach((ide) => {
+        description += `### ${ide.name}\n`;
+        const selectedFiles = ide.ideFiles.filter((file) => {
+          return file.isSelected;
+        });
+        selectedFiles.forEach((file) => {
+          description += `\`${file.path}\`\n`;
+        });
+      });
+    }
 
-    // IDE files
-    snapshot.ides.forEach((ide) => {
-      if (ide.isSelected) {
-        description += `"${ide.name}"\n`;
-        ide.ideFiles.forEach((file) => {
-          if (file.isSelected) {
-            description += `\t${file.path}\n`;
-          }
-        });
-        description += '\n';
-      }
+    description += '\n';
+    description += '## Applications\n';
+    const selectedApps = snapshot.applications.filter((app) => {
+      return app.isSelected;
     });
-
-    // other applications
-    description += 'selected applications:\n';
-    snapshot.applications.forEach((app) => {
-      if (app.isSelected) {
-        description += `"${app.name}"\n`;
-        app.files.forEach((file) => {
-          if (file.isSelected) {
-            description += `\t${file.path}\n`;
-          }
+    if (selectedApps.length === 0) {
+      description += '_no applications selected_\n';
+    } else {
+      selectedApps.forEach((app) => {
+        description += `### ${app.name}\n`;
+        const selectedFiles = app.files.filter((file) => {
+          return file.isSelected;
         });
-        description += '\n';
-      }
-    });
+        if (selectedFiles.length === 0) {
+          description += `_no file selected_\n`;
+        } else {
+          selectedFiles.forEach((file) => {
+            description += `\`${file.path}\`\n`;
+          });
+        }
+      });
+    }
 
     return description;
   }

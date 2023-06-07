@@ -89,8 +89,10 @@ export default class WindowManager {
 
     this.instantCurationWindow = new BrowserWindow({
       show: false,
-      width: 650,
-      height: 210,
+      width: 590,
+      height: 160,
+      minimizable: false,
+      maximizable: false,
       alwaysOnTop: true,
       icon: getAssetPath('icon.png'),
       title: 'New Snapshot',

@@ -10,6 +10,7 @@ export interface ButtonProps extends React.ComponentPropsWithoutRef<'button'> {
   onClick?: (
     e: React.MouseEvent<HTMLButtonElement, MouseEvent>
   ) => any | Promise<any>;
+  disabled?: boolean;
   isFilled: boolean;
 }
 
@@ -20,6 +21,7 @@ export default function Button(props: ButtonProps) {
         props.isFilled ? styles.filled : undefined
       } ${props.className}`}
       onClick={props.onClick}
+      disabled={props.disabled}
     >
       <div className={styles.children}>{props.children}</div>
     </button>

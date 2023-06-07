@@ -36,12 +36,12 @@ import ExtensionsStatus from '../types/ExtensionsStatus';
 import UsageData from './entity/UsageData';
 import DeviceManager from './HID/DeviceManager';
 import KnownApplication from './entity/KnownApplication';
-import ActiveWindow from './entity/ActiveWindow';
 import { TypedWebContents } from './ipc/types/electron-typed-ipc';
 import Events from '../types/Events';
 import { BrowserType } from '../types/BrowserType';
 import { UsageDataOrigin } from '../types/UsageDataOrigin';
 import Exporter from './Exporter';
+import FDACalculator from './FDACalculator';
 const fileIcon = require('extract-file-icon');
 const sound = require('sound-play');
 
@@ -74,16 +74,24 @@ export default class TaskSnap {
   public start() {
     info('[TaskSnap] Started');
     TrayManager.init(this);
-
-    this._windowTracker.start();
-    this._fileSystemWatcher.start();
+    this.startTrackers();
     Exporter.startBackupLoop();
   }
 
-  public stop() {
+  public async stop() {
     info('[TaskSnap] Stopped');
+    await this.stopTrackers();
+  }
 
-    this._windowTracker.stop();
+  public startTrackers() {
+    info('[TaskSnap] Started Trackers');
+    this._windowTracker.start();
+    this._fileSystemWatcher.start();
+  }
+
+  public async stopTrackers() {
+    info('[TaskSnap] Stopped Trackers');
+    await this._windowTracker.stop();
     this._fileSystemWatcher.stop();
   }
 
@@ -146,8 +154,8 @@ export default class TaskSnap {
       this._vscodeTracker.sendGetVSCodeSnapshotRequest();
     }
 
-    // notify instant curation window that snapshot is ready
-    this.notifyInstantCurationWindow();
+    // notify windows that snapshot is ready
+    this.notifyWindows(newSnapshot.id);
 
     // update snapshot gallery window
     this._snapshotManager.updateSnapshotGalleryWindow();
@@ -156,19 +164,17 @@ export default class TaskSnap {
     await TrayManager.updateTray();
   }
 
-  private notifyInstantCurationWindow(): void {
+  private notifyWindows(snapshotId: number): void {
     if (WindowManager.instantCurationWindow) {
       const destination = WindowManager.instantCurationWindow
         .webContents as TypedWebContents<Events>;
-      destination?.send('snapshot-ready');
+      destination?.send('snapshot-ready', snapshotId);
     }
-  }
-
-  public async restoreLatestSnapshot() {
-    const latestSnapshot = await this._snapshotManager.getLatestSnapshot();
-    if (!latestSnapshot) return;
-
-    await this.restoreSnapshot(latestSnapshot, UsageDataOrigin.Tray);
+    if (WindowManager.snapshotWindow) {
+      const destination = WindowManager.snapshotWindow
+        .webContents as TypedWebContents<Events>;
+      destination?.send('snapshot-ready', snapshotId);
+    }
   }
 
   public async restoreSnapshot(snapshot: Snapshot, origin: UsageDataOrigin) {
@@ -252,7 +258,7 @@ export default class TaskSnap {
         label
       );
     } else {
-      this._browserTracker.subscribeToConnection(() => {
+      this._browserTracker.subscribeToConnection(browser.type, () => {
         this._browserTracker.sendTabOpeningRequest(
           browser.type,
           urlsToOpen,
@@ -320,11 +326,29 @@ export default class TaskSnap {
       recentlyOpenedFiles = await getRecentlyOpenedFilePaths(searchStart);
     }
 
-    // for smart pre-selection, look which apps were active within the last 10 minutes - TODO: update this condition
-    const timeMinus10Min = Date.now() - 10 * 60 * 1000;
-    const recentlyActiveApps = await ActiveWindow.getRecentlyActiveApps(
-      new Date(timeMinus10Min)
+    // calculate relevance for smart pre-selection
+    const appNamesOfOpenWindows: string[] = [];
+    openWindows.forEach((win) => {
+      const appName = win.owner.name;
+      if (!appNamesOfOpenWindows.includes(appName)) {
+        appNamesOfOpenWindows.push(appName);
+      }
+    });
+    const relevances = await FDACalculator.getRelevanceOfApplications(
+      appNamesOfOpenWindows
     );
+    let loggingString = ''; // Somehow logging a map does not work
+    relevances.forEach((value, key) => {
+      loggingString += `([${key}] ${value}),`;
+    });
+    info('[TaskSnap] Relevances:', loggingString);
+    const relevantApps: string[] = [];
+    relevances.forEach((val, appName) => {
+      if (val > 1) {
+        // TODO: Make this more sophisticated
+        relevantApps.push(appName);
+      }
+    });
 
     const openBrowsers: Browser[] = [];
     const openIDEs: IDE[] = [];
@@ -334,7 +358,7 @@ export default class TaskSnap {
       const appPath = win.owner.path;
       if (appName === app.getName() || appName === 'Electron') continue;
 
-      const wasAppRecentlyActive = recentlyActiveApps.includes(appName);
+      const isAppRelevantForTask = relevantApps.includes(appName);
 
       // browsers get stored separately, as handling of urls different than handling of files
       if (
@@ -357,7 +381,8 @@ export default class TaskSnap {
         browser.path = appPath;
         browser.icon = this.getApplicationIcon(appPath);
         browser.title = win.title;
-        browser.isSelected = wasAppRecentlyActive;
+        browser.isSelected = isAppRelevantForTask;
+        browser.relevance = relevances.get(appName) || 0;
         openBrowsers.push(browser);
 
         // ide
@@ -367,7 +392,8 @@ export default class TaskSnap {
         ide.path = appPath;
         ide.icon = this.getApplicationIcon(appPath);
         ide.title = win.title;
-        ide.isSelected = wasAppRecentlyActive;
+        ide.isSelected = isAppRelevantForTask;
+        ide.relevance = relevances.get(appName) || 0;
         openIDEs.push(ide);
 
         // file explorer
@@ -386,7 +412,8 @@ export default class TaskSnap {
         app.path = appPath;
         app.icon = this.getApplicationIcon(appPath);
         app.title = 'File System';
-        app.isSelected = wasAppRecentlyActive;
+        app.isSelected = isAppRelevantForTask;
+        app.relevance = relevances.get(appName) || 0;
         openApplications.push(app);
 
         const associatedFolders: File[] = [];
@@ -394,8 +421,8 @@ export default class TaskSnap {
         folderPaths.forEach((path) => {
           const file = new File();
           file.path = path;
-          file.name = path;
-          file.isSelected = wasAppRecentlyActive; // TODO: Improve this
+          file.name = getFileNameFromPath(path);
+          file.isSelected = isAppRelevantForTask; // TODO: Improve this
           associatedFolders.push(file);
         });
         if (associatedFolders.length > 0) {
@@ -420,7 +447,7 @@ export default class TaskSnap {
           app.path = appPath;
           app.icon = this.getApplicationIcon(appPath);
           app.title = win.title;
-          app.isSelected = wasAppRecentlyActive;
+          app.isSelected = isAppRelevantForTask;
           openApplications.push(app);
         }
 
@@ -453,7 +480,7 @@ export default class TaskSnap {
                 const file = new File();
                 file.path = path;
                 file.name = getFileNameFromPath(path);
-                file.isSelected = wasAppRecentlyActive; // TODO: Improve this
+                file.isSelected = isAppRelevantForTask; // TODO: Improve this
                 associatedFiles.push(file);
               }
             }
@@ -475,7 +502,7 @@ export default class TaskSnap {
               const file = new File();
               file.path = path;
               file.name = getFileNameFromPath(path);
-              file.isSelected = wasAppRecentlyActive; // TODO: Improve this
+              file.isSelected = isAppRelevantForTask; // TODO: Improve this
               associatedFiles.push(file);
             }
           }

@@ -28,6 +28,6 @@ export default class Settings extends BaseEntity {
     if (shortcut) {
       return shortcut;
     }
-    return 'Ctrl+Shift+S';
+    return 'Ctrl+Shift+Q';
   }
 }

@@ -1,5 +1,26 @@
-.headerContainer {
-  width: 90%;
+.header {
+  display: flex;
+  align-items: center;
+
+  .snapshotHeaderContainer {
+    width: 85%;
+  }
+
+  .icon {
+    margin-left: 1rem;
+    height: 1rem;
+    fill: var(--border-color);
+  }
+
+  .clickable {
+    cursor: pointer;
+
+    &:hover {
+      transform: scale(1.2);
+      transition: all ease-in 0.1s;
+      cursor: pointer;
+    }
+  }
 }
 
 .buttonContainer {
@@ -10,32 +31,31 @@
     margin-right: 0.4rem;
   }
 
-  .deleteButton {
-    background-color: red;
-    border-color: red;
-  }
-
   select {
-    border-radius: var(--border-radius);
-    cursor: pointer;
     margin-right: 0.4rem;
+  }
+
+  .mergeButton {
+    color: var(--text-color);
+    border-radius: var(--border-radius);
+    border: solid var(--accent-color-1) 2px;
+    background: none;
+    cursor: pointer;
+    padding-left: 0.3rem;
     transition: all ease-in 0.1s;
+    width: 8.5rem;
   }
 
-  select:hover {
+  .mergeButton:disabled {
+    border-color: var(--bg-color-4);
+    cursor: default;
+  }
+
+  .mergeButton:hover {
     transform: scale(1.05);
-  }
-}
 
-.loadingContainer {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  margin-top: 1rem;
-  width: 50%;
-
-
-  span {
-    white-space: nowrap;
+    &:disabled {
+      transform: scale(1);
+    }
   }
 }
