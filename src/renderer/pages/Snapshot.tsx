@@ -5,7 +5,7 @@
  */
 
 import styles from './Snapshot.module.scss';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import SnapshotEntity from 'main/entity/Snapshot';
 import ApplicationEntity from '../../main/entity/Application';
 import BrowserEntity from '../../main/entity/Browser';
@@ -25,6 +25,7 @@ import SaveIcon from 'renderer/components/Icons/SaveIcon';
 export default function Snapshot() {
   const [selectedSnapshot, setSelectedSnapshot] =
     useState<SnapshotEntity | null>(null);
+  const [isSnapshotReady, setIsSnapshotReady] = useState<boolean>(false);
   const [snapshotName, setSnapshotName] = useState<string>('');
   const [editTimestamp, setEditTimestamp] = useState<string>('');
   const [summary, setSummary] = useState<string>('');
@@ -37,15 +38,40 @@ export default function Snapshot() {
     Map<number, ApplicationEntity>
   >(new Map());
 
+  const nameRef = useRef(snapshotName);
+  const summaryRef = useRef(summary);
+  const intentRef = useRef(intent);
+
   const registerEventListeners = () => {
     window.electron.onSnapshotSelected(fetchSnapshot);
+    window.electron.onSnapshotReady(handleSnapshotGetsReady);
   };
 
   const unRegisterEventListeners = () => {
     window.electron.removeOnSnapshotSelected();
+    window.electron.removeOnSnapshotReady();
   };
 
-  const fetchSnapshot = async (e: Electron.IpcRendererEvent, id: number) => {
+  const handleSnapshotGetsReady = (
+    e: Electron.IpcRendererEvent,
+    snapshotId: number
+  ) => {
+    fetchSnapshot(
+      e,
+      snapshotId,
+      nameRef.current,
+      summaryRef.current,
+      intentRef.current
+    );
+  };
+
+  const fetchSnapshot = async (
+    e: Electron.IpcRendererEvent,
+    id: number,
+    existingName?: string,
+    existingSummary?: string,
+    existingIntent?: string
+  ) => {
     const snapshot = await window.electron.ipcRenderer.invoke(
       'get-snapshot-by-id',
       id
@@ -53,10 +79,24 @@ export default function Snapshot() {
     if (!snapshot) return;
 
     setSelectedSnapshot(snapshot);
-    setSnapshotName(snapshot.name);
+    setIsSnapshotReady(snapshot.isReady);
+    const nameToSet = existingName || snapshot.name;
+    setSnapshotName(nameToSet);
     setEditTimestamp(snapshot.edited);
-    setSummary(snapshot.summary || '');
-    setIntent(snapshot.intent || '');
+
+    let summaryToSet = existingSummary || '';
+    if (existingSummary && snapshot.summary) {
+      summaryToSet += '\n\n';
+    }
+    summaryToSet += snapshot.summary || '';
+    setSummary(summaryToSet);
+
+    let intentToSet = existingIntent || '';
+    if (existingIntent && snapshot.intent) {
+      intentToSet += '\n\n';
+    }
+    intentToSet += snapshot.intent || '';
+    setIntent(intentToSet);
 
     const browserMap = new Map(snapshot.browsers.map((i) => [i.id, i]));
     setBrowserMap(browserMap);
@@ -131,14 +171,17 @@ export default function Snapshot() {
   };
 
   const onNameChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    nameRef.current = e.target.value;
     setSnapshotName(e.target.value);
   };
 
   const onSummaryChange = async (text: string) => {
+    summaryRef.current = text;
     setSummary(text);
   };
 
   const onIntentChange = async (text: string) => {
+    intentRef.current = text;
     setIntent(text);
   };
 
@@ -221,29 +264,35 @@ export default function Snapshot() {
                 {'Artifacts that I consider relevant for this task snapshot'}
               </div>
               <div className={styles.body}>
-                <div>
-                  {[...browserMap.values()].map((browser) => (
-                    <Browser
-                      key={browser.id}
-                      browser={browser}
-                      updateBrowser={updateBrowser}
-                    />
-                  ))}
-                </div>
-                <div>
-                  {[...ideMap.values()].map((ide) => (
-                    <IDE key={ide.id} ide={ide} updateIDE={updateIDE} />
-                  ))}
-                </div>
-                <div>
-                  {[...applicationMap.values()].map((app) => (
-                    <Application
-                      key={app.id}
-                      app={app}
-                      updateApplication={updateApplication}
-                    />
-                  ))}
-                </div>
+                {isSnapshotReady ? (
+                  <>
+                    <div>
+                      {[...browserMap.values()].map((browser) => (
+                        <Browser
+                          key={browser.id}
+                          browser={browser}
+                          updateBrowser={updateBrowser}
+                        />
+                      ))}
+                    </div>
+                    <div>
+                      {[...ideMap.values()].map((ide) => (
+                        <IDE key={ide.id} ide={ide} updateIDE={updateIDE} />
+                      ))}
+                    </div>
+                    <div>
+                      {[...applicationMap.values()].map((app) => (
+                        <Application
+                          key={app.id}
+                          app={app}
+                          updateApplication={updateApplication}
+                        />
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <LoadingAnimation />
+                )}
               </div>
             </div>
           </div>
@@ -253,15 +302,27 @@ export default function Snapshot() {
               title={'Postpone Curation'}
               onSelect={postponeSnapshot}
             />
-            <Button isFilled={false} onClick={() => onClickOpenArtifacts()}>
+            <Button
+              isFilled={false}
+              onClick={() => onClickOpenArtifacts()}
+              disabled={isSnapshotReady ? false : true}
+            >
               Open Selection
             </Button>
-            <Button isFilled={false} onClick={() => onClickSaveAndClose()}>
+            <Button
+              isFilled={false}
+              onClick={() => onClickSaveAndClose()}
+              disabled={isSnapshotReady ? false : true}
+            >
               <>
                 <SaveIcon /> <span>&nbsp;Snapshot & Close Applications</span>
               </>
             </Button>
-            <Button isFilled={true} onClick={() => onClickSave()}>
+            <Button
+              isFilled={true}
+              onClick={() => onClickSave()}
+              disabled={isSnapshotReady ? false : true}
+            >
               <SaveIcon /> <span>&nbsp;Snapshot</span>
             </Button>
           </div>

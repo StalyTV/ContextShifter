@@ -154,8 +154,8 @@ export default class TaskSnap {
       this._vscodeTracker.sendGetVSCodeSnapshotRequest();
     }
 
-    // notify instant curation window that snapshot is ready
-    this.notifyInstantCurationWindow();
+    // notify windows that snapshot is ready
+    this.notifyWindows(newSnapshot.id);
 
     // update snapshot gallery window
     this._snapshotManager.updateSnapshotGalleryWindow();
@@ -164,19 +164,17 @@ export default class TaskSnap {
     await TrayManager.updateTray();
   }
 
-  private notifyInstantCurationWindow(): void {
+  private notifyWindows(snapshotId: number): void {
     if (WindowManager.instantCurationWindow) {
       const destination = WindowManager.instantCurationWindow
         .webContents as TypedWebContents<Events>;
-      destination?.send('snapshot-ready');
+      destination?.send('snapshot-ready', snapshotId);
     }
-  }
-
-  public async restoreLatestSnapshot() {
-    const latestSnapshot = await this._snapshotManager.getLatestSnapshot();
-    if (!latestSnapshot) return;
-
-    await this.restoreSnapshot(latestSnapshot, UsageDataOrigin.Tray);
+    if (WindowManager.snapshotWindow) {
+      const destination = WindowManager.snapshotWindow
+        .webContents as TypedWebContents<Events>;
+      destination?.send('snapshot-ready', snapshotId);
+    }
   }
 
   public async restoreSnapshot(snapshot: Snapshot, origin: UsageDataOrigin) {
