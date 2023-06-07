@@ -89,7 +89,7 @@ export default class WindowManager {
 
     this.instantCurationWindow = new BrowserWindow({
       show: false,
-      width: 570,
+      width: 590,
       height: 160,
       minimizable: false,
       maximizable: false,
