@@ -131,6 +131,8 @@ export default class TaskSnap {
         message: 'No open windows to attach to a snapshot',
         type: 'error',
       });
+      newSnapshot.isReady = true;
+      await newSnapshot.save();
       return;
     }
 
