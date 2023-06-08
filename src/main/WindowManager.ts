@@ -95,7 +95,7 @@ export default class WindowManager {
       maximizable: false,
       alwaysOnTop: true,
       icon: getAssetPath('icon.png'),
-      title: 'New Snapshot',
+      title: 'New snapshot created - choose how to proceed',
       webPreferences: {
         preload: app.isPackaged
           ? path.join(__dirname, 'preload.js')
