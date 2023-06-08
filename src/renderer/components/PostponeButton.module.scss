@@ -10,4 +10,8 @@
   &:hover {
     transform: scale(1.05);
   }
+
+  option {
+    background-color: var(--overlay-color);
+  }
 }
