@@ -85,4 +85,18 @@ export default class ActiveWindow extends BaseEntity {
       .getRawOne();
     return sum.totalDuration || 0;
   }
+
+  static async getMostActiveApp(
+    startTimeWindow: Date
+  ): Promise<string | null> {
+    const mostActiveApp = await this.createQueryBuilder('active_window')
+      .where('active_window.tsStart >= :tsStart', {
+        tsStart: startTimeWindow.toISOString(),
+      })
+      .groupBy("active_window.application")
+      .select('application, SUM(active_window.duration)', 'totalDuration')
+      .orderBy('totalDuration', 'DESC')
+      .getRawOne();
+    return mostActiveApp.application || null
+  }
 }

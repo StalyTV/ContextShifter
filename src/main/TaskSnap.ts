@@ -42,6 +42,7 @@ import { BrowserType } from '../types/BrowserType';
 import { UsageDataOrigin } from '../types/UsageDataOrigin';
 import Exporter from './Exporter';
 import FDACalculator from './FDACalculator';
+import SummaryProvider from './SummaryProvider';
 const fileIcon = require('extract-file-icon');
 const sound = require('sound-play');
 
@@ -140,9 +141,12 @@ export default class TaskSnap {
     await IDE.save(openIDEs);
     await Application.save(openApplications);
 
+    const summary = await SummaryProvider.createTaskSummary();
+
     newSnapshot.browsers = openBrowsers;
     newSnapshot.ides = openIDEs;
     newSnapshot.applications = openApplications;
+    newSnapshot.summary = summary;
     newSnapshot.isReady = true;
     await newSnapshot.save();
 

@@ -22,11 +22,23 @@ export default class ActiveBrowserTab extends BaseEntity {
       .where('active_browser_tab.ts >= :tsStart', {
         tsStart: startTime.toISOString(),
       })
-      .groupBy("url")
+      .groupBy('url')
       .getMany();
     const urls = entries.map((entry) => {
       return entry.url;
     });
     return urls;
+  }
+
+  static async getLatestActiveTab(): Promise<ActiveBrowserTab | null> {
+    const latestActiveTab = await this.findOne({
+      where: {},
+      order: { id: 'DESC' },
+    });
+    if (!latestActiveTab) {
+      return null;
+    } else {
+      return latestActiveTab;
+    }
   }
 }
