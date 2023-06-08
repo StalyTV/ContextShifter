@@ -42,6 +42,14 @@ typedIpcMain.handle('get-latest-n-snapshots', async (e, n) => {
   return await SnapshotManager.getInstance().getLatestNSnapshots(n);
 });
 
+typedIpcMain.handle('delete-snapshot', async (e, snapshotId) => {
+  await SnapshotManager.getInstance().deleteSnapshot(
+    snapshotId,
+    UsageDataOrigin.SnapshotWindow
+  );
+  WindowManager.snapshotWindow?.close();
+});
+
 typedIpcMain.handle('save-snapshot', async (e, snapshot) => {
   await UsageData.addEntry('save-snapshot', false, `id: ${snapshot.id}`);
   await SnapshotManager.getInstance().saveSnapshot(snapshot);
@@ -141,7 +149,7 @@ typedIpcMain.handle('open-snapshot', async (e, snapshotId) => {
   SnapshotManager.getInstance().openSnapshotInSnapshotWindow(snapshotId);
 });
 
-typedIpcMain.handle('delete-snapshot', async (e, snapshotId) => {
+typedIpcMain.handle('gallery-delete-snapshot', async (e, snapshotId) => {
   await SnapshotManager.getInstance().deleteSnapshot(
     snapshotId,
     UsageDataOrigin.SnapshotGalleryWindow

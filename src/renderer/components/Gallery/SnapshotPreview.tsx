@@ -91,7 +91,7 @@ export default function SnapshotPreview(props: Props) {
         toast.promise(
           async () =>
             await window.electron.ipcRenderer.invoke(
-              'delete-snapshot',
+              'gallery-delete-snapshot',
               props.snapshot.id
             ),
           {

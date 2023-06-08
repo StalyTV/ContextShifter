@@ -20,6 +20,7 @@ type Commands = {
   'get-latest-n-snapshots': (n: number) => Snapshot[];
   'open-artifact': (artifact: Artifact) => void;
   'open-all-artifacts-of-snapshot': (snapshot: Snapshot) => void;
+  'delete-snapshot': (snapshotId: number) => Promise<void>;
   'save-snapshot': (snapshot: Snapshot) => Promise<void>;
   'save-snapshot-and-close-applications': (snapshot: Snapshot) => Promise<void>;
   'postpone-snapshot': (snapshot: Snapshot, timeInMin: number) => void;
@@ -41,7 +42,7 @@ type Commands = {
 
   // snapshot gallery
   'open-snapshot': (snapshotId: number) => void;
-  'delete-snapshot': (snapshotId: number) => Promise<void>;
+  'gallery-delete-snapshot': (snapshotId: number) => Promise<void>;
   'restore-snapshot': (snapshotId: number) => void;
   'expand-snapshot-preview': (snapshotId: number) => void;
   'open-browser-tab': (browser: Browser, tab: BrowserTab) => void;
