@@ -12,7 +12,7 @@ type Props = {
   title: string;
   content: string;
   infoMessage?: string;
-  onTextChange: (text: string) => {};
+  onTextChange: (text: string) => void;
 };
 
 export default function PostIt(props: Props) {

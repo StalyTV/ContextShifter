@@ -14,7 +14,7 @@ import Browser from 'renderer/components/Browser';
 import IDE from '../components/IDE';
 import Application from 'renderer/components/Application';
 import Button from 'renderer/components/Button';
-import PostIt from 'renderer/components/PostIt';
+import PostItSection from '../components/PostItSection';
 import { toast } from 'react-toastify';
 import NavBar from '../components/Navigation/NavBar';
 import SnapshotHeader from 'renderer/components/SnapshotHeader';
@@ -275,16 +275,11 @@ export default function Snapshot() {
           </div>
           <div className={styles.mainContainer}>
             <div className={styles.leftContainer}>
-              <PostIt
-                title={'⏪ Now what was I doing?'}
-                content={summary}
-                onTextChange={onSummaryChange}
-              />
-              <PostIt
-                title={'💭 What was I about to do?'}
-                content={intent}
-                infoMessage={`Uncommitted TODOs are automatically added to this section`}
-                onTextChange={onIntentChange}
+              <PostItSection
+                summary={summary}
+                onSummaryChange={onSummaryChange}
+                intent={intent}
+                onIntentChange={onIntentChange}
               />
             </div>
             <div className={styles.rightContainer}>
