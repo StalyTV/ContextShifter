@@ -4,6 +4,7 @@ import Toast from './components/Toast/Toast';
 import Snapshot from './pages/Snapshot';
 import InstantCuration from './pages/InstantCuration';
 import SnapshotGallery from './pages/SnapshotGallery';
+import MentalContext from './pages/MentalContext';
 import TaskSnapTooltip from './components/Tooltip/TaskSnapTooltip';
 
 export default function App() {
@@ -13,6 +14,7 @@ export default function App() {
         <Routes>
           <Route path="/instantCuration" element={<InstantCuration />} />
           <Route path="/snapshotGallery" element={<SnapshotGallery />} />
+          <Route path="/mentalContext" element={<MentalContext />} />
           <Route path="/" element={<Snapshot />} />
         </Routes>
       </HashRouter>

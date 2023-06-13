@@ -11,6 +11,7 @@ type Props = {
   onSummaryChange: (text: string) => void;
   intent: string;
   onIntentChange: (text: string) => void;
+  isEditable: boolean;
 };
 
 export default function PostItSection(props: Props) {
@@ -20,12 +21,14 @@ export default function PostItSection(props: Props) {
         title={'⏪ Now what was I doing?'}
         content={props.summary}
         onTextChange={props.onSummaryChange}
+        isEditable={props.isEditable}
       />
       <PostIt
         title={'💭 What was I about to do?'}
         content={props.intent}
         infoMessage={`Uncommitted TODOs are automatically added to this section`}
         onTextChange={props.onIntentChange}
+        isEditable={props.isEditable}
       />
     </>
   );

@@ -280,6 +280,7 @@ export default function Snapshot() {
                 onSummaryChange={onSummaryChange}
                 intent={intent}
                 onIntentChange={onIntentChange}
+                isEditable={true}
               />
             </div>
             <div className={styles.rightContainer}>
