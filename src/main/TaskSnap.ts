@@ -409,7 +409,7 @@ export default class TaskSnap {
         openBrowsers.push(browser);
 
         // ide
-      } else if (appName === 'Code' || appName === 'Visual Studio Code') {
+      } else if (appName === 'Code' || appName === 'Visual Studio Code' || 'Visual Studio Code.app') {
         const ide = new IDE();
         ide.name = appName;
         ide.path = appPath;
