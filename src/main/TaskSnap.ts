@@ -44,8 +44,16 @@ import Exporter from './Exporter';
 import FDACalculator from './FDACalculator';
 import SummaryProvider from './SummaryProvider';
 import StaticSettings from './StaticSettings';
+import ActiveWindow from './entity/ActiveWindow';
 const fileIcon = require('extract-file-icon');
 const sound = require('sound-play');
+
+interface TaskSnapWindowObject {
+  title: string;
+  application: string;
+  applicationPath: string;
+  processId: number;
+}
 
 /**
  * Main class of the application
@@ -101,6 +109,9 @@ export default class TaskSnap {
     info('[TaskSnap] New snapshot created');
     sound.play(this._cameraShutterSoundPath);
     this._deviceManager.showLightPulse();
+
+    // store currently open active window to be sure that it is included in snapshot
+    await this._windowTracker.storeCurrentWindow();
 
     // immediately create snapshot and open instant curation view, later add open applications and files to snapshot.
     const timestamp = new Date().toISOString();
@@ -330,11 +341,47 @@ export default class TaskSnap {
   public async getCurrentlyOpenApplications(): Promise<
     [Browser[], IDE[], Application[]]
   > {
-    const openWindows = await activeWin.getOpenWindows();
-    if (!openWindows) {
+    const visibleWindows = await activeWin.getOpenWindows();
+
+    // map results from activeWin to own window object
+    const windowsToConsider: TaskSnapWindowObject[] = visibleWindows.map(
+      (win) => {
+        return {
+          title: win.title,
+          application: win.owner.name,
+          applicationPath: win.owner.path,
+          processId: win.owner.processId,
+        };
+      }
+    );
+    //
+    // In addition, consider all applications used in the last 15 minutes.
+    // Like this, we also get apps that are recently closed, minimized, or in full screen (mac).
+    const tsStart = new Date(
+      Date.now() - StaticSettings.RECENTLY_OPEN_APPS_TIME_WINDOW
+    );
+    const recentlyActiveWindows = await ActiveWindow.getRecentlyActiveWindows(
+      tsStart
+    );
+    recentlyActiveWindows.forEach((recentWin) => {
+      const isAlreadyInList = visibleWindows.some((visibleWin) => {
+        return visibleWin.owner.name === recentWin.application;
+      });
+      if (!isAlreadyInList) {
+        const winObject: TaskSnapWindowObject = {
+          title: recentWin.title,
+          application: recentWin.application,
+          applicationPath: recentWin.applicationPath,
+          processId: recentWin.processId,
+        };
+        windowsToConsider.push(winObject);
+      }
+    });
+
+    if (!windowsToConsider) {
       return [[], [], []];
     }
-    const pidsOfApplications: number[] = openWindows.map((win) => {
+    const pidsOfApplications: number[] = visibleWindows.map((win) => {
       return win.owner.processId;
     });
     const options: Options = {
@@ -352,8 +399,8 @@ export default class TaskSnap {
 
     // calculate relevance for smart pre-selection
     const appNamesOfOpenWindows: string[] = [];
-    openWindows.forEach((win) => {
-      const appName = win.owner.name;
+    windowsToConsider.forEach((win) => {
+      const appName = win.application;
       if (!appNamesOfOpenWindows.includes(appName)) {
         appNamesOfOpenWindows.push(appName);
       }
@@ -377,9 +424,9 @@ export default class TaskSnap {
     const openBrowsers: Browser[] = [];
     const openIDEs: IDE[] = [];
     const openApplications: Application[] = [];
-    for await (const win of openWindows) {
-      const appName = win.owner.name;
-      const appPath = win.owner.path;
+    for await (const win of windowsToConsider) {
+      const appName = win.application;
+      const appPath = win.applicationPath;
       if (appName === app.getName() || appName === 'Electron') continue;
 
       const isAppRelevantForTask = relevantApps.includes(appName);
@@ -486,38 +533,40 @@ export default class TaskSnap {
         if (StaticSettings.shouldAppHaveFiles(appName)) {
           if (isMac) {
             const processInfoOfApplication = processInfos.filter((process) => {
-              return process.process.pid === win.owner.processId;
+              return process.process.pid === win.processId;
             });
-            const filePaths = processInfoOfApplication[0].files.map(
-              (f) => f.name
-            );
-            for await (const path of filePaths) {
-              // Remove paths that are simply "/"
-              if (path && path.length > 1) {
-                const fileName = getFileNameFromPath(path, true);
-                const lowerCaseFileName = fileName.toLowerCase();
-                if (
-                  (lowerCaseFileName.includes(win.title.toLowerCase()) ||
-                    win.title.toLowerCase().includes(lowerCaseFileName)) &&
-                  !lowerCaseFileName.includes('~$')
-                ) {
-                  // check that file not already included
-                  if (associatedFiles.some((file) => file.path === path)) {
-                    continue;
-                  }
+            if (processInfoOfApplication.length > 0) {
+              const filePaths = processInfoOfApplication[0].files.map(
+                (f) => f.name
+              );
+              for await (const path of filePaths) {
+                // Remove paths that are simply "/"
+                if (path && path.length > 1) {
+                  const fileName = getFileNameFromPath(path, true);
+                  const lowerCaseFileName = fileName.toLowerCase();
+                  if (
+                    (lowerCaseFileName.includes(win.title.toLowerCase()) ||
+                      win.title.toLowerCase().includes(lowerCaseFileName)) &&
+                    !lowerCaseFileName.includes('~$')
+                  ) {
+                    // check that file not already included
+                    if (associatedFiles.some((file) => file.path === path)) {
+                      continue;
+                    }
 
-                  const file = new File();
-                  file.path = path;
-                  file.name = getFileNameFromPath(path);
-                  file.isSelected = isAppRelevantForTask; // TODO: Improve this
-                  associatedFiles.push(file);
+                    const file = new File();
+                    file.path = path;
+                    file.name = getFileNameFromPath(path);
+                    file.isSelected = isAppRelevantForTask; // TODO: Improve this
+                    associatedFiles.push(file);
+                  }
                 }
               }
+              if (associatedFiles.length > 0) {
+                await File.save(associatedFiles);
+              }
+              app.files = associatedFiles;
             }
-            if (associatedFiles.length > 0) {
-              await File.save(associatedFiles);
-            }
-            app.files = associatedFiles;
 
             // Windows case
           } else {

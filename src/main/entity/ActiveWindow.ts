@@ -18,6 +18,12 @@ export default class ActiveWindow extends BaseEntity {
   application!: string;
 
   @Column({ type: 'varchar', nullable: true })
+  applicationPath!: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  processId!: number;
+
+  @Column({ type: 'varchar', nullable: true })
   title!: string;
 
   @Column({ type: 'varchar', nullable: true })
@@ -29,17 +35,20 @@ export default class ActiveWindow extends BaseEntity {
   @Column({ type: 'int', nullable: false })
   public duration!: number;
 
-  static async getRecentlyActiveApps(startTime: Date): Promise<string[]> {
-    const entries = await this.createQueryBuilder('active_window')
+  // only consider each application once
+  static async getRecentlyActiveWindows(
+    startTime: Date
+  ): Promise<ActiveWindow[]> {
+    const recentActiveWindows = await this.createQueryBuilder('active_window')
+      .addSelect('MAX(active_window.tsStart)', 'maxTs')
       .where('active_window.tsStart >= :tsStart', {
         tsStart: startTime.toISOString(),
       })
-      .groupBy('application')
+      .andWhere('active_window.applicationPath IS NOT NULL')
+      .andWhere(`active_window.application != 'UserNotificationCenter'`)
+      .groupBy('active_window.application')
       .getMany();
-    const appNames = entries.map((entry) => {
-      return entry.application;
-    });
-    return appNames;
+    return recentActiveWindows;
   }
 
   static async getLastAppAccess(appName: string): Promise<Date | null> {
@@ -86,17 +95,15 @@ export default class ActiveWindow extends BaseEntity {
     return sum.totalDuration || 0;
   }
 
-  static async getMostActiveApp(
-    startTimeWindow: Date
-  ): Promise<string | null> {
+  static async getMostActiveApp(startTimeWindow: Date): Promise<string | null> {
     const mostActiveApp = await this.createQueryBuilder('active_window')
       .where('active_window.tsStart >= :tsStart', {
         tsStart: startTimeWindow.toISOString(),
       })
-      .groupBy("active_window.application")
+      .groupBy('active_window.application')
       .select('application, SUM(active_window.duration)', 'totalDuration')
       .orderBy('totalDuration', 'DESC')
       .getRawOne();
-    return mostActiveApp.application || null
+    return mostActiveApp.application || null;
   }
 }
