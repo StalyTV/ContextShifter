@@ -4,23 +4,20 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, June 2023
  */
 
-import ActiveBrowserTab from './entity/ActiveBrowserTab';
 import ActiveWindow from './entity/ActiveWindow';
-import Settings from './entity/Settings';
+import BrowserTracker from './trackers/BrowserTracker';
 
 export default class SummaryProvider {
   public static async createTaskSummary(): Promise<string> {
     const startTimeWindow = new Date(Date.now() - 5 * 60 * 1000);
 
     const mostActiveApp = await ActiveWindow.getMostActiveApp(startTimeWindow);
+    const lastActiveTab = BrowserTracker.getInstance().getCurrentlyActiveTab();
 
     let latestActiveURL = '';
-    const latestActiveBrowserTab = await ActiveBrowserTab.getLatestActiveTab();
-    const areURLsAnonymized = await Settings.getIsDataAnonymized();
-    if (latestActiveBrowserTab && !areURLsAnonymized) {
-      const timestamp = new Date(latestActiveBrowserTab.ts);
-      if (timestamp.getTime() > startTimeWindow.getTime()) {
-        latestActiveURL = latestActiveBrowserTab.url;
+    if (lastActiveTab) {
+      if (lastActiveTab.timestamp.getTime() > startTimeWindow.getTime()) {
+        latestActiveURL = lastActiveTab.tab.url || '';
       }
     }
 
@@ -39,7 +36,7 @@ export default class SummaryProvider {
       summaryString += `visited ${latestActiveURL}`;
     }
     if (summaryString !== '') {
-      summaryString += '.'
+      summaryString += '.';
     }
     return summaryString;
   }

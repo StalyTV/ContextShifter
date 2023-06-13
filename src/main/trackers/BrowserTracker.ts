@@ -19,10 +19,15 @@ import { Tabs } from 'webextension-polyfill';
 import Browser from '../entity/Browser';
 import BrowserTab from '../entity/BrowserTab';
 import ActiveBrowserTab from '../entity/ActiveBrowserTab';
-import Settings from '../entity/Settings';
 import { BrowserType } from 'types/BrowserType';
 
+type ActiveTab = {
+  tab: Tabs.Tab;
+  timestamp: Date;
+};
+
 export default class BrowserTracker {
+  private static _instance: BrowserTracker;
   private _port = 8084;
   private _server: WebSocketServer;
   private _wsClients: Map<BrowserType, WebSocket> = new Map();
@@ -32,11 +37,16 @@ export default class BrowserTracker {
     ['edge', []],
   ]);
   private _openTabs: Map<BrowserType, Tabs.Tab[]> = new Map();
+  private _currentlyActiveTab: ActiveTab | null = null;
 
-  constructor() {
+  private constructor() {
     this._server = new WebSocketServer({ port: this._port });
     this.initEventListeners();
     info(`[BrowserTracker] listening on port ${this._port}`);
+  }
+
+  public static getInstance() {
+    return this._instance || (this._instance = new this());
   }
 
   public subscribeToConnection(browserType: BrowserType, fn: () => void) {
@@ -132,11 +142,12 @@ export default class BrowserTracker {
       return tab.active;
     });
     if (activeTab && activeTab.url) {
-      const isDataAnonymized = await Settings.getIsDataAnonymized();
-      const urlToStore = isDataAnonymized
-        ? this.createHash(activeTab.url)
-        : activeTab.url;
+      this._currentlyActiveTab = {
+        tab: activeTab,
+        timestamp: new Date(),
+      };
 
+      const urlToStore = this.createHash(activeTab.url);
       const dbEntry = new ActiveBrowserTab();
       dbEntry.url = urlToStore;
       dbEntry.ts = new Date().toISOString();
@@ -172,13 +183,11 @@ export default class BrowserTracker {
         return;
       }
 
-      const isDataAnonymized = await Settings.getIsDataAnonymized();
-
       for await (const tab of tabsOfBrowser) {
         if (!tab.url) continue;
 
         const wasTabRecentlyActive = recentlyActiveUrls.includes(
-          isDataAnonymized ? this.createHash(tab.url) : tab.url
+          this.createHash(tab.url)
         );
 
         const tabEntity = new BrowserTab();
@@ -236,6 +245,10 @@ export default class BrowserTracker {
     if (connection && connection.readyState === WebSocket.OPEN) {
       connection.send(JSON.stringify({ endpoint: 'close-tabs', data }));
     }
+  }
+
+  public getCurrentlyActiveTab(): ActiveTab | null {
+    return this._currentlyActiveTab;
   }
 
   public isSocketOpen(browserType?: BrowserType): boolean {

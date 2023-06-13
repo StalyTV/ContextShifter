@@ -29,16 +29,4 @@ export default class ActiveBrowserTab extends BaseEntity {
     });
     return urls;
   }
-
-  static async getLatestActiveTab(): Promise<ActiveBrowserTab | null> {
-    const latestActiveTab = await this.findOne({
-      where: {},
-      order: { id: 'DESC' },
-    });
-    if (!latestActiveTab) {
-      return null;
-    } else {
-      return latestActiveTab;
-    }
-  }
 }

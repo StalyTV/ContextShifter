@@ -70,7 +70,7 @@ export default class TaskSnap {
 
   private constructor() {
     this._windowTracker = new WindowTracker();
-    this._browserTracker = new BrowserTracker();
+    this._browserTracker = BrowserTracker.getInstance();
     this._fileSystemWatcher = new FileSystemWatcher();
     this._vscodeTracker = new VSCodeTracker();
     this._deviceManager = DeviceManager.getInstance();
