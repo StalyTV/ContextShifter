@@ -5,6 +5,7 @@
  */
 
 import ActiveWindow from './entity/ActiveWindow';
+import Snapshot from './entity/Snapshot';
 
 // based on the algorithm proposed in the paper "Using contexts similarity to predict relationships between tasks"
 // by Walid Maalej, Mathias Ellmann & Romain Robbes
@@ -14,7 +15,17 @@ export default class FDACalculator {
     appNames: string[]
   ): Promise<Map<string, number>> {
     const result = new Map();
-    const taskStart = new Date(Date.now() - 60 * 60 * 1000); // TODO: improve this
+    // we consider all interaction that happened since the last snapshot was created
+    let taskStart: Date;
+    const latestSnapshot = await Snapshot.getSecondLastSnapshot(); // last snapshot would be the just created one
+    if (latestSnapshot) {
+      taskStart = new Date(latestSnapshot.created);
+
+      // if no snapshot exists, consider all database entries
+    } else {
+      taskStart = new Date(0);
+    }
+
     let D = 0; // total duration
     let F = 0; // total number of interactions
     let A = 0; // total age;
@@ -22,7 +33,9 @@ export default class FDACalculator {
     // first, calculate constants
     for await (const appName of appNames) {
       const lastAccess = await ActiveWindow.getLastAppAccess(appName);
-      if (!lastAccess) continue; // Only possible when TaskSnap was not running when app accessed
+      if (!lastAccess || lastAccess.getTime() < taskStart.getTime()) {
+        continue;
+      }
 
       const numOfAccesses = await ActiveWindow.getAccessCount(
         appName,
@@ -41,8 +54,7 @@ export default class FDACalculator {
     // then, calculate relevance of each application
     for await (const appName of appNames) {
       const lastAccess = await ActiveWindow.getLastAppAccess(appName);
-      // Only possible when TaskSnap was not running when app accessed
-      if (!lastAccess) {
+      if (!lastAccess || lastAccess.getTime() < taskStart.getTime()) {
         result.set(appName, 0);
         continue;
       }

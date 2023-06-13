@@ -82,6 +82,19 @@ export default class Snapshot extends BaseEntity {
     }
   }
 
+  static async getSecondLastSnapshot(): Promise<Snapshot | null> {
+    const latestSnapshot = await this.createQueryBuilder('snapshot')
+      .where('snapshot.isArchived = false')
+      .orderBy('snapshot.id', 'DESC')
+      .skip(1)
+      .getOne();
+    if (!latestSnapshot) {
+      return null;
+    } else {
+      return await this.getSnapshotById(latestSnapshot.id);
+    }
+  }
+
   static async getSnapshotById(id: number): Promise<Snapshot | null> {
     const snapshot = await this.findOneBy({ id: id });
     if (!snapshot) {
