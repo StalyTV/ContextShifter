@@ -43,6 +43,7 @@ import { UsageDataOrigin } from '../types/UsageDataOrigin';
 import Exporter from './Exporter';
 import FDACalculator from './FDACalculator';
 import SummaryProvider from './SummaryProvider';
+import StaticSettings from './StaticSettings';
 const fileIcon = require('extract-file-icon');
 const sound = require('sound-play');
 
@@ -409,7 +410,11 @@ export default class TaskSnap {
         openBrowsers.push(browser);
 
         // ide
-      } else if (appName === 'Code' || appName === 'Visual Studio Code' || 'Visual Studio Code.app') {
+      } else if (
+        appName === 'Code' ||
+        appName === 'Visual Studio Code' ||
+        'Visual Studio Code.app'
+      ) {
         const ide = new IDE();
         ide.name = appName;
         ide.path = appPath;
@@ -478,28 +483,51 @@ export default class TaskSnap {
           ? alreadyAddedApplication.files
           : [];
 
-        if (isMac) {
-          const processInfoOfApplication = processInfos.filter((process) => {
-            return process.process.pid === win.owner.processId;
-          });
-          const filePaths = processInfoOfApplication[0].files.map(
-            (f) => f.name
-          );
-          for await (const path of filePaths) {
-            // Remove paths that are simply "/"
-            if (path && path.length > 1) {
+        if (StaticSettings.shouldAppHaveFiles(appName)) {
+          if (isMac) {
+            const processInfoOfApplication = processInfos.filter((process) => {
+              return process.process.pid === win.owner.processId;
+            });
+            const filePaths = processInfoOfApplication[0].files.map(
+              (f) => f.name
+            );
+            for await (const path of filePaths) {
+              // Remove paths that are simply "/"
+              if (path && path.length > 1) {
+                const fileName = getFileNameFromPath(path, true);
+                const lowerCaseFileName = fileName.toLowerCase();
+                if (
+                  (lowerCaseFileName.includes(win.title.toLowerCase()) ||
+                    win.title.toLowerCase().includes(lowerCaseFileName)) &&
+                  !lowerCaseFileName.includes('~$')
+                ) {
+                  // check that file not already included
+                  if (associatedFiles.some((file) => file.path === path)) {
+                    continue;
+                  }
+
+                  const file = new File();
+                  file.path = path;
+                  file.name = getFileNameFromPath(path);
+                  file.isSelected = isAppRelevantForTask; // TODO: Improve this
+                  associatedFiles.push(file);
+                }
+              }
+            }
+            if (associatedFiles.length > 0) {
+              await File.save(associatedFiles);
+            }
+            app.files = associatedFiles;
+
+            // Windows case
+          } else {
+            for await (const path of recentlyOpenedFiles) {
               const fileName = getFileNameFromPath(path, true);
               const lowerCaseFileName = fileName.toLowerCase();
               if (
-                (lowerCaseFileName.includes(win.title.toLowerCase()) ||
-                  win.title.toLowerCase().includes(lowerCaseFileName)) &&
-                !lowerCaseFileName.includes('~$')
+                lowerCaseFileName.includes(win.title.toLowerCase()) ||
+                win.title.toLowerCase().includes(lowerCaseFileName)
               ) {
-                // check that file not already included
-                if (associatedFiles.some((file) => file.path === path)) {
-                  continue;
-                }
-
                 const file = new File();
                 file.path = path;
                 file.name = getFileNameFromPath(path);
@@ -507,32 +535,11 @@ export default class TaskSnap {
                 associatedFiles.push(file);
               }
             }
-          }
-          if (associatedFiles.length > 0) {
-            await File.save(associatedFiles);
-          }
-          app.files = associatedFiles;
-
-          // Windows case
-        } else {
-          for await (const path of recentlyOpenedFiles) {
-            const fileName = getFileNameFromPath(path, true);
-            const lowerCaseFileName = fileName.toLowerCase();
-            if (
-              lowerCaseFileName.includes(win.title.toLowerCase()) ||
-              win.title.toLowerCase().includes(lowerCaseFileName)
-            ) {
-              const file = new File();
-              file.path = path;
-              file.name = getFileNameFromPath(path);
-              file.isSelected = isAppRelevantForTask; // TODO: Improve this
-              associatedFiles.push(file);
+            if (associatedFiles.length > 0) {
+              await File.save(associatedFiles);
             }
+            app.files = associatedFiles;
           }
-          if (associatedFiles.length > 0) {
-            await File.save(associatedFiles);
-          }
-          app.files = associatedFiles;
         }
       }
     }

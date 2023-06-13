@@ -10,4 +10,10 @@ export default class StaticSettings {
   public static IDE_TIME_WINDOW = 10 * 60 * 1000;
   public static LIGHT_PULSE_COLOR: RGB = { r: 8, g: 192, b: 221 };
   public static LIGHT_PULSE_LENGTH = 100; // time in ms
+
+  public static appsWithNoFiles = ['Notes', 'Music'];
+
+  public static shouldAppHaveFiles(appName: string): boolean {
+    return !this.appsWithNoFiles.includes(appName);
+  }
 }
