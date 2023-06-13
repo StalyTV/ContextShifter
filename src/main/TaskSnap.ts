@@ -5,7 +5,7 @@
  */
 
 import { app, dialog } from 'electron';
-import { info } from 'electron-log';
+import { info, error } from 'electron-log';
 import WindowTracker from './trackers/WindowTracker';
 import FileSystemWatcher from './trackers/FileSystemWatcher';
 import TrayManager from './TrayManager';
@@ -46,7 +46,7 @@ import SummaryProvider from './SummaryProvider';
 import StaticSettings from './StaticSettings';
 import ActiveWindow from './entity/ActiveWindow';
 const fileIcon = require('extract-file-icon');
-const sound = require('sound-play');
+const soundPlayer = require('sound-play');
 
 interface TaskSnapWindowObject {
   title: string;
@@ -107,7 +107,9 @@ export default class TaskSnap {
 
   public async createNewSnapshot(origin: UsageDataOrigin) {
     info('[TaskSnap] New snapshot created');
-    sound.play(this._cameraShutterSoundPath);
+    soundPlayer.play(this._cameraShutterSoundPath, (err: any) => {
+      if (err) error(err);
+    });
     this._deviceManager.showLightPulse();
 
     // store currently open active window to be sure that it is included in snapshot
