@@ -127,7 +127,8 @@ async function resolveLink(linkPath: string) {
   try {
     const command = `(New-Object -ComObject WScript.Shell).CreateShortcut('${linkPath}').TargetPath`;
     const res = await asyncExec(command, { shell: 'powershell.exe' });
-    return res.stdout;
+    const cleanedRes = res.stdout.replace('\r\n', '');
+    return cleanedRes;
   } catch (err) {
     error(err);
   }
