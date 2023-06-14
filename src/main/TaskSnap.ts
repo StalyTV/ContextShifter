@@ -460,7 +460,7 @@ export default class TaskSnap {
       } else if (
         appName === 'Code' ||
         appName === 'Visual Studio Code' ||
-        'Visual Studio Code.app'
+        appName === 'Visual Studio Code.app'
       ) {
         const ide = new IDE();
         ide.name = appName;
