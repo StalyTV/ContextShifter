@@ -15,6 +15,7 @@ type Props = {
   editTimestamp: string;
   onNameChange: (e: React.ChangeEvent<HTMLInputElement>) => {};
   showTimestamp: boolean;
+  className?: string;
 };
 
 export default function SnapshotHeader(props: Props) {
@@ -30,7 +31,7 @@ export default function SnapshotHeader(props: Props) {
   };
 
   return (
-    <div className={styles.header}>
+    <div className={`${props.className} ${styles.header}`}>
       <div className={styles.titleContainer}>
         <Input value={props.snapshotName} onChange={props.onNameChange} />
       </div>

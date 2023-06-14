@@ -11,6 +11,7 @@ import { usb } from 'usb';
 import StaticSettings from '../StaticSettings';
 import RGB from '../../types/RGB';
 import TaskSnap from '../TaskSnap';
+import { UsageDataOrigin } from '../../types/UsageDataOrigin';
 
 const supportedDevice: {
   name: string;
@@ -97,6 +98,7 @@ export default class DeviceManager {
   }
 
   public stopMonitoring() {
+    this._connectedDevice?.close();
     usb.unrefHotplugEvents();
   }
 
@@ -132,7 +134,7 @@ export default class DeviceManager {
     // after a click, wait 5 seconds before the next click has an effect. This should avoid accidental multiple clicks.
     if (this._lastButtonClick + 5 * 1000 < Date.now()) {
       this._lastButtonClick = Date.now();
-      TaskSnap.getInstance().createNewSnapshot('usb_device');
+      TaskSnap.getInstance().createNewSnapshot(UsageDataOrigin.USBDevice);
     }
   }
 

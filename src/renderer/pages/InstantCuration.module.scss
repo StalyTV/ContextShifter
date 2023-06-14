@@ -44,6 +44,10 @@
     padding-left: 0.3rem;
     transition: all ease-in 0.1s;
     width: 8.5rem;
+
+    option {
+      background-color: var(--overlay-color);
+    }
   }
 
   .mergeButton:disabled {

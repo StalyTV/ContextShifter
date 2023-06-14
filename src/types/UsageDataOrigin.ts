@@ -9,5 +9,6 @@ export enum UsageDataOrigin {
   InstantCurationWindow = 'instant-curation-window',
   SnapshotGalleryWindow = 'snapshot-gallery-window',
   Tray = 'tray',
-  Shortcut = 'shortcut'
+  Shortcut = 'shortcut',
+  USBDevice = 'usb-device',
 }

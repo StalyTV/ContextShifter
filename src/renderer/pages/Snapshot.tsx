@@ -14,13 +14,14 @@ import Browser from 'renderer/components/Browser';
 import IDE from '../components/IDE';
 import Application from 'renderer/components/Application';
 import Button from 'renderer/components/Button';
-import PostIt from 'renderer/components/PostIt';
+import PostItSection from '../components/PostItSection';
 import { toast } from 'react-toastify';
 import NavBar from '../components/Navigation/NavBar';
 import SnapshotHeader from 'renderer/components/SnapshotHeader';
 import PostponeButton from 'renderer/components/PostponeButton';
 import LoadingAnimation from 'renderer/components/LoadingAnimation';
 import SaveIcon from 'renderer/components/Icons/SaveIcon';
+import TrashIcon from '../components/Icons/TrashIcon';
 
 export default function Snapshot() {
   const [selectedSnapshot, setSelectedSnapshot] =
@@ -114,6 +115,28 @@ export default function Snapshot() {
     snapshot.ides = [...ideMap.values()];
     snapshot.applications = [...applicationMap.values()];
     return snapshot;
+  };
+
+  const onClickDelete = async () => {
+    if (!selectedSnapshot) return;
+
+    if (
+      confirm(`Are you sure that you want to delete "${snapshotName}"?`) ===
+      true
+    ) {
+      toast.promise(
+        async () =>
+          await window.electron.ipcRenderer.invoke(
+            'delete-snapshot',
+            selectedSnapshot.id
+          ),
+        {
+          pending: 'Deleting Snapshot...',
+          success: 'Snapshot Deleted',
+          error: 'Something went wrong',
+        }
+      );
+    }
   };
 
   const onClickSave = async () => {
@@ -238,25 +261,26 @@ export default function Snapshot() {
         <>
           <div className={styles.headerContainer}>
             <SnapshotHeader
+              className={styles.snapshotName}
               snapshotName={snapshotName}
               createTimestamp={selectedSnapshot.created}
               editTimestamp={editTimestamp}
               onNameChange={onNameChange}
               showTimestamp={true}
             />
+            <TrashIcon
+              className={styles.icon}
+              onClick={() => onClickDelete()}
+            />
           </div>
           <div className={styles.mainContainer}>
             <div className={styles.leftContainer}>
-              <PostIt
-                title={'⏪ Now what was I doing?'}
-                content={summary}
-                onTextChange={onSummaryChange}
-              />
-              <PostIt
-                title={'💭 What was I about to do?'}
-                content={intent}
-                infoMessage={`Uncommitted TODOs are automatically added to this section`}
-                onTextChange={onIntentChange}
+              <PostItSection
+                summary={summary}
+                onSummaryChange={onSummaryChange}
+                intent={intent}
+                onIntentChange={onIntentChange}
+                isEditable={true}
               />
             </div>
             <div className={styles.rightContainer}>

@@ -22,7 +22,7 @@ export default class ActiveBrowserTab extends BaseEntity {
       .where('active_browser_tab.ts >= :tsStart', {
         tsStart: startTime.toISOString(),
       })
-      .groupBy("url")
+      .groupBy('url')
       .getMany();
     const urls = entries.map((entry) => {
       return entry.url;

@@ -177,7 +177,12 @@ export default class VSCodeTracker {
       summaryString += '\nUncommitted changes.';
     }
 
-    latestSnapshot.summary = summaryString;
+    // check if summary already exists (see SummaryProvider.ts). If exists, prepend.
+    if (latestSnapshot.summary !== '') {
+      latestSnapshot.summary = `${summaryString}\n\n${latestSnapshot.summary}`;
+    } else {
+      latestSnapshot.summary = summaryString;
+    }
 
     // convert TODOs to intent string
     let intent: string = '';

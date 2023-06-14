@@ -12,7 +12,8 @@ type Props = {
   title: string;
   content: string;
   infoMessage?: string;
-  onTextChange: (text: string) => {};
+  onTextChange: (text: string) => void;
+  isEditable: boolean;
 };
 
 export default function PostIt(props: Props) {
@@ -38,15 +39,17 @@ export default function PostIt(props: Props) {
           ) : null}
         </div>
         <div className={styles.buttonContainer}>
-          <Button
-            className={styles.clearButton}
-            isFilled={false}
-            onClick={() => {
-              onClickClear();
-            }}
-          >
-            Clear
-          </Button>
+          {props.isEditable ? (
+            <Button
+              className={styles.clearButton}
+              isFilled={false}
+              onClick={() => {
+                onClickClear();
+              }}
+            >
+              Clear
+            </Button>
+          ) : null}
         </div>
       </div>
       <div className={styles.postItBody}>

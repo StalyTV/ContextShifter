@@ -1,5 +1,23 @@
 .headerContainer {
+  display: flex;
   width: 25rem;
+
+  .snapshotName {
+    width: 23rem;
+  }
+
+  .icon {
+    height: 1rem;
+    margin-top: 0.75rem;
+    margin-left: 1rem;
+    cursor: pointer;
+
+    &:hover {
+      transform: scale(1.2);
+      transition: all ease-in 0.1s;
+      cursor: pointer;
+    }
+  }
 }
 
 .mainContainer {

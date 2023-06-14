@@ -25,9 +25,6 @@ export default function InstantCuration() {
   const registerEventListeners = () => {
     window.electron.onSnapshotReady(() => {
       setIsSnapshotReady(true);
-      toast('Saved Snapshot', {
-        type: 'success',
-      });
     });
   };
 
@@ -41,11 +38,6 @@ export default function InstantCuration() {
     );
     if (!latestSnapshot) return;
     setFetchedSnapshot(latestSnapshot);
-    if (latestSnapshot.isReady) {
-      toast('Saved Snapshot', {
-        type: 'success',
-      });
-    }
     fetchMergeRecommendations(latestSnapshot.id);
   };
 

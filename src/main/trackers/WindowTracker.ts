@@ -33,6 +33,8 @@ export default class WindowTracker {
       await ActiveWindowDb.insert({
         tsStart: this._currentWindow.ts.toISOString(),
         application: this._currentWindow.process,
+        applicationPath: this._currentWindow.processPath,
+        processId: this._currentWindow.processId,
         activity: this._currentWindow.activity,
         title: isDataAnonymized
           ? 'anonymized'

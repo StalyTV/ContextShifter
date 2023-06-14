@@ -19,6 +19,7 @@ export default class WindowManager {
   public static snapshotWindow: BrowserWindow | null = null;
   public static instantCurationWindow: BrowserWindow | null = null;
   public static snapshotGalleryWindow: BrowserWindow | null = null;
+  public static mentalContextWindow: BrowserWindow | null = null;
 
   public static async createSnapshotWindow(onDomReady: () => void = () => {}) {
     if (this.snapshotWindow) return;
@@ -27,6 +28,8 @@ export default class WindowManager {
       show: false,
       width: 1024,
       height: 800,
+      minWidth: 500,
+      minHeight: 200,
       icon: getAssetPath('icon.png'),
       title: 'Curate Snapshot',
       webPreferences: {
@@ -91,11 +94,13 @@ export default class WindowManager {
       show: false,
       width: 590,
       height: 160,
+      minWidth: 500,
+      minHeight: 150,
       minimizable: false,
       maximizable: false,
       alwaysOnTop: true,
       icon: getAssetPath('icon.png'),
-      title: 'New Snapshot',
+      title: 'New snapshot created - choose how to proceed',
       webPreferences: {
         preload: app.isPackaged
           ? path.join(__dirname, 'preload.js')
@@ -162,6 +167,8 @@ export default class WindowManager {
       show: false,
       width: 1024,
       height: 800,
+      minWidth: 700,
+      minHeight: 300,
       icon: getAssetPath('icon.png'),
       title: 'Snapshot Gallery',
       webPreferences: {
@@ -210,6 +217,70 @@ export default class WindowManager {
     });
 
     const menuBuilder = new MenuBuilder(this.snapshotGalleryWindow);
+    menuBuilder.buildMenu();
+  }
+
+  public static async createMentalContextWindow(onDomReady: () => void) {
+    if (this.mentalContextWindow) return;
+
+    this.mentalContextWindow = new BrowserWindow({
+      show: false,
+      width: 450,
+      height: 700,
+      minWidth: 300,
+      minHeight: 250,
+      maximizable: false,
+      alwaysOnTop: true,
+      icon: getAssetPath('icon.png'),
+      title: 'Mental Task Context',
+      webPreferences: {
+        preload: app.isPackaged
+          ? path.join(__dirname, 'preload.js')
+          : path.join(__dirname, '../../.erb/dll/preload.js'),
+      },
+    });
+
+    this.mentalContextWindow.loadURL(
+      resolveHtmlPath('index.html') + `#/mentalContext`
+    );
+    await UsageData.addEntry('open-mental-context-window');
+
+    this.mentalContextWindow.on('ready-to-show', () => {
+      if (!this.mentalContextWindow) {
+        throw new Error('"mentalContextWindow" is not defined');
+      }
+      if (process.env.START_MINIMIZED) {
+        this.mentalContextWindow.minimize();
+      } else {
+        this.mentalContextWindow.show();
+      }
+    });
+
+    this.mentalContextWindow.webContents.once('did-finish-load', () => {
+      this.mentalContextWindow?.setMenuBarVisibility(false);
+    });
+
+    this.mentalContextWindow.on('closed', async () => {
+      this.mentalContextWindow = null;
+      await UsageData.addEntry('close-mental-context-window');
+    });
+
+    this.mentalContextWindow.webContents.once('dom-ready', onDomReady);
+
+    this.mentalContextWindow.on('minimize', async () => {
+      await UsageData.addEntry('minimize-mental-context-window');
+    });
+    this.mentalContextWindow.on('restore', async () => {
+      await UsageData.addEntry('restore-mental-context-window');
+    });
+    this.mentalContextWindow.on('focus', async () => {
+      await UsageData.addEntry('focus-mental-context-window');
+    });
+    this.mentalContextWindow.on('blur', async () => {
+      await UsageData.addEntry('blur-mental-context-window');
+    });
+
+    const menuBuilder = new MenuBuilder(this.mentalContextWindow);
     menuBuilder.buildMenu();
   }
 }
