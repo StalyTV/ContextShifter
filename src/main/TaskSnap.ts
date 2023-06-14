@@ -538,9 +538,16 @@ export default class TaskSnap {
               return process.process.pid === win.processId;
             });
             if (processInfoOfApplication.length > 0) {
-              const filePaths = processInfoOfApplication[0].files.map(
+              let filePaths = processInfoOfApplication[0].files.map(
                 (f) => f.name
               );
+
+              // Apple Preview stores associated files differently
+              if (appName === 'Preview') {
+                filePaths = processInfoOfApplication[0].texts.map(
+                  (f) => f.name
+                );
+              }
               for await (const path of filePaths) {
                 // Remove paths that are simply "/"
                 if (path && path.length > 1) {
