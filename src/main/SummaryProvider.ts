@@ -17,7 +17,10 @@ export default class SummaryProvider {
     let latestActiveURL = '';
     if (lastActiveTab) {
       if (lastActiveTab.timestamp.getTime() > startTimeWindow.getTime()) {
-        latestActiveURL = lastActiveTab.tab.url || '';
+        if (lastActiveTab.tab.url) {
+          const url = new URL(lastActiveTab.tab.url);
+          latestActiveURL = url.hostname;
+        }
       }
     }
 

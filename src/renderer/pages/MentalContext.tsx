@@ -48,7 +48,7 @@ export default function MentalContext() {
           <h1 className={styles.noMarginBottom}>{`${snapshot.name}`}</h1>
           <p>
             The snapshot's artifacts are loading. Below, you can see where you
-            left off (if provided).
+            left off.
           </p>
           <PostItSection
             summary={snapshot.summary}

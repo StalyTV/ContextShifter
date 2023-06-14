@@ -211,20 +211,22 @@ export default class TaskSnap {
       `id: ${snapshot.id}, origin: ${origin}`
     );
 
-    // create window that visualizes summary and intent of snapshot
-    if (!WindowManager.mentalContextWindow) {
-      await WindowManager.createMentalContextWindow(() => {
+    // if summary or intent available, create window that visualizes summary and intent of snapshot
+    if (snapshot.summary || snapshot.intent) {
+      if (!WindowManager.mentalContextWindow) {
+        await WindowManager.createMentalContextWindow(() => {
+          const destination = WindowManager.mentalContextWindow
+            ?.webContents as TypedWebContents<Events>;
+          destination?.send('snapshot-selected', snapshot.id);
+          this.restoreWorkingContext(snapshot);
+        });
+      } else {
+        WindowManager.mentalContextWindow.show();
         const destination = WindowManager.mentalContextWindow
-          ?.webContents as TypedWebContents<Events>;
+          .webContents as TypedWebContents<Events>;
         destination?.send('snapshot-selected', snapshot.id);
         this.restoreWorkingContext(snapshot);
-      });
-    } else {
-      WindowManager.mentalContextWindow.show();
-      const destination = WindowManager.mentalContextWindow
-        .webContents as TypedWebContents<Events>;
-      destination?.send('snapshot-selected', snapshot.id);
-      this.restoreWorkingContext(snapshot);
+      }
     }
   }
   private restoreWorkingContext(snapshot: Snapshot) {

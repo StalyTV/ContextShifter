@@ -161,7 +161,7 @@ export default class VSCodeTracker {
           ? `${lastEdit.functionName} - ${fileName}`
           : fileName;
 
-        summaryString += `Just edited line ${lineInfo} in [${functionAndFileName}]`;
+        summaryString += `Just edited line ${lineInfo} in [${functionAndFileName}].\n`;
       }
     }
 
@@ -169,17 +169,17 @@ export default class VSCodeTracker {
     if (lastCommit && lastCommit.commitDate) {
       const commitTime = new Date(lastCommit.commitDate).getTime();
       if (commitTime > Date.now() - StaticSettings.IDE_TIME_WINDOW) {
-        summaryString += `\nRecently committed "${lastCommit.message}"`;
+        summaryString += `Recently committed "${lastCommit.message}.\n"`;
       }
     }
 
     if (data.hasUncommittedChanges) {
-      summaryString += '\nUncommitted changes.';
+      summaryString += 'Uncommitted changes.\n';
     }
 
     // check if summary already exists (see SummaryProvider.ts). If exists, prepend.
     if (latestSnapshot.summary !== '') {
-      latestSnapshot.summary = `${summaryString}\n\n${latestSnapshot.summary}`;
+      latestSnapshot.summary = `${summaryString}\n${latestSnapshot.summary}`;
     } else {
       latestSnapshot.summary = summaryString;
     }
