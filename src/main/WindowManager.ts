@@ -165,7 +165,7 @@ export default class WindowManager {
 
     this.snapshotGalleryWindow = new BrowserWindow({
       show: false,
-      width: 1024,
+      width: 1050,
       height: 800,
       minWidth: 700,
       minHeight: 300,
