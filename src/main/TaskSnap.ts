@@ -107,9 +107,7 @@ export default class TaskSnap {
 
   public async createNewSnapshot(origin: UsageDataOrigin) {
     info('[TaskSnap] New snapshot created');
-    soundPlayer.play(this._cameraShutterSoundPath, (err: any) => {
-      if (err) error(err);
-    });
+    soundPlayer.play(this._cameraShutterSoundPath);
     this._deviceManager.showLightPulse();
 
     // store currently open active window to be sure that it is included in snapshot
