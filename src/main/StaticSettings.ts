@@ -11,6 +11,7 @@ export default class StaticSettings {
   public static RECENTLY_OPEN_APPS_TIME_WINDOW = 15 * 60 * 1000;
   public static LIGHT_PULSE_COLOR: RGB = { r: 8, g: 192, b: 221 };
   public static LIGHT_PULSE_LENGTH = 100; // time in ms
+  public static FDA_THRESHOLD = 1;
 
   public static appsWithNoFiles = ['Notes', 'Music'];
 

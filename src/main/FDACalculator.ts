@@ -10,6 +10,7 @@ import ActiveFile from './entity/ActiveFile';
 import Snapshot from './entity/Snapshot';
 import { hashUrl } from './helpers/hashUrl';
 import { info } from 'electron-log';
+import StaticSettings from './StaticSettings';
 
 // based on the algorithm proposed in the paper "Using contexts similarity to predict relationships between tasks"
 // by Walid Maalej, Mathias Ellmann & Romain Robbes
@@ -35,10 +36,16 @@ export default class FDACalculator {
       });
     });
 
-    await FDACalculator.setRelevanceOfArtifacts(appNames, urls, ideFiles);
+    await FDACalculator.setRelevanceOfArtifacts(
+      snapshotId,
+      appNames,
+      urls,
+      ideFiles
+    );
   }
 
   private static async setRelevanceOfArtifacts(
+    snapshotId: number,
     appNames: string[],
     urls: string[],
     ideFiles: string[]
@@ -120,12 +127,12 @@ export default class FDACalculator {
       D += accessDuration;
     }
 
-    const result = new Map();
+    const relevances = new Map<string, number>();
     // then, calculate relevance of each application
     for await (const appName of appNames) {
       const lastAccess = await ActiveWindow.getLastAppAccess(appName);
       if (!lastAccess || lastAccess.getTime() < taskStart.getTime()) {
-        result.set(appName, 0);
+        relevances.set(appName, 0);
         continue;
       }
 
@@ -144,14 +151,14 @@ export default class FDACalculator {
         accessCount,
         accessDuration
       );
-      result.set(appName, rel);
+      relevances.set(appName, rel);
     }
 
     for await (const url of urls) {
       const hashedUrl = hashUrl(url);
       const lastAccess = await ActiveBrowserTab.getLastURLAccess(hashedUrl);
       if (!lastAccess || lastAccess.getTime() < taskStart.getTime()) {
-        result.set(url, 0);
+        relevances.set(url, 0);
         continue;
       }
 
@@ -172,13 +179,13 @@ export default class FDACalculator {
         accessCount,
         accessDuration
       );
-      result.set(url, rel);
+      relevances.set(url, rel);
     }
 
     for await (const filePath of ideFiles) {
       const lastAccess = await ActiveFile.getLastFileAccess(filePath);
       if (!lastAccess || lastAccess.getTime() < taskStart.getTime()) {
-        result.set(filePath, 0);
+        relevances.set(filePath, 0);
         continue;
       }
 
@@ -196,14 +203,58 @@ export default class FDACalculator {
         accessCount,
         accessDuration
       );
-      result.set(filePath, rel);
+      relevances.set(filePath, rel);
     }
 
     let loggingString = ''; // Somehow logging a map does not work
-    result.forEach((value, key) => {
+    relevances.forEach((value, key) => {
       loggingString += `([${key}] ${value}),`;
     });
     info('[TaskSnap] Relevances:', loggingString);
+
+    // add relevances to artifacts and select them if above threshold
+    const snapshot = await Snapshot.getSnapshotById(snapshotId);
+    if (!snapshot) return;
+    snapshot.applications.forEach((app) => {
+      const rel = relevances.get(app.name) || 0;
+      const isAppRelevant = rel > StaticSettings.FDA_THRESHOLD;
+      app.relevance = rel;
+      app.isSelected = isAppRelevant;
+
+      app.files.forEach((file) => {
+        file.isSelected = isAppRelevant; // NOTE: This could be made more fine-grained
+        file.save();
+      });
+      app.save();
+    });
+
+    snapshot.browsers.forEach((browser) => {
+      let isOneTabRelevant = false;
+      browser.browserTabs.forEach((tab) => {
+        const rel = relevances.get(tab.url) || 0;
+        const isTabRelevant = rel > StaticSettings.FDA_THRESHOLD;
+        tab.relevance = rel;
+        tab.isSelected = isTabRelevant;
+        tab.save();
+        if (isTabRelevant) isOneTabRelevant = true;
+      });
+      browser.isSelected = isOneTabRelevant;
+      browser.save();
+    });
+
+    snapshot.ides.forEach((ide) => {
+      let isOneFileRelevant = false;
+      ide.ideFiles.forEach((file) => {
+        const rel = relevances.get(file.path) || 0;
+        const isFileRelevant = rel > StaticSettings.FDA_THRESHOLD;
+        file.relevance = rel;
+        file.isSelected = isFileRelevant;
+        file.save();
+        if (isFileRelevant) isOneFileRelevant = true;
+      });
+      ide.isSelected = isOneFileRelevant;
+      ide.save();
+    });
   }
 
   private static calculateRelevanceScore(
