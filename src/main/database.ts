@@ -20,6 +20,7 @@ import IDEFile from './entity/IDEFile';
 import UsageData from './entity/UsageData';
 import KnownApplication from './entity/KnownApplication';
 import ActiveBrowserTab from './entity/ActiveBrowserTab';
+import ActiveFile from './entity/ActiveFile';
 import IDEFileEvent from './entity/IDEFileEvent';
 import Settings from './entity/Settings';
 
@@ -48,6 +49,7 @@ export const Database = new DataSource({
     ActiveBrowserTab,
     IDEFileEvent,
     Settings,
+    ActiveFile,
   ],
   synchronize: true,
 });

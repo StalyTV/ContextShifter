@@ -145,6 +145,11 @@ export default class BrowserTracker {
       };
       ActiveArtifact.setCurrentTab(tab);
     }
+
+    // if browser is no longer in focus, finish the session of the currently active tab
+    if (data.type === 'window-unfocus') {
+      await ActiveArtifact.storeCurrentTab();
+    }
   }
 
   private handleSequence(

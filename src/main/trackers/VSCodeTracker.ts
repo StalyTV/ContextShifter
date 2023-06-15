@@ -12,6 +12,8 @@ import IDEFile from '../entity/IDEFile';
 import { getFileNameFromPath } from '../helpers/getFileNameFromPath';
 import StaticSettings from '../StaticSettings';
 import IDEFileEvent from '../entity/IDEFileEvent';
+import ActiveArtifact from './ActiveArtifact';
+import { ActiveFile } from '../../types/ActiveFile';
 
 export default class VSCodeTracker {
   private _port = 8086;
@@ -61,6 +63,8 @@ export default class VSCodeTracker {
         } else if (obj.endpoint === 'file-save') {
           const filePath = obj.data as string;
           self.handleFileSaveEvent(filePath);
+        } else if (obj.endpoint === 'window-unfocus') {
+          self.handleWindowUnfocusEvent();
         }
       });
     });
@@ -201,6 +205,12 @@ export default class VSCodeTracker {
     dbEntry.ts = new Date().toISOString();
     dbEntry.type = 'active-file';
     dbEntry.save();
+
+    const file: ActiveFile = {
+      path: filePath,
+      ts: new Date(),
+    };
+    ActiveArtifact.setCurrentFile(file);
   }
 
   public handleFileSaveEvent(filePath: string): void {
@@ -209,6 +219,10 @@ export default class VSCodeTracker {
     dbEntry.ts = new Date().toISOString();
     dbEntry.type = 'file-save';
     dbEntry.save();
+  }
+
+  public handleWindowUnfocusEvent(): void {
+    ActiveArtifact.storeCurrentFile();
   }
 
   public isSocketOpen(): boolean {

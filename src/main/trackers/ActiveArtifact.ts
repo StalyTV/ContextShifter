@@ -12,22 +12,20 @@ import { powerMonitor } from 'electron';
 import { ActiveTab } from 'types/ActiveTab';
 import { hashUrl } from '../helpers/hashUrl';
 import ActiveBrowserTab from '../entity/ActiveBrowserTab';
+import ActiveFileDb from '../entity/ActiveFile';
+import { ActiveFile } from 'types/ActiveFile';
 
 // the purpose of this class is to provide references to the currently open artifact and to store it to db
 export default class ActiveArtifact {
   private static _currentWindow: ActiveWindow | null = null;
   private static _currentTab: ActiveTab | null = null;
+  private static _currentFile: ActiveFile | null = null;
   private static _lastTab: ActiveTab | null = null;
   private static _idleCheckLoopRef: NodeJS.Timeout | undefined;
 
   public static async setCurrentWindow(activeWindow: ActiveWindow) {
     await this.storeCurrentWindow();
     this._currentWindow = activeWindow;
-
-    // when the window changes and before a browser tab was in focus, store it
-    if (this._currentTab) {
-      this.storeCurrentTab();
-    }
   }
 
   public static async storeCurrentWindow() {
@@ -75,6 +73,28 @@ export default class ActiveArtifact {
       this._lastTab = this._currentTab;
       this._currentTab = null;
       debug('[ActiveArtifact] Stored active tab');
+    }
+  }
+
+  public static async setCurrentFile(activeFile: ActiveFile) {
+    if (!this._currentFile) {
+      this._currentFile = activeFile;
+    } else if (this._currentFile.path !== activeFile.path) {
+      await this.storeCurrentFile();
+      this._currentFile = activeFile;
+    }
+  }
+
+  public static async storeCurrentFile() {
+    if (this._currentFile) {
+      const dbEntry = new ActiveFileDb();
+      dbEntry.path = this._currentFile.path;
+      dbEntry.tsStart = this._currentFile.ts.toISOString();
+      dbEntry.duration = Date.now() - this._currentFile.ts.getTime();
+      dbEntry.save();
+
+      this._currentFile = null;
+      debug('[ActiveArtifact] Stored active file');
     }
   }
 
