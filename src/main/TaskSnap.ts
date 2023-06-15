@@ -168,12 +168,17 @@ export default class TaskSnap {
 
     // latest tabs are already stored in memory. Save them to db.
     if (openBrowsers.length > 0) {
-      this._browserTracker.saveOpenTabsToDb(openBrowsers);
+      await this._browserTracker.saveOpenTabsToDb(openBrowsers);
     }
 
     // same for vscode
     if (openIDEs.length > 0) {
       this._vscodeTracker.sendGetVSCodeSnapshotRequest();
+
+      // if no IDE is connected, we can do the relevance calculation at this point.
+      // otherwise it is done after the data of the IDE is received
+    } else {
+      FDACalculator.addRelevanceToSnapshotArtifacts(newSnapshot.id);
     }
 
     // notify windows that snapshot is ready
@@ -411,22 +416,6 @@ export default class TaskSnap {
         appNamesOfOpenWindows.push(appName);
       }
     });
-    const relevances = await FDACalculator.getRelevanceOfApplications(
-      appNamesOfOpenWindows
-    );
-    let loggingString = ''; // Somehow logging a map does not work
-    relevances.forEach((value, key) => {
-      loggingString += `([${key}] ${value}),`;
-    });
-    info('[TaskSnap] Relevances:', loggingString);
-    const relevantApps: string[] = [];
-    relevances.forEach((val, appName) => {
-      if (val > 1) {
-        // TODO: Make this more sophisticated
-        relevantApps.push(appName);
-      }
-    });
-
     const openBrowsers: Browser[] = [];
     const openIDEs: IDE[] = [];
     const openApplications: Application[] = [];
@@ -434,8 +423,6 @@ export default class TaskSnap {
       const appName = win.application;
       const appPath = win.applicationPath;
       if (appName === app.getName() || appName === 'Electron') continue;
-
-      const isAppRelevantForTask = relevantApps.includes(appName);
 
       // browsers get stored separately, as handling of urls different than handling of files
       if (
@@ -458,8 +445,6 @@ export default class TaskSnap {
         browser.path = appPath;
         browser.icon = this.getApplicationIcon(appPath);
         browser.title = win.title;
-        browser.isSelected = isAppRelevantForTask;
-        browser.relevance = relevances.get(appName) || 0;
         openBrowsers.push(browser);
 
         // ide
@@ -473,8 +458,6 @@ export default class TaskSnap {
         ide.path = appPath;
         ide.icon = this.getApplicationIcon(appPath);
         ide.title = win.title;
-        ide.isSelected = isAppRelevantForTask;
-        ide.relevance = relevances.get(appName) || 0;
         openIDEs.push(ide);
 
         // file explorer
@@ -493,8 +476,6 @@ export default class TaskSnap {
         app.path = appPath;
         app.icon = this.getApplicationIcon(appPath);
         app.title = 'File System';
-        app.isSelected = isAppRelevantForTask;
-        app.relevance = relevances.get(appName) || 0;
         openApplications.push(app);
 
         const associatedFolders: File[] = [];
@@ -503,7 +484,6 @@ export default class TaskSnap {
           const file = new File();
           file.path = path;
           file.name = getFileNameFromPath(path);
-          file.isSelected = isAppRelevantForTask; // TODO: Improve this
           associatedFolders.push(file);
         });
         if (associatedFolders.length > 0) {
@@ -528,7 +508,6 @@ export default class TaskSnap {
           app.path = appPath;
           app.icon = this.getApplicationIcon(appPath);
           app.title = win.title;
-          app.isSelected = isAppRelevantForTask;
           openApplications.push(app);
         }
 
@@ -570,7 +549,6 @@ export default class TaskSnap {
                     const file = new File();
                     file.path = path;
                     file.name = getFileNameFromPath(path);
-                    file.isSelected = isAppRelevantForTask; // TODO: Improve this
                     associatedFiles.push(file);
                   }
                 }
@@ -593,7 +571,6 @@ export default class TaskSnap {
                 const file = new File();
                 file.path = path;
                 file.name = getFileNameFromPath(path);
-                file.isSelected = isAppRelevantForTask; // TODO: Improve this
                 associatedFiles.push(file);
               }
             }

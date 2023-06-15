@@ -4,17 +4,45 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, May 2023
  */
 
+import ActiveBrowserTab from './entity/ActiveBrowserTab';
 import ActiveWindow from './entity/ActiveWindow';
+import ActiveFile from './entity/ActiveFile';
 import Snapshot from './entity/Snapshot';
+import { hashUrl } from './helpers/hashUrl';
+import { info } from 'electron-log';
 
 // based on the algorithm proposed in the paper "Using contexts similarity to predict relationships between tasks"
 // by Walid Maalej, Mathias Ellmann & Romain Robbes
 // https://doi.org/10.1016/j.jss.2016.11.033
 export default class FDACalculator {
-  public static async getRelevanceOfApplications(
-    appNames: string[]
-  ): Promise<Map<string, number>> {
-    const result = new Map();
+  public static async addRelevanceToSnapshotArtifacts(snapshotId: number) {
+    const snapshot = await Snapshot.getSnapshotById(snapshotId);
+    if (!snapshot) return;
+
+    const appNames: string[] = snapshot.applications.map((app) => {
+      return app.name;
+    });
+    const urls: string[] = [];
+    snapshot.browsers.forEach((browser) => {
+      browser.browserTabs.forEach((tab) => {
+        urls.push(tab.url);
+      });
+    });
+    const ideFiles: string[] = [];
+    snapshot.ides.forEach((ide) => {
+      ide.ideFiles.forEach((file) => {
+        ideFiles.push(file.path);
+      });
+    });
+
+    await FDACalculator.setRelevanceOfArtifacts(appNames, urls, ideFiles);
+  }
+
+  private static async setRelevanceOfArtifacts(
+    appNames: string[],
+    urls: string[],
+    ideFiles: string[]
+  ): Promise<void> {
     // we consider all interaction that happened since the last snapshot was created
     let taskStart: Date;
     const latestSnapshot = await Snapshot.getSecondLastSnapshot(); // last snapshot would be the just created one
@@ -51,6 +79,48 @@ export default class FDACalculator {
       D += accessDuration;
     }
 
+    for await (const url of urls) {
+      const hashedUrl = hashUrl(url);
+      const lastAccess = await ActiveBrowserTab.getLastURLAccess(hashedUrl);
+      if (!lastAccess || lastAccess.getTime() < taskStart.getTime()) {
+        continue;
+      }
+
+      const numOfAccesses = await ActiveBrowserTab.getAccessCount(
+        hashedUrl,
+        taskStart
+      );
+      const accessDuration = await ActiveBrowserTab.getAccessDuration(
+        hashedUrl,
+        taskStart
+      );
+      const timeElapsed = Date.now() - lastAccess.getTime();
+      A += timeElapsed;
+      F += numOfAccesses;
+      D += accessDuration;
+    }
+
+    for await (const filePath of ideFiles) {
+      const lastAccess = await ActiveFile.getLastFileAccess(filePath);
+      if (!lastAccess || lastAccess.getTime() < taskStart.getTime()) {
+        continue;
+      }
+
+      const numOfAccesses = await ActiveFile.getAccessCount(
+        filePath,
+        taskStart
+      );
+      const accessDuration = await ActiveFile.getAccessDuration(
+        filePath,
+        taskStart
+      );
+      const timeElapsed = Date.now() - lastAccess.getTime();
+      A += timeElapsed;
+      F += numOfAccesses;
+      D += accessDuration;
+    }
+
+    const result = new Map();
     // then, calculate relevance of each application
     for await (const appName of appNames) {
       const lastAccess = await ActiveWindow.getLastAppAccess(appName);
@@ -80,6 +150,67 @@ export default class FDACalculator {
       }
     }
 
-    return result;
+    for await (const url of urls) {
+      const hashedUrl = hashUrl(url);
+      const lastAccess = await ActiveBrowserTab.getLastURLAccess(hashedUrl);
+      if (!lastAccess || lastAccess.getTime() < taskStart.getTime()) {
+        result.set(url, 0);
+        continue;
+      }
+
+      const timeElapsed = Date.now() - lastAccess.getTime();
+      const age = timeElapsed / A;
+
+      const accessCount = await ActiveBrowserTab.getAccessCount(hashedUrl, taskStart);
+      const freq = (accessCount * 1) / F;
+
+      const accessDuration = await ActiveBrowserTab.getAccessDuration(
+        hashedUrl,
+        taskStart
+      );
+      const dur = accessDuration / D;
+
+      // to ensure no division by 0 happens
+      if (age > 0) {
+        const rel = (freq * dur) / age;
+        result.set(url, rel);
+      } else {
+        result.set(url, 0);
+      }
+    }
+
+    for await (const filePath of ideFiles) {
+      const lastAccess = await ActiveFile.getLastFileAccess(filePath);
+      if (!lastAccess || lastAccess.getTime() < taskStart.getTime()) {
+        result.set(filePath, 0);
+        continue;
+      }
+
+      const timeElapsed = Date.now() - lastAccess.getTime();
+      const age = timeElapsed / A;
+
+      const accessCount = await ActiveFile.getAccessCount(filePath, taskStart);
+      const freq = (accessCount * 1) / F;
+
+      const accessDuration = await ActiveFile.getAccessDuration(
+        filePath,
+        taskStart
+      );
+      const dur = accessDuration / D;
+
+      // to ensure no division by 0 happens
+      if (age > 0) {
+        const rel = (freq * dur) / age;
+        result.set(filePath, rel);
+      } else {
+        result.set(filePath, 0);
+      }
+    }
+
+    let loggingString = ''; // Somehow logging a map does not work
+    result.forEach((value, key) => {
+      loggingString += `([${key}] ${value}),`;
+    });
+    info('[TaskSnap] Relevances:', loggingString);
   }
 }

@@ -14,6 +14,7 @@ import StaticSettings from '../StaticSettings';
 import IDEFileEvent from '../entity/IDEFileEvent';
 import ActiveArtifact from './ActiveArtifact';
 import { ActiveFile } from '../../types/ActiveFile';
+import FDACalculator from '../FDACalculator';
 
 export default class VSCodeTracker {
   private _port = 8086;
@@ -117,21 +118,12 @@ export default class VSCodeTracker {
     }
     ide.save();
 
-    // for smart pre-selection, look which files were active within the last 10 minutes - TODO: update this condition
-    const timeMinus10Min = Date.now() - 10 * 60 * 1000;
-    const recentlyActiveFiles = await IDEFileEvent.getRecentlyActiveIDEFiles(
-      new Date(timeMinus10Min)
-    );
-
     for await (const openFile of data.openFiles) {
-      const wasFileRecentlyActive = recentlyActiveFiles.includes(openFile.path);
-
       const ideFile = new IDEFile();
       ideFile.name = openFile.name;
       ideFile.path = openFile.path;
       ideFile.isActive = openFile.isActive;
       ideFile.ide = ide;
-      ideFile.isSelected = wasFileRecentlyActive;
       ideFile.save();
     }
 
@@ -196,7 +188,10 @@ export default class VSCodeTracker {
     });
     latestSnapshot.intent = intent;
 
-    latestSnapshot.save();
+    await latestSnapshot.save();
+
+    // now that all data is added to the snapshot, calculate relevance
+    FDACalculator.addRelevanceToSnapshotArtifacts(latestSnapshot.id);
   }
 
   public handleActiveFileEvent(filePath: string): void {

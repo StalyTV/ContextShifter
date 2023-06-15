@@ -183,10 +183,6 @@ export default class BrowserTracker {
       for await (const tab of tabsOfBrowser) {
         if (!tab.url) continue;
 
-        const wasTabRecentlyActive = recentlyActiveUrls.includes(
-          hashUrl(tab.url)
-        );
-
         const tabEntity = new BrowserTab();
         tabEntity.url = tab.url;
         tabEntity.title = tab.title;
@@ -194,7 +190,6 @@ export default class BrowserTracker {
         tabEntity.index = tab.index;
         tabEntity.isActive = tab.active;
         tabEntity.browser = browser;
-        tabEntity.isSelected = wasTabRecentlyActive;
         tabEntity.save();
       }
 
