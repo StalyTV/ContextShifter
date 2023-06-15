@@ -130,24 +130,21 @@ export default class FDACalculator {
       }
 
       const timeElapsed = Date.now() - lastAccess.getTime();
-      const age = timeElapsed / A;
-
       const accessCount = await ActiveWindow.getAccessCount(appName, taskStart);
-      const freq = (accessCount * 1) / F;
-
       const accessDuration = await ActiveWindow.getAccessDuration(
         appName,
         taskStart
       );
-      const dur = accessDuration / D;
 
-      // to ensure no division by 0 happens
-      if (age > 0) {
-        const rel = (freq * dur) / age;
-        result.set(appName, rel);
-      } else {
-        result.set(appName, 0);
-      }
+      const rel = this.calculateRelevanceScore(
+        A,
+        F,
+        D,
+        timeElapsed,
+        accessCount,
+        accessDuration
+      );
+      result.set(appName, rel);
     }
 
     for await (const url of urls) {
@@ -159,24 +156,23 @@ export default class FDACalculator {
       }
 
       const timeElapsed = Date.now() - lastAccess.getTime();
-      const age = timeElapsed / A;
-
-      const accessCount = await ActiveBrowserTab.getAccessCount(hashedUrl, taskStart);
-      const freq = (accessCount * 1) / F;
-
+      const accessCount = await ActiveBrowserTab.getAccessCount(
+        hashedUrl,
+        taskStart
+      );
       const accessDuration = await ActiveBrowserTab.getAccessDuration(
         hashedUrl,
         taskStart
       );
-      const dur = accessDuration / D;
-
-      // to ensure no division by 0 happens
-      if (age > 0) {
-        const rel = (freq * dur) / age;
-        result.set(url, rel);
-      } else {
-        result.set(url, 0);
-      }
+      const rel = this.calculateRelevanceScore(
+        A,
+        F,
+        D,
+        timeElapsed,
+        accessCount,
+        accessDuration
+      );
+      result.set(url, rel);
     }
 
     for await (const filePath of ideFiles) {
@@ -187,24 +183,20 @@ export default class FDACalculator {
       }
 
       const timeElapsed = Date.now() - lastAccess.getTime();
-      const age = timeElapsed / A;
-
       const accessCount = await ActiveFile.getAccessCount(filePath, taskStart);
-      const freq = (accessCount * 1) / F;
-
       const accessDuration = await ActiveFile.getAccessDuration(
         filePath,
         taskStart
       );
-      const dur = accessDuration / D;
-
-      // to ensure no division by 0 happens
-      if (age > 0) {
-        const rel = (freq * dur) / age;
-        result.set(filePath, rel);
-      } else {
-        result.set(filePath, 0);
-      }
+      const rel = this.calculateRelevanceScore(
+        A,
+        F,
+        D,
+        timeElapsed,
+        accessCount,
+        accessDuration
+      );
+      result.set(filePath, rel);
     }
 
     let loggingString = ''; // Somehow logging a map does not work
@@ -212,5 +204,24 @@ export default class FDACalculator {
       loggingString += `([${key}] ${value}),`;
     });
     info('[TaskSnap] Relevances:', loggingString);
+  }
+
+  private static calculateRelevanceScore(
+    A: number,
+    F: number,
+    D: number,
+    timeElapsed: number,
+    accessCount: number,
+    accessDuration: number
+  ): number {
+    const age = timeElapsed / A;
+    const freq = (accessCount * 1) / F;
+    const dur = accessDuration / D;
+    // to ensure no division by 0 happens
+    if (age > 0) {
+      return (freq * dur) / age;
+    } else {
+      return 0;
+    }
   }
 }
