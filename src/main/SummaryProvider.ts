@@ -5,20 +5,20 @@
  */
 
 import ActiveWindow from './entity/ActiveWindow';
-import BrowserTracker from './trackers/BrowserTracker';
+import ActiveArtifact from './trackers/ActiveArtifact';
 
 export default class SummaryProvider {
   public static async createTaskSummary(): Promise<string> {
     const startTimeWindow = new Date(Date.now() - 5 * 60 * 1000);
 
     const mostActiveApp = await ActiveWindow.getMostActiveApp(startTimeWindow);
-    const lastActiveTab = BrowserTracker.getInstance().getCurrentlyActiveTab();
+    const lastActiveTab = ActiveArtifact.getLastActiveTab();
 
     let latestActiveURL = '';
     if (lastActiveTab) {
-      if (lastActiveTab.timestamp.getTime() > startTimeWindow.getTime()) {
-        if (lastActiveTab.tab.url) {
-          const url = new URL(lastActiveTab.tab.url);
+      if (lastActiveTab.ts.getTime() > startTimeWindow.getTime()) {
+        if (lastActiveTab.url) {
+          const url = new URL(lastActiveTab.url);
           latestActiveURL = url.hostname;
         }
       }

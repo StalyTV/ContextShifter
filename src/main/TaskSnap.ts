@@ -5,7 +5,7 @@
  */
 
 import { app, dialog } from 'electron';
-import { info, error } from 'electron-log';
+import { info } from 'electron-log';
 import WindowTracker from './trackers/WindowTracker';
 import FileSystemWatcher from './trackers/FileSystemWatcher';
 import TrayManager from './TrayManager';
@@ -45,6 +45,7 @@ import FDACalculator from './FDACalculator';
 import SummaryProvider from './SummaryProvider';
 import StaticSettings from './StaticSettings';
 import ActiveWindow from './entity/ActiveWindow';
+import ActiveArtifact from './trackers/ActiveArtifact';
 const fileIcon = require('extract-file-icon');
 const soundPlayer = require('sound-play');
 
@@ -97,12 +98,15 @@ export default class TaskSnap {
     info('[TaskSnap] Started Trackers');
     this._windowTracker.start();
     this._fileSystemWatcher.start();
+    ActiveArtifact.startIdleCheck();
   }
 
   public async stopTrackers() {
     info('[TaskSnap] Stopped Trackers');
     await this._windowTracker.stop();
     this._fileSystemWatcher.stop();
+    await ActiveArtifact.storeAll();
+    await ActiveArtifact.stopIdleCheck();
   }
 
   public async createNewSnapshot(origin: UsageDataOrigin) {
@@ -111,7 +115,7 @@ export default class TaskSnap {
     this._deviceManager.showLightPulse();
 
     // store currently open active window to be sure that it is included in snapshot
-    await this._windowTracker.storeCurrentWindow();
+    await ActiveArtifact.storeCurrentWindow();
 
     // immediately create snapshot and open instant curation view, later add open applications and files to snapshot.
     const timestamp = new Date().toISOString();

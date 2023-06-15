@@ -20,11 +20,9 @@ import Browser from '../entity/Browser';
 import BrowserTab from '../entity/BrowserTab';
 import ActiveBrowserTab from '../entity/ActiveBrowserTab';
 import { BrowserType } from 'types/BrowserType';
-
-type ActiveTab = {
-  tab: Tabs.Tab;
-  timestamp: Date;
-};
+import { hashUrl } from '../helpers/hashUrl';
+import { ActiveTab } from '../../types/ActiveTab';
+import ActiveArtifact from './ActiveArtifact';
 
 export default class BrowserTracker {
   private static _instance: BrowserTracker;
@@ -37,7 +35,6 @@ export default class BrowserTracker {
     ['edge', []],
   ]);
   private _openTabs: Map<BrowserType, Tabs.Tab[]> = new Map();
-  private _currentlyActiveTab: ActiveTab | null = null;
 
   private constructor() {
     this._server = new WebSocketServer({ port: this._port });
@@ -142,16 +139,11 @@ export default class BrowserTracker {
       return tab.active;
     });
     if (activeTab && activeTab.url) {
-      this._currentlyActiveTab = {
-        tab: activeTab,
-        timestamp: new Date(),
+      const tab: ActiveTab = {
+        url: activeTab.url,
+        ts: new Date(),
       };
-
-      const urlToStore = this.createHash(activeTab.url);
-      const dbEntry = new ActiveBrowserTab();
-      dbEntry.url = urlToStore;
-      dbEntry.ts = new Date().toISOString();
-      dbEntry.save();
+      ActiveArtifact.setCurrentTab(tab);
     }
   }
 
@@ -187,7 +179,7 @@ export default class BrowserTracker {
         if (!tab.url) continue;
 
         const wasTabRecentlyActive = recentlyActiveUrls.includes(
-          this.createHash(tab.url)
+          hashUrl(tab.url)
         );
 
         const tabEntity = new BrowserTab();
@@ -212,18 +204,6 @@ export default class BrowserTracker {
     }
   }
 
-  // simple hash function form https://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript
-  private createHash(url: string): string {
-    let hash = 0;
-    if (url.length === 0) return hash.toString();
-    for (let i = 0; i < url.length; i++) {
-      const chr = url.charCodeAt(i);
-      hash = (hash << 5) - hash + chr;
-      hash |= 0; // Convert to 32bit integer
-    }
-    return hash.toString();
-  }
-
   public sendTabOpeningRequest(
     browserType: BrowserType,
     urls: string[],
@@ -245,10 +225,6 @@ export default class BrowserTracker {
     if (connection && connection.readyState === WebSocket.OPEN) {
       connection.send(JSON.stringify({ endpoint: 'close-tabs', data }));
     }
-  }
-
-  public getCurrentlyActiveTab(): ActiveTab | null {
-    return this._currentlyActiveTab;
   }
 
   public isSocketOpen(browserType?: BrowserType): boolean {

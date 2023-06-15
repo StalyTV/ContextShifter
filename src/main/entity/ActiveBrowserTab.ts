@@ -11,11 +11,14 @@ export default class ActiveBrowserTab extends BaseEntity {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column('varchar')
-  ts!: string;
+  @Column({ type: 'varchar', nullable: true })
+  tsStart!: string;
 
   @Column({ type: 'varchar', nullable: true })
   url!: string;
+
+  @Column({ type: 'int', nullable: true })
+  public duration!: number;
 
   static async getRecentlyActiveURLs(startTime: Date): Promise<string[]> {
     const entries = await this.createQueryBuilder('active_browser_tab')
