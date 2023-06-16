@@ -28,6 +28,7 @@ export default function LikertScale(props: Props) {
       <div className={styles.buttonBox}>
         {props.options.map((item) => (
           <Button
+            key={item}
             isFilled={selectedItem === item}
             onClick={() => onClickItem(item)}
             disabled={false}

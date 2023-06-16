@@ -8,6 +8,7 @@ type UserSettings = {
   isDarkModeEnabled: boolean;
   isDataAnonymized: boolean;
   snapshotShortcut: string;
+  endOfDayPopUpTime: Date;
 };
 
 export default UserSettings;

@@ -51,10 +51,11 @@ export default class StudyManager {
     const loop = async () => {
       debug('[StudyManager] Checked time');
       const setTime = await Settings.getEndOfDayPopUpTime();
-      const now = new Date()
+      const now = new Date();
       if (
-        now.getHours() >= setTime.getHours() &&
-        now.getMinutes() >= setTime.getMinutes()
+        now.getHours() > setTime.getHours() ||
+        (now.getHours() === setTime.getHours() &&
+          now.getMinutes() >= setTime.getMinutes())
       ) {
         const lastPopUp = await Log.getLastEndOfDayPopUp();
         if (!lastPopUp || lastPopUp.getDate() !== now.getDate()) {

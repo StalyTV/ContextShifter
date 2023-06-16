@@ -197,6 +197,7 @@ typedIpcMain.handle('get-settings', async () => {
     isDarkModeEnabled: nativeTheme.shouldUseDarkColors,
     isDataAnonymized: await Settings.getIsDataAnonymized(),
     snapshotShortcut: await Settings.getSnapshotShortcut(),
+    endOfDayPopUpTime: await Settings.getEndOfDayPopUpTime(),
   };
   return userSettings;
 });
@@ -215,6 +216,10 @@ typedIpcMain.handle('set-settings', async (e, updatedSettings) => {
   await Database.manager.save(Settings, {
     key: 'snapshotShortcut',
     value: updatedSettings.snapshotShortcut,
+  });
+  await Database.manager.save(Settings, {
+    key: 'endOfDayPopUpTime',
+    value: updatedSettings.endOfDayPopUpTime.toISOString(),
   });
   await UsageData.addEntry(
     'update-settings',
