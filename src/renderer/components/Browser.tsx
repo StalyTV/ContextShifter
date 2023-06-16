@@ -16,7 +16,7 @@ type Props = {
 
 export default function Browser(props: Props) {
   const sortedTabs = props.browser.browserTabs.sort(
-    (a, b) => a.index - b.index
+    (a, b) => b.relevance - a.relevance
   );
 
   const toggleSelect = () => {

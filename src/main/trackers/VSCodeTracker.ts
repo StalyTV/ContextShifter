@@ -165,7 +165,7 @@ export default class VSCodeTracker {
     if (lastCommit && lastCommit.commitDate) {
       const commitTime = new Date(lastCommit.commitDate).getTime();
       if (commitTime > Date.now() - StaticSettings.IDE_TIME_WINDOW) {
-        summaryString += `Recently committed "${lastCommit.message}.\n"`;
+        summaryString += `Recently committed "${lastCommit.message}".\n`;
       }
     }
 

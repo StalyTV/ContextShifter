@@ -305,13 +305,15 @@ export default function Snapshot() {
                       ))}
                     </div>
                     <div>
-                      {[...applicationMap.values()].map((app) => (
-                        <Application
-                          key={app.id}
-                          app={app}
-                          updateApplication={updateApplication}
-                        />
-                      ))}
+                      {[...applicationMap.values()]
+                        .sort((a, b) => b.relevance - a.relevance)
+                        .map((app) => (
+                          <Application
+                            key={app.id}
+                            app={app}
+                            updateApplication={updateApplication}
+                          />
+                        ))}
                     </div>
                   </>
                 ) : (

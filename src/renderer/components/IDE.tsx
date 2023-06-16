@@ -17,6 +17,10 @@ type Props = {
 };
 
 export default function IDE(props: Props) {
+  const sortedIDEFiles = props.ide.ideFiles.sort(
+    (a, b) => b.relevance - a.relevance
+  );
+
   const toggleSelect = () => {
     const updatedIDE = props.ide;
     updatedIDE.isSelected = !props.ide.isSelected;
@@ -74,7 +78,7 @@ export default function IDE(props: Props) {
       </div>
 
       <div className={styles.fileContainer}>
-        {props.ide.ideFiles.map((file) => (
+        {sortedIDEFiles.map((file) => (
           <IDEFile key={file.id} file={file} updateFile={updateFile} />
         ))}
       </div>
