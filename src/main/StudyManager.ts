@@ -94,6 +94,10 @@ export default class StudyManager {
   }
 
   public static async startCheckTimeLoop(): Promise<void> {
+    if (this._currentStudyPhase === StudyPhase.NoStudy) {
+      info(`[StudyManager] Not in study mode. Don't start time check loop`);
+      return;
+    }
     info('[StudyManager] Started check time loop');
 
     const loop = async () => {
