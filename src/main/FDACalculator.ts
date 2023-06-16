@@ -210,14 +210,18 @@ export default class FDACalculator {
     relevances.forEach((value, key) => {
       loggingString += `([${key}] ${value}),`;
     });
-    info('[TaskSnap] Relevances:', loggingString);
+    info('[FDACalculator] Relevances:', loggingString);
+
+    const maxRelevance = Math.max(...relevances.values());
+    const relevanceThreshold = maxRelevance / 2; // TODO: Look into more sophisticated approaches
+    info('[FDACalculator] Threshold:', relevanceThreshold);
 
     // add relevances to artifacts and select them if above threshold
     const snapshot = await Snapshot.getSnapshotById(snapshotId);
     if (!snapshot) return;
     snapshot.applications.forEach((app) => {
       const rel = relevances.get(app.name) || 0;
-      const isAppRelevant = rel > StaticSettings.FDA_THRESHOLD;
+      const isAppRelevant = rel > relevanceThreshold;
       app.relevance = rel;
       app.isSelected = isAppRelevant;
 
@@ -232,7 +236,7 @@ export default class FDACalculator {
       let isOneTabRelevant = false;
       browser.browserTabs.forEach((tab) => {
         const rel = relevances.get(tab.url) || 0;
-        const isTabRelevant = rel > StaticSettings.FDA_THRESHOLD;
+        const isTabRelevant = rel > relevanceThreshold;
         tab.relevance = rel;
         tab.isSelected = isTabRelevant;
         tab.save();
@@ -246,7 +250,7 @@ export default class FDACalculator {
       let isOneFileRelevant = false;
       ide.ideFiles.forEach((file) => {
         const rel = relevances.get(file.path) || 0;
-        const isFileRelevant = rel > StaticSettings.FDA_THRESHOLD;
+        const isFileRelevant = rel > relevanceThreshold;
         file.relevance = rel;
         file.isSelected = isFileRelevant;
         file.save();
