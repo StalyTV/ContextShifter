@@ -6,12 +6,16 @@
 
 import { StudyPhase } from '../types/StudyPhase';
 import WindowManager from './WindowManager';
+import { Database } from './database';
+import Log from './entity/Log';
+import Settings from './entity/Settings';
 import UsageData from './entity/UsageData';
-import { info } from 'electron-log';
+import { info, debug } from 'electron-log';
 
 export default class StudyManager {
   private static _currentStudyPhase: StudyPhase = StudyPhase.NoStudy; // default
   private static _postponeTimeoutRef: NodeJS.Timeout | undefined;
+  private static _checkTimeLoopRef: NodeJS.Timeout | undefined;
 
   public static getStudyPhase(): StudyPhase {
     return this._currentStudyPhase;
@@ -39,5 +43,36 @@ export default class StudyManager {
       clearTimeout(this._postponeTimeoutRef);
       this._postponeTimeoutRef = undefined;
     }
+  }
+
+  public static async startCheckTimeLoop(): Promise<void> {
+    info('[StudyManager] Started check time loop');
+
+    const loop = async () => {
+      debug('[StudyManager] Checked time');
+      const setTime = await Settings.getEndOfDayPopUpTime();
+      const now = new Date()
+      if (
+        now.getHours() >= setTime.getHours() &&
+        now.getMinutes() >= setTime.getMinutes()
+      ) {
+        const lastPopUp = await Log.getLastEndOfDayPopUp();
+        if (!lastPopUp || lastPopUp.getDate() !== now.getDate()) {
+          await WindowManager.createEndOfDayWindow(() => {});
+          info('[StudyManager] Opened End-Of-Day Pop-Up');
+          Database.manager.save(Log, {
+            key: 'lastEndOfDayPopUp',
+            value: now.toISOString(),
+          });
+        }
+      }
+    };
+
+    await loop();
+    this._checkTimeLoopRef = setInterval(loop, 5 * 60 * 1000);
+  }
+
+  public static async stopCheckTimeLoop() {
+    clearInterval(this._checkTimeLoopRef);
   }
 }

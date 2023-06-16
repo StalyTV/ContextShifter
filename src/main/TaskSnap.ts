@@ -46,6 +46,7 @@ import SummaryProvider from './SummaryProvider';
 import StaticSettings from './StaticSettings';
 import ActiveWindow from './entity/ActiveWindow';
 import ActiveArtifact from './trackers/ActiveArtifact';
+import StudyManager from './StudyManager';
 const fileIcon = require('extract-file-icon');
 const soundPlayer = require('sound-play');
 
@@ -86,7 +87,6 @@ export default class TaskSnap {
     info('[TaskSnap] Started');
     TrayManager.init(this);
     this.startTrackers();
-    Exporter.startBackupLoop();
   }
 
   public async stop() {
@@ -99,6 +99,8 @@ export default class TaskSnap {
     this._windowTracker.start();
     this._fileSystemWatcher.start();
     ActiveArtifact.startIdleCheck();
+    Exporter.startBackupLoop();
+    StudyManager.startCheckTimeLoop();
   }
 
   public async stopTrackers() {
@@ -107,6 +109,8 @@ export default class TaskSnap {
     this._fileSystemWatcher.stop();
     await ActiveArtifact.storeAll();
     await ActiveArtifact.stopIdleCheck();
+    Exporter.stopBackupLoop();
+    StudyManager.stopCheckTimeLoop();
   }
 
   public async createNewSnapshot(origin: UsageDataOrigin) {

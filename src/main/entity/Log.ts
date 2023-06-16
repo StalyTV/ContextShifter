@@ -31,4 +31,14 @@ export default class Log extends BaseEntity {
       return null;
     }
   }
+
+  static async getLastEndOfDayPopUp(): Promise<Date | null> {
+    const lastPopUp = (await this.findOneBy({ key: 'lastEndOfDayPopUp' }))
+      ?.value;
+    if (lastPopUp) {
+      return new Date(lastPopUp);
+    } else {
+      return null;
+    }
+  }
 }

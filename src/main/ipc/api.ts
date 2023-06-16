@@ -19,6 +19,7 @@ import { Database } from '../database';
 import { UsageDataOrigin } from '../../types/UsageDataOrigin';
 import StudyManager from '../StudyManager';
 import QuestionnaireAnswers from '../entity/QuestionnaireAnswers';
+import { info } from 'electron-log';
 
 typedIpcMain.handle('open-artifact', async (e, artifact) => {
   await UsageData.addEntry('open-artifact', false, JSON.stringify(artifact));
@@ -257,5 +258,6 @@ typedIpcMain.handle(
       answers: json,
     });
     WindowManager.endOfDayWindow?.close();
+    info(`[API] Saved end-of-day questionnaire`);
   }
 );
