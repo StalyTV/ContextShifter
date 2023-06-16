@@ -33,6 +33,12 @@ export type UsageDataEvent =
   | 'restore-mental-context-window'
   | 'focus-mental-context-window'
   | 'blur-mental-context-window'
+  | 'open-end-of-day-window'
+  | 'close-end-of-day-window'
+  | 'minimize-end-of-day-window'
+  | 'restore-end-of-day-window'
+  | 'focus-end-of-day-window'
+  | 'blur-end-of-day-window'
   | 'create-snapshot'
   | 'restore-snapshot'
   | 'postpone-snapshot'
@@ -48,4 +54,5 @@ export type UsageDataEvent =
   | 'disconnect-supported-usb-device'
   | 'update-known-application'
   | 'update-settings'
-  | 'merge-snapshots';
+  | 'merge-snapshots'
+  | 'postpone-end-of-day-questionnaire';

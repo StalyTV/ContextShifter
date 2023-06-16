@@ -17,6 +17,8 @@ import UserSettings from 'types/UserSettings';
 import Settings from '../entity/Settings';
 import { Database } from '../database';
 import { UsageDataOrigin } from '../../types/UsageDataOrigin';
+import StudyManager from '../StudyManager';
+import QuestionnaireAnswers from '../entity/QuestionnaireAnswers';
 
 typedIpcMain.handle('open-artifact', async (e, artifact) => {
   await UsageData.addEntry('open-artifact', false, JSON.stringify(artifact));
@@ -235,3 +237,25 @@ typedIpcMain.handle('get-known-applications', async () => {
 typedIpcMain.handle('update-known-application', async (e, app) => {
   await TaskSnap.getInstance().updateKnownApplication(app);
 });
+
+// questionnaires
+typedIpcMain.handle('get-study-phase', () => {
+  return StudyManager.getStudyPhase();
+});
+
+typedIpcMain.handle('postpone-end-of-day-questionnaire', (e, minutes) => {
+  return StudyManager.postponeEndOfDayQuestionnaire(minutes);
+});
+
+typedIpcMain.handle(
+  'save-end-of-day-questionnaire',
+  async (e, json: string) => {
+    await QuestionnaireAnswers.insert({
+      ts: new Date().toISOString(),
+      type: 'end-of-day',
+      studyPhase: StudyManager.getStudyPhase(),
+      answers: json,
+    });
+    WindowManager.endOfDayWindow?.close();
+  }
+);

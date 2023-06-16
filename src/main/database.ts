@@ -23,6 +23,7 @@ import ActiveBrowserTab from './entity/ActiveBrowserTab';
 import ActiveFile from './entity/ActiveFile';
 import IDEFileEvent from './entity/IDEFileEvent';
 import Settings from './entity/Settings';
+import QuestionnaireAnswers from './entity/QuestionnaireAnswers';
 
 const dbPath = path.join(
   app.getPath('appData'),
@@ -50,6 +51,7 @@ export const Database = new DataSource({
     IDEFileEvent,
     Settings,
     ActiveFile,
+    QuestionnaireAnswers
   ],
   synchronize: true,
 });
