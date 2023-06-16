@@ -11,11 +11,59 @@ import Log from './entity/Log';
 import Settings from './entity/Settings';
 import UsageData from './entity/UsageData';
 import { info, debug } from 'electron-log';
+import isMac from './helpers/isMac';
+import { app } from 'electron';
+import path from 'path';
+import fs from 'fs';
 
 export default class StudyManager {
   private static _currentStudyPhase: StudyPhase = StudyPhase.NoStudy; // default
   private static _postponeTimeoutRef: NodeJS.Timeout | undefined;
   private static _checkTimeLoopRef: NodeJS.Timeout | undefined;
+
+  public static async init() {
+    const tempPath = isMac
+      ? `Library/Logs/${app.name}/study_config.txt`
+      : `AppData/Roaming/${app.name}/logs/study_config.txt`;
+    const configPath = path.join(app.getPath('home'), tempPath);
+
+    try {
+      // create file for new users
+      const wasStartedOnce = await Log.wasApplicationStartedOnce();
+      if (!wasStartedOnce) {
+        fs.writeFileSync(configPath, 'baseline');
+      }
+
+      // only set study settings if config file exists
+      if (fs.existsSync(configPath)) {
+        const content = fs.readFileSync(configPath, {
+          encoding: 'utf8',
+          flag: 'r',
+        });
+
+        if (content.toLowerCase() === 'baseline') {
+          this._currentStudyPhase = StudyPhase.Baseline;
+        } else if (content.toLowerCase() === 'intervention') {
+          this._currentStudyPhase = StudyPhase.Intervention;
+        } else {
+          this._currentStudyPhase = StudyPhase.Intervention; // default in case of misspelling
+        }
+        UsageData.addEntry(
+          'active-study-phase',
+          true,
+          `${this._currentStudyPhase}`
+        );
+      }
+    } catch (err) {
+      console.error(err);
+    }
+
+    // hide dock icon during first study phase
+    if (isMac && this._currentStudyPhase === StudyPhase.Baseline) {
+      app.dock.hide;
+    }
+    info(`[StudyManager] Current study phase: ${this._currentStudyPhase}`);
+  }
 
   public static getStudyPhase(): StudyPhase {
     return this._currentStudyPhase;

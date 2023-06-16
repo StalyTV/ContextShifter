@@ -55,4 +55,5 @@ export type UsageDataEvent =
   | 'update-known-application'
   | 'update-settings'
   | 'merge-snapshots'
-  | 'postpone-end-of-day-questionnaire';
+  | 'postpone-end-of-day-questionnaire'
+  | 'active-study-phase';
