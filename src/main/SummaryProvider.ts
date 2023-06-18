@@ -4,12 +4,15 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, June 2023
  */
 
+import StaticSettings from './StaticSettings';
 import ActiveWindow from './entity/ActiveWindow';
 import ActiveArtifact from './trackers/ActiveArtifact';
 
 export default class SummaryProvider {
   public static async createTaskSummary(): Promise<string> {
-    const startTimeWindow = new Date(Date.now() - 5 * 60 * 1000);
+    const startTimeWindow = new Date(
+      Date.now() - StaticSettings.MOST_USED_APP_TIME_WINDOW
+    );
 
     const mostActiveApp = await ActiveWindow.getMostActiveApp(startTimeWindow);
     const lastActiveTab = ActiveArtifact.getLastActiveTab();

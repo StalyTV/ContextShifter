@@ -164,12 +164,6 @@ export default class BrowserTracker {
   }
 
   public async saveOpenTabsToDb(browsers: Browser[]) {
-    // for smart pre-selection, look which urls were active within the last 10 minutes - TODO: update this condition
-    const timeMinus10Min = Date.now() - 10 * 60 * 1000;
-    const recentlyActiveUrls = await ActiveBrowserTab.getRecentlyActiveURLs(
-      new Date(timeMinus10Min)
-    );
-
     for await (const browser of browsers) {
       const browserType = browser.type;
       const tabsOfBrowser = this._openTabs.get(browserType);

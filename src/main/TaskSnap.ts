@@ -370,7 +370,7 @@ export default class TaskSnap {
       }
     );
     //
-    // In addition, consider all applications used in the last 15 minutes.
+    // In addition, consider all applications used in the last 12 minutes.
     // Like this, we also get apps that are recently closed, minimized, or in full screen (mac).
     const tsStart = new Date(
       Date.now() - StaticSettings.RECENTLY_OPEN_APPS_TIME_WINDOW
