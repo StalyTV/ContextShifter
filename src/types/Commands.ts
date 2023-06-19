@@ -62,6 +62,10 @@ type Commands = {
   'get-study-phase': () => StudyPhase;
   'postpone-end-of-day-questionnaire': (minutes: number) => void;
   'save-end-of-day-questionnaire': (json: string) => Promise<void>;
+  'save-task-resumption-questionnaire': (
+    json: string,
+    snapshotId: number | null // reference to snapshot should exist, but still save answer if there is an error
+  ) => Promise<void>;
 };
 
 export default Commands;

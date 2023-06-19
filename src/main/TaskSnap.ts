@@ -47,6 +47,7 @@ import StaticSettings from './StaticSettings';
 import ActiveWindow from './entity/ActiveWindow';
 import ActiveArtifact from './trackers/ActiveArtifact';
 import StudyManager from './StudyManager';
+import { StudyPhase } from '../types/StudyPhase';
 const fileIcon = require('extract-file-icon');
 const soundPlayer = require('sound-play');
 
@@ -224,6 +225,15 @@ export default class TaskSnap {
       `id: ${snapshot.id}, origin: ${origin}`
     );
 
+    // show questionnaire during study
+    if (StudyManager.getStudyPhase() === StudyPhase.Intervention) {
+      await WindowManager.createTaskResumptionWindow(() => {
+        const destination = WindowManager.taskResumptionWindow
+          ?.webContents as TypedWebContents<Events>;
+        destination?.send('snapshot-selected', snapshot.id);
+      });
+    }
+
     // if summary or intent available, create window that visualizes summary and intent of snapshot
     if (snapshot.summary || snapshot.intent) {
       if (!WindowManager.mentalContextWindow) {
@@ -242,6 +252,7 @@ export default class TaskSnap {
       }
     }
   }
+
   private restoreWorkingContext(snapshot: Snapshot) {
     for (const browser of snapshot.browsers) {
       if (!browser.isSelected) continue;

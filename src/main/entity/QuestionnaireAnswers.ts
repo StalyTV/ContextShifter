@@ -16,7 +16,7 @@ export default class QuestionnaireAnswers extends BaseEntity {
   ts!: string;
 
   @Column({ type: 'varchar' })
-  type!: 'end-of-day';
+  type!: 'end-of-day' | 'task-resumption';
 
   @Column({ type: 'varchar' })
   studyPhase!: StudyPhase;

@@ -266,3 +266,18 @@ typedIpcMain.handle(
     info(`[API] Saved end-of-day questionnaire`);
   }
 );
+
+typedIpcMain.handle(
+  'save-task-resumption-questionnaire',
+  async (e, json: string, snapshotId: number | null) => {
+    await QuestionnaireAnswers.insert({
+      ts: new Date().toISOString(),
+      type: 'task-resumption',
+      studyPhase: StudyManager.getStudyPhase(),
+      answers: json,
+      additionalInformation: `snapshotId: ${snapshotId}`,
+    });
+    WindowManager.taskResumptionWindow?.close();
+    info(`[API] Saved task resumption questionnaire`);
+  }
+);

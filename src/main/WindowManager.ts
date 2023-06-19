@@ -20,7 +20,8 @@ export default class WindowManager {
   public static instantCurationWindow: BrowserWindow | null = null;
   public static snapshotGalleryWindow: BrowserWindow | null = null;
   public static mentalContextWindow: BrowserWindow | null = null;
-  public static endOfDayWindow: BrowserWindow | null = null;
+  public static endOfDayWindow: BrowserWindow | null = null; // questionnaire
+  public static taskResumptionWindow: BrowserWindow | null = null; // questionnaire
 
   public static async createSnapshotWindow(onDomReady: () => void = () => {}) {
     if (this.snapshotWindow) return;
@@ -345,6 +346,69 @@ export default class WindowManager {
     });
 
     const menuBuilder = new MenuBuilder(this.endOfDayWindow);
+    menuBuilder.buildMenu();
+  }
+
+  public static async createTaskResumptionWindow(onDomReady: () => void) {
+    if (this.taskResumptionWindow) return;
+
+    this.taskResumptionWindow = new BrowserWindow({
+      show: false,
+      width: 700,
+      height: 700,
+      minWidth: 500,
+      minHeight: 250,
+      alwaysOnTop: true,
+      icon: getAssetPath('icon.png'),
+      title: 'Task Resumption Questionnaire',
+      webPreferences: {
+        preload: app.isPackaged
+          ? path.join(__dirname, 'preload.js')
+          : path.join(__dirname, '../../.erb/dll/preload.js'),
+      },
+    });
+
+    this.taskResumptionWindow.loadURL(
+      resolveHtmlPath('index.html') + `#/taskResumption`
+    );
+    await UsageData.addEntry('open-task-resumption-window');
+
+    this.taskResumptionWindow.on('ready-to-show', () => {
+      if (!this.taskResumptionWindow) {
+        throw new Error('"taskResumptionWindow" is not defined');
+      }
+      if (process.env.START_MINIMIZED) {
+        this.taskResumptionWindow.minimize();
+      } else {
+        this.taskResumptionWindow.show();
+      }
+    });
+
+    this.taskResumptionWindow.webContents.once('did-finish-load', () => {
+      this.taskResumptionWindow?.setMenuBarVisibility(false);
+    });
+
+    this.taskResumptionWindow.on('closed', async () => {
+      this.taskResumptionWindow = null;
+      await UsageData.addEntry('close-task-resumption-window');
+    });
+
+    this.taskResumptionWindow.webContents.once('dom-ready', onDomReady);
+
+    this.taskResumptionWindow.on('minimize', async () => {
+      await UsageData.addEntry('minimize-task-resumption-window');
+    });
+    this.taskResumptionWindow.on('restore', async () => {
+      await UsageData.addEntry('restore-task-resumption-window');
+    });
+    this.taskResumptionWindow.on('focus', async () => {
+      await UsageData.addEntry('focus-task-resumption-window');
+    });
+    this.taskResumptionWindow.on('blur', async () => {
+      await UsageData.addEntry('blur-task-resumption-window');
+    });
+
+    const menuBuilder = new MenuBuilder(this.taskResumptionWindow);
     menuBuilder.buildMenu();
   }
 }
