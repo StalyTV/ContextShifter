@@ -15,6 +15,8 @@ import UserSettings from 'types/UserSettings';
 import Input from '../components/Input';
 import TimePicker from 'react-time-picker';
 import { Value } from 'react-time-picker/dist/cjs/shared/types';
+import 'react-time-picker/dist/TimePicker.css';
+import 'react-clock/dist/Clock.css';
 
 export default function Settings() {
   let loopRef: NodeJS.Timeout | undefined;
@@ -117,7 +119,14 @@ export default function Settings() {
 
   const convertTimeStringToDate = (timeString: string) => {
     const splittedTime = timeString.split(':');
-    return new Date(new Date().setHours(parseInt(splittedTime[0]), parseInt(splittedTime[1]), 0, 0));
+    return new Date(
+      new Date().setHours(
+        parseInt(splittedTime[0]),
+        parseInt(splittedTime[1]),
+        0,
+        0
+      )
+    );
   };
 
   const onToggleColorTheme = async () => {

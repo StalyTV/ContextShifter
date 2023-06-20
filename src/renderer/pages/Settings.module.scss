@@ -1,13 +1,10 @@
-@import 'react-time-picker/dist/TimePicker.css';
-@import 'react-clock/dist/Clock.css';
-
 .settingsContainer {
   z-index: 1;
   position: absolute;
   right: 1rem;
   top: 3rem;
   width: 20rem;
-  height: 35rem;
+  height: 40rem;
   padding: 1rem;
   background-color: var(--overlay-color);
   border-radius: var(--border-radius);
