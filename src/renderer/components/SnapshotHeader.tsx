@@ -22,8 +22,8 @@ export default function SnapshotHeader(props: Props) {
   const getFormattedDate = (timestamp: string) => {
     const date = new Date(timestamp);
     return date.toLocaleString([], {
-      year: 'numeric',
-      month: 'long',
+      year: '2-digit',
+      month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',

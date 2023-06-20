@@ -30,6 +30,9 @@ export default class IDEFile extends BaseEntity {
   @Column({ type: 'tinyint', nullable: false, default: true })
   isSelected!: boolean;
 
+  @Column({ type: 'double', nullable: false, default: 0 })
+  public relevance!: number;
+
   @ManyToOne(() => IDE, (ide) => ide.ideFiles, {
     onDelete: 'CASCADE',
   })

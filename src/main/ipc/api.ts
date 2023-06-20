@@ -17,6 +17,9 @@ import UserSettings from 'types/UserSettings';
 import Settings from '../entity/Settings';
 import { Database } from '../database';
 import { UsageDataOrigin } from '../../types/UsageDataOrigin';
+import StudyManager from '../StudyManager';
+import QuestionnaireAnswers from '../entity/QuestionnaireAnswers';
+import { info } from 'electron-log';
 
 typedIpcMain.handle('open-artifact', async (e, artifact) => {
   await UsageData.addEntry('open-artifact', false, JSON.stringify(artifact));
@@ -194,6 +197,7 @@ typedIpcMain.handle('get-settings', async () => {
     isDarkModeEnabled: nativeTheme.shouldUseDarkColors,
     isDataAnonymized: await Settings.getIsDataAnonymized(),
     snapshotShortcut: await Settings.getSnapshotShortcut(),
+    endOfDayPopUpTime: await Settings.getEndOfDayPopUpTime(),
   };
   return userSettings;
 });
@@ -212,6 +216,10 @@ typedIpcMain.handle('set-settings', async (e, updatedSettings) => {
   await Database.manager.save(Settings, {
     key: 'snapshotShortcut',
     value: updatedSettings.snapshotShortcut,
+  });
+  await Database.manager.save(Settings, {
+    key: 'endOfDayPopUpTime',
+    value: updatedSettings.endOfDayPopUpTime.toISOString(),
   });
   await UsageData.addEntry(
     'update-settings',
@@ -235,3 +243,41 @@ typedIpcMain.handle('get-known-applications', async () => {
 typedIpcMain.handle('update-known-application', async (e, app) => {
   await TaskSnap.getInstance().updateKnownApplication(app);
 });
+
+// questionnaires
+typedIpcMain.handle('get-study-phase', () => {
+  return StudyManager.getStudyPhase();
+});
+
+typedIpcMain.handle('postpone-end-of-day-questionnaire', (e, minutes) => {
+  return StudyManager.postponeEndOfDayQuestionnaire(minutes);
+});
+
+typedIpcMain.handle(
+  'save-end-of-day-questionnaire',
+  async (e, json: string) => {
+    await QuestionnaireAnswers.insert({
+      ts: new Date().toISOString(),
+      type: 'end-of-day',
+      studyPhase: StudyManager.getStudyPhase(),
+      answers: json,
+    });
+    WindowManager.endOfDayWindow?.close();
+    info(`[API] Saved end-of-day questionnaire`);
+  }
+);
+
+typedIpcMain.handle(
+  'save-task-resumption-questionnaire',
+  async (e, json: string, snapshotId: number | null) => {
+    await QuestionnaireAnswers.insert({
+      ts: new Date().toISOString(),
+      type: 'task-resumption',
+      studyPhase: StudyManager.getStudyPhase(),
+      answers: json,
+      additionalInformation: `snapshotId: ${snapshotId}`,
+    });
+    WindowManager.taskResumptionWindow?.close();
+    info(`[API] Saved task resumption questionnaire`);
+  }
+);

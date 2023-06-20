@@ -13,6 +13,7 @@ import IDE from '../main/entity/IDE';
 import ExtensionsStatus from './ExtensionsStatus';
 import KnownApplication from 'main/entity/KnownApplication';
 import UserSettings from './UserSettings';
+import { StudyPhase } from './StudyPhase';
 
 type Commands = {
   'get-snapshot-by-id': (id: number) => Snapshot | null;
@@ -56,6 +57,15 @@ type Commands = {
   'update-known-application': (app: KnownApplication) => void;
   'get-settings': () => Promise<UserSettings>;
   'set-settings': (settings: UserSettings) => void;
+
+  // questionnaires
+  'get-study-phase': () => StudyPhase;
+  'postpone-end-of-day-questionnaire': (minutes: number) => void;
+  'save-end-of-day-questionnaire': (json: string) => Promise<void>;
+  'save-task-resumption-questionnaire': (
+    json: string,
+    snapshotId: number | null // reference to snapshot should exist, but still save answer if there is an error
+  ) => Promise<void>;
 };
 
 export default Commands;

@@ -5,7 +5,9 @@ import Snapshot from './pages/Snapshot';
 import InstantCuration from './pages/InstantCuration';
 import SnapshotGallery from './pages/SnapshotGallery';
 import MentalContext from './pages/MentalContext';
+import EndOfDayQuestionnaire from './pages/EndOfDayQuestionnaire';
 import TaskSnapTooltip from './components/Tooltip/TaskSnapTooltip';
+import TaskResumptionQuestionnaire from './pages/TaskResumptionQuestionnaire';
 
 export default function App() {
   return (
@@ -15,6 +17,11 @@ export default function App() {
           <Route path="/instantCuration" element={<InstantCuration />} />
           <Route path="/snapshotGallery" element={<SnapshotGallery />} />
           <Route path="/mentalContext" element={<MentalContext />} />
+          <Route path="/endOfDay" element={<EndOfDayQuestionnaire />} />
+          <Route
+            path="/taskResumption"
+            element={<TaskResumptionQuestionnaire />}
+          />
           <Route path="/" element={<Snapshot />} />
         </Routes>
       </HashRouter>

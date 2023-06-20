@@ -20,11 +20,9 @@ import Browser from '../entity/Browser';
 import BrowserTab from '../entity/BrowserTab';
 import ActiveBrowserTab from '../entity/ActiveBrowserTab';
 import { BrowserType } from 'types/BrowserType';
-
-type ActiveTab = {
-  tab: Tabs.Tab;
-  timestamp: Date;
-};
+import { hashUrl } from '../helpers/hashUrl';
+import { ActiveTab } from '../../types/ActiveTab';
+import ActiveArtifact from './ActiveArtifact';
 
 export default class BrowserTracker {
   private static _instance: BrowserTracker;
@@ -37,7 +35,6 @@ export default class BrowserTracker {
     ['edge', []],
   ]);
   private _openTabs: Map<BrowserType, Tabs.Tab[]> = new Map();
-  private _currentlyActiveTab: ActiveTab | null = null;
 
   private constructor() {
     this._server = new WebSocketServer({ port: this._port });
@@ -142,16 +139,16 @@ export default class BrowserTracker {
       return tab.active;
     });
     if (activeTab && activeTab.url) {
-      this._currentlyActiveTab = {
-        tab: activeTab,
-        timestamp: new Date(),
+      const tab: ActiveTab = {
+        url: activeTab.url,
+        ts: new Date(),
       };
+      ActiveArtifact.setCurrentTab(tab);
+    }
 
-      const urlToStore = this.createHash(activeTab.url);
-      const dbEntry = new ActiveBrowserTab();
-      dbEntry.url = urlToStore;
-      dbEntry.ts = new Date().toISOString();
-      dbEntry.save();
+    // if browser is no longer in focus, finish the session of the currently active tab
+    if (data.type === 'window-unfocus') {
+      await ActiveArtifact.storeCurrentTab();
     }
   }
 
@@ -167,12 +164,6 @@ export default class BrowserTracker {
   }
 
   public async saveOpenTabsToDb(browsers: Browser[]) {
-    // for smart pre-selection, look which urls were active within the last 10 minutes - TODO: update this condition
-    const timeMinus10Min = Date.now() - 10 * 60 * 1000;
-    const recentlyActiveUrls = await ActiveBrowserTab.getRecentlyActiveURLs(
-      new Date(timeMinus10Min)
-    );
-
     for await (const browser of browsers) {
       const browserType = browser.type;
       const tabsOfBrowser = this._openTabs.get(browserType);
@@ -186,10 +177,6 @@ export default class BrowserTracker {
       for await (const tab of tabsOfBrowser) {
         if (!tab.url) continue;
 
-        const wasTabRecentlyActive = recentlyActiveUrls.includes(
-          this.createHash(tab.url)
-        );
-
         const tabEntity = new BrowserTab();
         tabEntity.url = tab.url;
         tabEntity.title = tab.title;
@@ -197,7 +184,6 @@ export default class BrowserTracker {
         tabEntity.index = tab.index;
         tabEntity.isActive = tab.active;
         tabEntity.browser = browser;
-        tabEntity.isSelected = wasTabRecentlyActive;
         tabEntity.save();
       }
 
@@ -210,18 +196,6 @@ export default class BrowserTracker {
         `[BrowserTracker] attached ${tabsOfBrowser.length} tabs to browser with id ${browser.id};`
       );
     }
-  }
-
-  // simple hash function form https://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript
-  private createHash(url: string): string {
-    let hash = 0;
-    if (url.length === 0) return hash.toString();
-    for (let i = 0; i < url.length; i++) {
-      const chr = url.charCodeAt(i);
-      hash = (hash << 5) - hash + chr;
-      hash |= 0; // Convert to 32bit integer
-    }
-    return hash.toString();
   }
 
   public sendTabOpeningRequest(
@@ -245,10 +219,6 @@ export default class BrowserTracker {
     if (connection && connection.readyState === WebSocket.OPEN) {
       connection.send(JSON.stringify({ endpoint: 'close-tabs', data }));
     }
-  }
-
-  public getCurrentlyActiveTab(): ActiveTab | null {
-    return this._currentlyActiveTab;
   }
 
   public isSocketOpen(browserType?: BrowserType): boolean {

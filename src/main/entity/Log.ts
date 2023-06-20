@@ -14,12 +14,12 @@ export default class Log extends BaseEntity {
   @Column({ type: 'varchar', nullable: true })
   value!: string | null;
 
-  static async getLastApplicationStart(): Promise<Date> {
+  static async wasApplicationStartedOnce(): Promise<boolean> {
     const lastStart = (await this.findOneBy({ key: 'lastStart' }))?.value;
     if (lastStart) {
-      return new Date(lastStart);
+      return true;
     } else {
-      throw new Error('Last application start not found in database');
+      return false;
     }
   }
 
@@ -27,6 +27,16 @@ export default class Log extends BaseEntity {
     const lastExport = (await this.findOneBy({ key: 'lastExport' }))?.value;
     if (lastExport) {
       return new Date(lastExport);
+    } else {
+      return null;
+    }
+  }
+
+  static async getLastEndOfDayPopUp(): Promise<Date | null> {
+    const lastPopUp = (await this.findOneBy({ key: 'lastEndOfDayPopUp' }))
+      ?.value;
+    if (lastPopUp) {
+      return new Date(lastPopUp);
     } else {
       return null;
     }

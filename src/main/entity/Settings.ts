@@ -30,4 +30,13 @@ export default class Settings extends BaseEntity {
     }
     return 'Ctrl+Shift+Q';
   }
+
+  static async getEndOfDayPopUpTime(): Promise<Date> {
+    const setTime = (await this.findOneBy({ key: 'endOfDayPopUpTime' }))?.value;
+    if (setTime) {
+      return new Date(setTime);
+    } else {
+      return new Date(new Date().setHours(16, 30, 0, 0));
+    }
+  }
 }

@@ -5,7 +5,7 @@
  */
 
 import { app, dialog } from 'electron';
-import { info, error } from 'electron-log';
+import { info } from 'electron-log';
 import WindowTracker from './trackers/WindowTracker';
 import FileSystemWatcher from './trackers/FileSystemWatcher';
 import TrayManager from './TrayManager';
@@ -45,6 +45,9 @@ import FDACalculator from './FDACalculator';
 import SummaryProvider from './SummaryProvider';
 import StaticSettings from './StaticSettings';
 import ActiveWindow from './entity/ActiveWindow';
+import ActiveArtifact from './trackers/ActiveArtifact';
+import StudyManager from './StudyManager';
+import { StudyPhase } from '../types/StudyPhase';
 const fileIcon = require('extract-file-icon');
 const soundPlayer = require('sound-play');
 
@@ -85,7 +88,6 @@ export default class TaskSnap {
     info('[TaskSnap] Started');
     TrayManager.init(this);
     this.startTrackers();
-    Exporter.startBackupLoop();
   }
 
   public async stop() {
@@ -97,12 +99,19 @@ export default class TaskSnap {
     info('[TaskSnap] Started Trackers');
     this._windowTracker.start();
     this._fileSystemWatcher.start();
+    ActiveArtifact.startIdleCheck();
+    Exporter.startBackupLoop();
+    StudyManager.startCheckTimeLoop();
   }
 
   public async stopTrackers() {
     info('[TaskSnap] Stopped Trackers');
     await this._windowTracker.stop();
     this._fileSystemWatcher.stop();
+    await ActiveArtifact.storeAll();
+    await ActiveArtifact.stopIdleCheck();
+    Exporter.stopBackupLoop();
+    StudyManager.stopCheckTimeLoop();
   }
 
   public async createNewSnapshot(origin: UsageDataOrigin) {
@@ -111,7 +120,7 @@ export default class TaskSnap {
     this._deviceManager.showLightPulse();
 
     // store currently open active window to be sure that it is included in snapshot
-    await this._windowTracker.storeCurrentWindow();
+    await ActiveArtifact.storeCurrentWindow();
 
     // immediately create snapshot and open instant curation view, later add open applications and files to snapshot.
     const timestamp = new Date().toISOString();
@@ -164,12 +173,17 @@ export default class TaskSnap {
 
     // latest tabs are already stored in memory. Save them to db.
     if (openBrowsers.length > 0) {
-      this._browserTracker.saveOpenTabsToDb(openBrowsers);
+      await this._browserTracker.saveOpenTabsToDb(openBrowsers);
     }
 
     // same for vscode
     if (openIDEs.length > 0) {
       this._vscodeTracker.sendGetVSCodeSnapshotRequest();
+
+      // if no IDE is connected, we can do the relevance calculation at this point.
+      // otherwise it is done after the data of the IDE is received
+    } else {
+      FDACalculator.addRelevanceToSnapshotArtifacts(newSnapshot.id);
     }
 
     // notify windows that snapshot is ready
@@ -211,22 +225,34 @@ export default class TaskSnap {
       `id: ${snapshot.id}, origin: ${origin}`
     );
 
-    // create window that visualizes summary and intent of snapshot
-    if (!WindowManager.mentalContextWindow) {
-      await WindowManager.createMentalContextWindow(() => {
-        const destination = WindowManager.mentalContextWindow
+    // show questionnaire during study
+    if (StudyManager.getStudyPhase() === StudyPhase.Intervention) {
+      await WindowManager.createTaskResumptionWindow(() => {
+        const destination = WindowManager.taskResumptionWindow
           ?.webContents as TypedWebContents<Events>;
         destination?.send('snapshot-selected', snapshot.id);
-        this.restoreWorkingContext(snapshot);
       });
-    } else {
-      WindowManager.mentalContextWindow.show();
-      const destination = WindowManager.mentalContextWindow
-        .webContents as TypedWebContents<Events>;
-      destination?.send('snapshot-selected', snapshot.id);
-      this.restoreWorkingContext(snapshot);
+    }
+
+    // if summary or intent available, create window that visualizes summary and intent of snapshot
+    if (snapshot.summary || snapshot.intent) {
+      if (!WindowManager.mentalContextWindow) {
+        await WindowManager.createMentalContextWindow(() => {
+          const destination = WindowManager.mentalContextWindow
+            ?.webContents as TypedWebContents<Events>;
+          destination?.send('snapshot-selected', snapshot.id);
+          this.restoreWorkingContext(snapshot);
+        });
+      } else {
+        WindowManager.mentalContextWindow.show();
+        const destination = WindowManager.mentalContextWindow
+          .webContents as TypedWebContents<Events>;
+        destination?.send('snapshot-selected', snapshot.id);
+        this.restoreWorkingContext(snapshot);
+      }
     }
   }
+
   private restoreWorkingContext(snapshot: Snapshot) {
     for (const browser of snapshot.browsers) {
       if (!browser.isSelected) continue;
@@ -355,7 +381,7 @@ export default class TaskSnap {
       }
     );
     //
-    // In addition, consider all applications used in the last 15 minutes.
+    // In addition, consider all applications used in the last 12 minutes.
     // Like this, we also get apps that are recently closed, minimized, or in full screen (mac).
     const tsStart = new Date(
       Date.now() - StaticSettings.RECENTLY_OPEN_APPS_TIME_WINDOW
@@ -405,22 +431,6 @@ export default class TaskSnap {
         appNamesOfOpenWindows.push(appName);
       }
     });
-    const relevances = await FDACalculator.getRelevanceOfApplications(
-      appNamesOfOpenWindows
-    );
-    let loggingString = ''; // Somehow logging a map does not work
-    relevances.forEach((value, key) => {
-      loggingString += `([${key}] ${value}),`;
-    });
-    info('[TaskSnap] Relevances:', loggingString);
-    const relevantApps: string[] = [];
-    relevances.forEach((val, appName) => {
-      if (val > 1) {
-        // TODO: Make this more sophisticated
-        relevantApps.push(appName);
-      }
-    });
-
     const openBrowsers: Browser[] = [];
     const openIDEs: IDE[] = [];
     const openApplications: Application[] = [];
@@ -428,8 +438,6 @@ export default class TaskSnap {
       const appName = win.application;
       const appPath = win.applicationPath;
       if (appName === app.getName() || appName === 'Electron') continue;
-
-      const isAppRelevantForTask = relevantApps.includes(appName);
 
       // browsers get stored separately, as handling of urls different than handling of files
       if (
@@ -452,8 +460,6 @@ export default class TaskSnap {
         browser.path = appPath;
         browser.icon = this.getApplicationIcon(appPath);
         browser.title = win.title;
-        browser.isSelected = isAppRelevantForTask;
-        browser.relevance = relevances.get(appName) || 0;
         openBrowsers.push(browser);
 
         // ide
@@ -467,8 +473,6 @@ export default class TaskSnap {
         ide.path = appPath;
         ide.icon = this.getApplicationIcon(appPath);
         ide.title = win.title;
-        ide.isSelected = isAppRelevantForTask;
-        ide.relevance = relevances.get(appName) || 0;
         openIDEs.push(ide);
 
         // file explorer
@@ -487,8 +491,6 @@ export default class TaskSnap {
         app.path = appPath;
         app.icon = this.getApplicationIcon(appPath);
         app.title = 'File System';
-        app.isSelected = isAppRelevantForTask;
-        app.relevance = relevances.get(appName) || 0;
         openApplications.push(app);
 
         const associatedFolders: File[] = [];
@@ -497,7 +499,6 @@ export default class TaskSnap {
           const file = new File();
           file.path = path;
           file.name = getFileNameFromPath(path);
-          file.isSelected = isAppRelevantForTask; // TODO: Improve this
           associatedFolders.push(file);
         });
         if (associatedFolders.length > 0) {
@@ -522,7 +523,6 @@ export default class TaskSnap {
           app.path = appPath;
           app.icon = this.getApplicationIcon(appPath);
           app.title = win.title;
-          app.isSelected = isAppRelevantForTask;
           openApplications.push(app);
         }
 
@@ -536,9 +536,16 @@ export default class TaskSnap {
               return process.process.pid === win.processId;
             });
             if (processInfoOfApplication.length > 0) {
-              const filePaths = processInfoOfApplication[0].files.map(
+              let filePaths = processInfoOfApplication[0].files.map(
                 (f) => f.name
               );
+
+              // Apple Preview stores associated files differently
+              if (appName === 'Preview') {
+                filePaths = processInfoOfApplication[0].texts.map(
+                  (f) => f.name
+                );
+              }
               for await (const path of filePaths) {
                 // Remove paths that are simply "/"
                 if (path && path.length > 1) {
@@ -557,7 +564,6 @@ export default class TaskSnap {
                     const file = new File();
                     file.path = path;
                     file.name = getFileNameFromPath(path);
-                    file.isSelected = isAppRelevantForTask; // TODO: Improve this
                     associatedFiles.push(file);
                   }
                 }
@@ -580,7 +586,6 @@ export default class TaskSnap {
                 const file = new File();
                 file.path = path;
                 file.name = getFileNameFromPath(path);
-                file.isSelected = isAppRelevantForTask; // TODO: Improve this
                 associatedFiles.push(file);
               }
             }

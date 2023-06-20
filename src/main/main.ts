@@ -24,6 +24,7 @@ import Settings from './entity/Settings';
 import { UsageDataOrigin } from '../types/UsageDataOrigin';
 import fs from 'fs';
 import Exporter from './Exporter';
+import StudyManager from './StudyManager';
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
@@ -99,6 +100,8 @@ app
     if (!fs.existsSync(Exporter._exportFolder)) {
       fs.mkdirSync(Exporter._exportFolder, { recursive: true });
     }
+
+    await StudyManager.init();
   })
   .then(async () => {
     await UsageData.addEntry('start', true, `version ${app.getVersion()}`);

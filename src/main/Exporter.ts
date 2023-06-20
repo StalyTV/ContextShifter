@@ -17,6 +17,8 @@ import Log from './entity/Log';
 const writeFile = promisify(fs.writeFile);
 
 export default class Exporter {
+  private static _backupLoopRef: NodeJS.Timeout | undefined;
+
   public static _exportFolder = path.join(
     app.getPath('appData'),
     app.getName(),
@@ -35,7 +37,11 @@ export default class Exporter {
     };
 
     await loop();
-    setInterval(loop, 60 * 60 * 1000);
+    this._backupLoopRef = setInterval(loop, 60 * 60 * 1000);
+  }
+
+  public static async stopBackupLoop() {
+    clearInterval(this._backupLoopRef);
   }
 
   public static async createTextExport(): Promise<void> {

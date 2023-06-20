@@ -12,6 +12,9 @@ import IDEFile from '../entity/IDEFile';
 import { getFileNameFromPath } from '../helpers/getFileNameFromPath';
 import StaticSettings from '../StaticSettings';
 import IDEFileEvent from '../entity/IDEFileEvent';
+import ActiveArtifact from './ActiveArtifact';
+import { ActiveFile } from '../../types/ActiveFile';
+import FDACalculator from '../FDACalculator';
 
 export default class VSCodeTracker {
   private _port = 8086;
@@ -61,6 +64,8 @@ export default class VSCodeTracker {
         } else if (obj.endpoint === 'file-save') {
           const filePath = obj.data as string;
           self.handleFileSaveEvent(filePath);
+        } else if (obj.endpoint === 'window-unfocus') {
+          self.handleWindowUnfocusEvent();
         }
       });
     });
@@ -113,21 +118,12 @@ export default class VSCodeTracker {
     }
     ide.save();
 
-    // for smart pre-selection, look which files were active within the last 10 minutes - TODO: update this condition
-    const timeMinus10Min = Date.now() - 10 * 60 * 1000;
-    const recentlyActiveFiles = await IDEFileEvent.getRecentlyActiveIDEFiles(
-      new Date(timeMinus10Min)
-    );
-
     for await (const openFile of data.openFiles) {
-      const wasFileRecentlyActive = recentlyActiveFiles.includes(openFile.path);
-
       const ideFile = new IDEFile();
       ideFile.name = openFile.name;
       ideFile.path = openFile.path;
       ideFile.isActive = openFile.isActive;
       ideFile.ide = ide;
-      ideFile.isSelected = wasFileRecentlyActive;
       ideFile.save();
     }
 
@@ -161,7 +157,7 @@ export default class VSCodeTracker {
           ? `${lastEdit.functionName} - ${fileName}`
           : fileName;
 
-        summaryString += `Just edited line ${lineInfo} in [${functionAndFileName}]`;
+        summaryString += `Just edited line ${lineInfo} in [${functionAndFileName}].\n`;
       }
     }
 
@@ -169,17 +165,17 @@ export default class VSCodeTracker {
     if (lastCommit && lastCommit.commitDate) {
       const commitTime = new Date(lastCommit.commitDate).getTime();
       if (commitTime > Date.now() - StaticSettings.IDE_TIME_WINDOW) {
-        summaryString += `\nRecently committed "${lastCommit.message}"`;
+        summaryString += `Recently committed "${lastCommit.message}".\n`;
       }
     }
 
     if (data.hasUncommittedChanges) {
-      summaryString += '\nUncommitted changes.';
+      summaryString += 'Uncommitted changes.\n';
     }
 
     // check if summary already exists (see SummaryProvider.ts). If exists, prepend.
     if (latestSnapshot.summary !== '') {
-      latestSnapshot.summary = `${summaryString}\n\n${latestSnapshot.summary}`;
+      latestSnapshot.summary = `${summaryString}\n${latestSnapshot.summary}`;
     } else {
       latestSnapshot.summary = summaryString;
     }
@@ -192,7 +188,10 @@ export default class VSCodeTracker {
     });
     latestSnapshot.intent = intent;
 
-    latestSnapshot.save();
+    await latestSnapshot.save();
+
+    // now that all data is added to the snapshot, calculate relevance
+    FDACalculator.addRelevanceToSnapshotArtifacts(latestSnapshot.id);
   }
 
   public handleActiveFileEvent(filePath: string): void {
@@ -201,6 +200,12 @@ export default class VSCodeTracker {
     dbEntry.ts = new Date().toISOString();
     dbEntry.type = 'active-file';
     dbEntry.save();
+
+    const file: ActiveFile = {
+      path: filePath,
+      ts: new Date(),
+    };
+    ActiveArtifact.setCurrentFile(file);
   }
 
   public handleFileSaveEvent(filePath: string): void {
@@ -209,6 +214,10 @@ export default class VSCodeTracker {
     dbEntry.ts = new Date().toISOString();
     dbEntry.type = 'file-save';
     dbEntry.save();
+  }
+
+  public handleWindowUnfocusEvent(): void {
+    ActiveArtifact.storeCurrentFile();
   }
 
   public isSocketOpen(): boolean {

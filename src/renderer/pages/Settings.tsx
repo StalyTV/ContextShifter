@@ -13,6 +13,8 @@ import PlusIcon from '../components/Icons/PlusIcon';
 import InfoIcon from '../components/Icons/InfoIcon';
 import UserSettings from 'types/UserSettings';
 import Input from '../components/Input';
+import TimePicker from 'react-time-picker';
+import { Value } from 'react-time-picker/dist/cjs/shared/types';
 
 export default function Settings() {
   let loopRef: NodeJS.Timeout | undefined;
@@ -24,6 +26,7 @@ export default function Settings() {
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [isDataAnonymized, setIsDataAnonymized] = useState<boolean>(false);
   const [snapshotShortcut, setSnapshotShortcut] = useState<string>('');
+  const [endOfDayPopUpTime, setEndOfDayPopUpTime] = useState('16:30');
   const [neverCloseApplications, setNeverCloseApplications] = useState<
     KnownApplicationEntity[]
   >([]);
@@ -39,6 +42,8 @@ export default function Settings() {
       setIsDarkMode(settings.isDarkModeEnabled);
       setIsDataAnonymized(settings.isDataAnonymized);
       setSnapshotShortcut(settings.snapshotShortcut);
+      const timeString = `${settings.endOfDayPopUpTime.getHours()}:${settings.endOfDayPopUpTime.getMinutes()}`;
+      setEndOfDayPopUpTime(timeString);
     } catch (err) {
       console.error(err);
     }
@@ -110,11 +115,17 @@ export default function Settings() {
     await window.electron.ipcRenderer.invoke('update-known-application', app);
   };
 
+  const convertTimeStringToDate = (timeString: string) => {
+    const splittedTime = timeString.split(':');
+    return new Date(new Date().setHours(parseInt(splittedTime[0]), parseInt(splittedTime[1]), 0, 0));
+  };
+
   const onToggleColorTheme = async () => {
     const updatedSettings: UserSettings = {
       isDarkModeEnabled: !isDarkMode,
       isDataAnonymized: isDataAnonymized,
       snapshotShortcut: snapshotShortcut,
+      endOfDayPopUpTime: convertTimeStringToDate(endOfDayPopUpTime),
     };
     setIsDarkMode(!isDarkMode);
     setSettings(updatedSettings);
@@ -125,6 +136,7 @@ export default function Settings() {
       isDarkModeEnabled: isDarkMode,
       isDataAnonymized: !isDataAnonymized,
       snapshotShortcut: snapshotShortcut,
+      endOfDayPopUpTime: convertTimeStringToDate(endOfDayPopUpTime),
     };
     setIsDataAnonymized(!isDataAnonymized);
     setSettings(updatedSettings);
@@ -134,11 +146,26 @@ export default function Settings() {
     const updatedShortcut = e.target.value;
     const updatedSettings: UserSettings = {
       isDarkModeEnabled: isDarkMode,
-      isDataAnonymized: !isDataAnonymized,
+      isDataAnonymized: isDataAnonymized,
       snapshotShortcut: updatedShortcut,
+      endOfDayPopUpTime: convertTimeStringToDate(endOfDayPopUpTime),
     };
     setSnapshotShortcut(updatedShortcut);
     setSettings(updatedSettings);
+  };
+
+  const onChangeEndOfDayPopUpTime = (value: Value) => {
+    if (value) {
+      const updatedTimeString = value.toString();
+      const updatedSettings: UserSettings = {
+        isDarkModeEnabled: isDarkMode,
+        isDataAnonymized: isDataAnonymized,
+        snapshotShortcut: snapshotShortcut,
+        endOfDayPopUpTime: convertTimeStringToDate(updatedTimeString),
+      };
+      setEndOfDayPopUpTime(value);
+      setSettings(updatedSettings);
+    }
   };
 
   useEffect(() => {
@@ -186,6 +213,21 @@ export default function Settings() {
           <div className={styles.inputContainer}>
             <Input value={snapshotShortcut} onChange={onShortcutChange} />
           </div>
+          <div className={styles.titleWithInfo}>
+            <h4>End-Of-Day Questionnaire Time</h4>
+            <InfoIcon
+              className={styles.infoIcon}
+              data-tooltip-id={'task-snap'}
+              data-tooltip-html={
+                'At this time, a short study-related questionnaire will pop up'
+              }
+            />
+          </div>
+          <TimePicker
+            value={endOfDayPopUpTime}
+            onChange={onChangeEndOfDayPopUpTime}
+            clearIcon={null}
+          />
         </div>
       )}
 

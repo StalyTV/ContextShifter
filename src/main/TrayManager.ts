@@ -13,6 +13,8 @@ import WindowManager from './WindowManager';
 import Snapshot from './entity/Snapshot';
 import Settings from './entity/Settings';
 import { UsageDataOrigin } from '../types/UsageDataOrigin';
+import StudyManager from './StudyManager';
+import { StudyPhase } from '../types/StudyPhase';
 
 export default class TrayManager {
   private static _tray: Tray | null = null;
@@ -32,6 +34,11 @@ export default class TrayManager {
   }
 
   private static async createMenu(): Promise<Menu> {
+    const isStudy: boolean =
+      StudyManager.getStudyPhase() !== StudyPhase.NoStudy;
+    const areActionsVisible: boolean =
+      StudyManager.getStudyPhase() !== StudyPhase.Baseline;
+
     const menu = Menu.buildFromTemplate([
       {
         label: 'New Snapshot',
@@ -39,10 +46,12 @@ export default class TrayManager {
           await this._taskSnapInstance.createNewSnapshot(UsageDataOrigin.Tray);
         },
         accelerator: await Settings.getSnapshotShortcut(),
+        visible: areActionsVisible,
       },
       {
         label: 'Restore Recent Snapshot',
         submenu: await this.createRestoreSubmenu(),
+        visible: areActionsVisible,
       },
       { type: 'separator' },
       {
@@ -54,6 +63,7 @@ export default class TrayManager {
             WindowManager.snapshotGalleryWindow.show();
           }
         },
+        visible: areActionsVisible,
       },
       { type: 'separator' },
       {
@@ -76,6 +86,11 @@ export default class TrayManager {
         },
       },
       { type: 'separator' },
+      {
+        label: `Study Phase: ${StudyManager.getStudyPhase()}`,
+        enabled: false,
+        visible: isStudy,
+      },
       { role: 'about' },
       { role: 'quit' },
     ]);

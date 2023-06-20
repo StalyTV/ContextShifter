@@ -4,20 +4,26 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, June 2023
  */
 
+import StaticSettings from './StaticSettings';
 import ActiveWindow from './entity/ActiveWindow';
-import BrowserTracker from './trackers/BrowserTracker';
+import ActiveArtifact from './trackers/ActiveArtifact';
 
 export default class SummaryProvider {
   public static async createTaskSummary(): Promise<string> {
-    const startTimeWindow = new Date(Date.now() - 5 * 60 * 1000);
+    const startTimeWindow = new Date(
+      Date.now() - StaticSettings.MOST_USED_APP_TIME_WINDOW
+    );
 
     const mostActiveApp = await ActiveWindow.getMostActiveApp(startTimeWindow);
-    const lastActiveTab = BrowserTracker.getInstance().getCurrentlyActiveTab();
+    const lastActiveTab = ActiveArtifact.getLastActiveTab();
 
     let latestActiveURL = '';
     if (lastActiveTab) {
-      if (lastActiveTab.timestamp.getTime() > startTimeWindow.getTime()) {
-        latestActiveURL = lastActiveTab.tab.url || '';
+      if (lastActiveTab.ts.getTime() > startTimeWindow.getTime()) {
+        if (lastActiveTab.url) {
+          const url = new URL(lastActiveTab.url);
+          latestActiveURL = url.hostname;
+        }
       }
     }
 
