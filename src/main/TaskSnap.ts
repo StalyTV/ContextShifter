@@ -23,6 +23,7 @@ import {
   getOpenFileExplorerPaths,
   getRecentlyOpenedFilePaths,
   openArtifact,
+  playWavSoundWindows,
 } from './helpers/osCommands';
 import { getFileNameFromPath } from './helpers/getFileNameFromPath';
 import isMac from './helpers/isMac';
@@ -69,7 +70,8 @@ export default class TaskSnap {
   private _vscodeTracker: VSCodeTracker;
   private _deviceManager: DeviceManager;
   private _snapshotManager: SnapshotManager;
-  private _cameraShutterSoundPath = getAssetPath(`sounds/cameraShutter.mp3`);
+  private _cameraShutterSoundPathMp3 = getAssetPath(`sounds/cameraShutter.mp3`);
+  private _cameraShutterSoundPathWav = getAssetPath(`sounds/cameraShutter.wav`);
 
   private constructor() {
     this._windowTracker = new WindowTracker();
@@ -116,7 +118,11 @@ export default class TaskSnap {
 
   public async createNewSnapshot(origin: UsageDataOrigin) {
     info('[TaskSnap] New snapshot created');
-    soundPlayer.play(this._cameraShutterSoundPath);
+    if (isMac) {
+      soundPlayer.play(this._cameraShutterSoundPathMp3);
+    } else {
+      playWavSoundWindows(this._cameraShutterSoundPathWav); // the npm library didn't work on all Windows computers
+    }
     this._deviceManager.showLightPulse();
 
     // store currently open active window to be sure that it is included in snapshot

@@ -133,3 +133,12 @@ async function resolveLink(linkPath: string) {
     error(err);
   }
 }
+
+export function playWavSoundWindows(filePath: string) {
+  try {
+    const command = `(New-Object Media.SoundPlayer ${filePath}).PlaySync()`;
+    exec(command, { shell: 'powershell.exe' });
+  } catch (err) {
+    error(err);
+  }
+}
