@@ -232,7 +232,10 @@ export default class TaskSnap {
     );
 
     // show questionnaire during study
-    if (StudyManager.getStudyPhase() === StudyPhase.Intervention) {
+    if (
+      StudyManager.getStudyPhase() === StudyPhase.Intervention &&
+      origin !== UsageDataOrigin.SnapshotWindow
+    ) {
       await WindowManager.createTaskResumptionWindow(() => {
         const destination = WindowManager.taskResumptionWindow
           ?.webContents as TypedWebContents<Events>;
