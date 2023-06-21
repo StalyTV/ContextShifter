@@ -244,7 +244,10 @@ export default class TaskSnap {
     }
 
     // if summary or intent available, create window that visualizes summary and intent of snapshot
-    if (snapshot.summary || snapshot.intent) {
+    if (
+      origin !== UsageDataOrigin.SnapshotWindow &&
+      (snapshot.summary || snapshot.intent)
+    ) {
       if (!WindowManager.mentalContextWindow) {
         await WindowManager.createMentalContextWindow(() => {
           const destination = WindowManager.mentalContextWindow
