@@ -48,6 +48,10 @@ export async function getOpenFileExplorerPaths(): Promise<string[]> {
     );
     const stdout = res.stdout;
     const cleanedString = stdout.replace(/\n/g, '');
+    if (cleanedString === '') {
+      return [];
+    }
+
     let listOfPaths = cleanedString.split(',');
     listOfPaths = listOfPaths.map((path) => path.replace(/^\s*/g, '')); // remove spaces in front
     return listOfPaths.map((path) => path.replace(/\/$/g, '')); // remove last slash of paths
