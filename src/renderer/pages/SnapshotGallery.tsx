@@ -19,7 +19,7 @@ export default function SnapshotGallery() {
     new Map()
   );
   const [totalNumSnapshots, setTotalNumSnapshots] = useState<number>(0);
-  const [shownNumSnapshots, setShownNumSnapshots] = useState<number>(10);
+  const [shownNumSnapshots, setShownNumSnapshots] = useState<number>(20);
 
   const registerEventListeners = () => {
     window.electron.onSnapshotsUpdated(() => fetchSnapshots());
@@ -65,7 +65,7 @@ export default function SnapshotGallery() {
   };
 
   const increaseShownNumSnapshots = () => {
-    const newAmount = shownNumSnapshots + 10;
+    const newAmount = shownNumSnapshots + 20;
     setShownNumSnapshots(newAmount);
     fetchSnapshots(newAmount);
   };
