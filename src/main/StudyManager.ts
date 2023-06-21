@@ -102,8 +102,22 @@ export default class StudyManager {
 
     const loop = async () => {
       debug('[StudyManager] Checked time');
-      const setTime = await Settings.getEndOfDayPopUpTime();
+      const showQuestionnaireOnlyOnWorkdays =
+        await Settings.getShowQuestionnaireOnlyOnWorkdays();
       const now = new Date();
+
+      // check if it is the weekend
+      if (
+        showQuestionnaireOnlyOnWorkdays &&
+        (now.getDay() === 0 || now.getDay() === 6)
+      ) {
+        debug(
+          '[StudyManager] Weekend. Skip check to show end-of-day questionnaire'
+        );
+        return;
+      }
+
+      const setTime = await Settings.getEndOfDayPopUpTime();
       if (
         now.getHours() > setTime.getHours() ||
         (now.getHours() === setTime.getHours() &&

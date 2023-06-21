@@ -9,6 +9,7 @@ type UserSettings = {
   isDataAnonymized: boolean;
   snapshotShortcut: string;
   endOfDayPopUpTime: Date;
+  showQuestionnaireOnlyOnWorkdays: boolean;
 };
 
 export default UserSettings;

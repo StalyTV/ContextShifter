@@ -29,6 +29,8 @@ export default function Settings() {
   const [isDataAnonymized, setIsDataAnonymized] = useState<boolean>(false);
   const [snapshotShortcut, setSnapshotShortcut] = useState<string>('');
   const [endOfDayPopUpTime, setEndOfDayPopUpTime] = useState('16:30');
+  const [showQuestionnaireOnlyOnWorkdays, setShowQuestionnaireOnlyOnWorkdays] =
+    useState<boolean>(true);
   const [neverCloseApplications, setNeverCloseApplications] = useState<
     KnownApplicationEntity[]
   >([]);
@@ -46,6 +48,9 @@ export default function Settings() {
       setSnapshotShortcut(settings.snapshotShortcut);
       const timeString = `${settings.endOfDayPopUpTime.getHours()}:${settings.endOfDayPopUpTime.getMinutes()}`;
       setEndOfDayPopUpTime(timeString);
+      setShowQuestionnaireOnlyOnWorkdays(
+        settings.showQuestionnaireOnlyOnWorkdays
+      );
     } catch (err) {
       console.error(err);
     }
@@ -135,6 +140,7 @@ export default function Settings() {
       isDataAnonymized: isDataAnonymized,
       snapshotShortcut: snapshotShortcut,
       endOfDayPopUpTime: convertTimeStringToDate(endOfDayPopUpTime),
+      showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
     };
     setIsDarkMode(!isDarkMode);
     setSettings(updatedSettings);
@@ -146,6 +152,7 @@ export default function Settings() {
       isDataAnonymized: !isDataAnonymized,
       snapshotShortcut: snapshotShortcut,
       endOfDayPopUpTime: convertTimeStringToDate(endOfDayPopUpTime),
+      showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
     };
     setIsDataAnonymized(!isDataAnonymized);
     setSettings(updatedSettings);
@@ -158,6 +165,7 @@ export default function Settings() {
       isDataAnonymized: isDataAnonymized,
       snapshotShortcut: updatedShortcut,
       endOfDayPopUpTime: convertTimeStringToDate(endOfDayPopUpTime),
+      showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
     };
     setSnapshotShortcut(updatedShortcut);
     setSettings(updatedSettings);
@@ -171,10 +179,23 @@ export default function Settings() {
         isDataAnonymized: isDataAnonymized,
         snapshotShortcut: snapshotShortcut,
         endOfDayPopUpTime: convertTimeStringToDate(updatedTimeString),
+        showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
       };
       setEndOfDayPopUpTime(value);
       setSettings(updatedSettings);
     }
+  };
+
+  const onToggleOnlyShowOnWorkdays = async () => {
+    const updatedSettings: UserSettings = {
+      isDarkModeEnabled: isDarkMode,
+      isDataAnonymized: isDataAnonymized,
+      snapshotShortcut: snapshotShortcut,
+      endOfDayPopUpTime: convertTimeStringToDate(endOfDayPopUpTime),
+      showQuestionnaireOnlyOnWorkdays: !showQuestionnaireOnlyOnWorkdays,
+    };
+    setShowQuestionnaireOnlyOnWorkdays(!showQuestionnaireOnlyOnWorkdays);
+    setSettings(updatedSettings);
   };
 
   useEffect(() => {
@@ -236,6 +257,14 @@ export default function Settings() {
             value={endOfDayPopUpTime}
             onChange={onChangeEndOfDayPopUpTime}
             clearIcon={null}
+          />
+          <h4>Show End-Of-Day Questionnaire only on workdays</h4>
+          <TaskSnapToggle
+            defaultChecked={showQuestionnaireOnlyOnWorkdays}
+            leftLabel={'no'}
+            rightLabel={'yes'}
+            icons={false}
+            onChange={onToggleOnlyShowOnWorkdays}
           />
         </div>
       )}
