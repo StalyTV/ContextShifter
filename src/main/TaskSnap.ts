@@ -379,7 +379,7 @@ export default class TaskSnap {
   public async getCurrentlyOpenApplications(): Promise<
     [Browser[], IDE[], Application[]]
   > {
-    const visibleWindows = await activeWin.getOpenWindows();
+    const visibleWindows = (await activeWin.getOpenWindows()) || [];
 
     // map results from activeWin to own window object
     const windowsToConsider: TaskSnapWindowObject[] = visibleWindows.map(
@@ -428,7 +428,7 @@ export default class TaskSnap {
 
     let processInfos: ProcessInfo[] = [];
     let recentlyOpenedFiles: string[] = [];
-    if (isMac) {
+    if (isMac && pidsOfApplications.length > 0) {
       processInfos = await lsof(options);
     } else {
       const searchStart = new Date(new Date().setHours(0));
