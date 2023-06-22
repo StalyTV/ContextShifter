@@ -46,6 +46,7 @@ export default class ActiveWindow extends BaseEntity {
       })
       .andWhere('active_window.applicationPath IS NOT NULL')
       .andWhere(`active_window.application != 'UserNotificationCenter'`)
+      .andWhere(`active_window.application != 'loginwindow'`)
       .groupBy('active_window.application')
       .getMany();
     return recentActiveWindows;
