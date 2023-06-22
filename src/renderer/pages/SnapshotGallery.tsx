@@ -7,7 +7,7 @@
 import styles from './SnapshotGallery.module.scss';
 import { useEffect, useState } from 'react';
 import SnapshotEntity from '../../main/entity/Snapshot';
-import SnapshotPreview from '../components/Gallery/SnapshotPreview';
+import GalleryEntry from '../components/Gallery/GalleryEntry';
 import NavBar from '../components/Navigation/NavBar';
 import Button from 'renderer/components/Button';
 import Input from 'renderer/components/Input';
@@ -176,7 +176,7 @@ export default function SnapshotGallery() {
             {getFormattedDateFromKey(key)}
             {snapshotMap.get(key)!.map((snapshot) => {
               return (
-                <SnapshotPreview
+                <GalleryEntry
                   key={snapshot.id}
                   snapshot={snapshot}
                   onDelete={onDelete}
