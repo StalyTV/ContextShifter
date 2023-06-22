@@ -39,4 +39,14 @@ export default class Settings extends BaseEntity {
       return new Date(new Date().setHours(16, 30, 0, 0));
     }
   }
+
+  static async getShowQuestionnaireOnlyOnWorkdays(): Promise<boolean> {
+    const onlyShowWorkdays = (
+      await this.findOneBy({ key: 'showQuestionnaireOnlyOnWorkdays' })
+    )?.value;
+    if (onlyShowWorkdays && onlyShowWorkdays === 'false') {
+      return false;
+    }
+    return true;
+  }
 }

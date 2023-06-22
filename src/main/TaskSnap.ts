@@ -23,6 +23,7 @@ import {
   getOpenFileExplorerPaths,
   getRecentlyOpenedFilePaths,
   openArtifact,
+  playWavSoundWindows,
 } from './helpers/osCommands';
 import { getFileNameFromPath } from './helpers/getFileNameFromPath';
 import isMac from './helpers/isMac';
@@ -69,7 +70,8 @@ export default class TaskSnap {
   private _vscodeTracker: VSCodeTracker;
   private _deviceManager: DeviceManager;
   private _snapshotManager: SnapshotManager;
-  private _cameraShutterSoundPath = getAssetPath(`sounds/cameraShutter.mp3`);
+  private _cameraShutterSoundPathMp3 = getAssetPath(`sounds/cameraShutter.mp3`);
+  private _cameraShutterSoundPathWav = getAssetPath(`sounds/cameraShutter.wav`);
 
   private constructor() {
     this._windowTracker = new WindowTracker();
@@ -116,7 +118,11 @@ export default class TaskSnap {
 
   public async createNewSnapshot(origin: UsageDataOrigin) {
     info('[TaskSnap] New snapshot created');
-    soundPlayer.play(this._cameraShutterSoundPath);
+    if (isMac) {
+      soundPlayer.play(this._cameraShutterSoundPathMp3);
+    } else {
+      playWavSoundWindows(this._cameraShutterSoundPathWav); // the npm library didn't work on all Windows computers
+    }
     this._deviceManager.showLightPulse();
 
     // store currently open active window to be sure that it is included in snapshot
@@ -226,7 +232,10 @@ export default class TaskSnap {
     );
 
     // show questionnaire during study
-    if (StudyManager.getStudyPhase() === StudyPhase.Intervention) {
+    if (
+      StudyManager.getStudyPhase() === StudyPhase.Intervention &&
+      origin !== UsageDataOrigin.SnapshotWindow
+    ) {
       await WindowManager.createTaskResumptionWindow(() => {
         const destination = WindowManager.taskResumptionWindow
           ?.webContents as TypedWebContents<Events>;
@@ -235,7 +244,10 @@ export default class TaskSnap {
     }
 
     // if summary or intent available, create window that visualizes summary and intent of snapshot
-    if (snapshot.summary || snapshot.intent) {
+    if (
+      origin !== UsageDataOrigin.SnapshotWindow &&
+      (snapshot.summary || snapshot.intent)
+    ) {
       if (!WindowManager.mentalContextWindow) {
         await WindowManager.createMentalContextWindow(() => {
           const destination = WindowManager.mentalContextWindow
@@ -367,7 +379,7 @@ export default class TaskSnap {
   public async getCurrentlyOpenApplications(): Promise<
     [Browser[], IDE[], Application[]]
   > {
-    const visibleWindows = await activeWin.getOpenWindows();
+    const visibleWindows = (await activeWin.getOpenWindows()) || [];
 
     // map results from activeWin to own window object
     const windowsToConsider: TaskSnapWindowObject[] = visibleWindows.map(
@@ -416,7 +428,7 @@ export default class TaskSnap {
 
     let processInfos: ProcessInfo[] = [];
     let recentlyOpenedFiles: string[] = [];
-    if (isMac) {
+    if (isMac && pidsOfApplications.length > 0) {
       processInfos = await lsof(options);
     } else {
       const searchStart = new Date(new Date().setHours(0));

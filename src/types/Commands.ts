@@ -66,6 +66,7 @@ type Commands = {
     json: string,
     snapshotId: number | null // reference to snapshot should exist, but still save answer if there is an error
   ) => Promise<void>;
+  'get-last-two-snapshots-of-today': () => Snapshot[];
 };
 
 export default Commands;

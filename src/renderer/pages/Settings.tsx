@@ -15,9 +15,13 @@ import UserSettings from 'types/UserSettings';
 import Input from '../components/Input';
 import TimePicker from 'react-time-picker';
 import { Value } from 'react-time-picker/dist/cjs/shared/types';
+import { StudyPhase } from 'types/StudyPhase';
+import 'react-time-picker/dist/TimePicker.css';
+import 'react-clock/dist/Clock.css';
 
 export default function Settings() {
   let loopRef: NodeJS.Timeout | undefined;
+  const [studyPhase, setStudyPhase] = useState<StudyPhase>(StudyPhase.NoStudy);
   const [extensionStatus, setExtensionStatus] = useState<ExtensionsStatus>({
     isVSCodeConnected: false,
     isBrowserConnected: false,
@@ -27,6 +31,8 @@ export default function Settings() {
   const [isDataAnonymized, setIsDataAnonymized] = useState<boolean>(false);
   const [snapshotShortcut, setSnapshotShortcut] = useState<string>('');
   const [endOfDayPopUpTime, setEndOfDayPopUpTime] = useState('16:30');
+  const [showQuestionnaireOnlyOnWorkdays, setShowQuestionnaireOnlyOnWorkdays] =
+    useState<boolean>(true);
   const [neverCloseApplications, setNeverCloseApplications] = useState<
     KnownApplicationEntity[]
   >([]);
@@ -44,6 +50,9 @@ export default function Settings() {
       setSnapshotShortcut(settings.snapshotShortcut);
       const timeString = `${settings.endOfDayPopUpTime.getHours()}:${settings.endOfDayPopUpTime.getMinutes()}`;
       setEndOfDayPopUpTime(timeString);
+      setShowQuestionnaireOnlyOnWorkdays(
+        settings.showQuestionnaireOnlyOnWorkdays
+      );
     } catch (err) {
       console.error(err);
     }
@@ -117,7 +126,14 @@ export default function Settings() {
 
   const convertTimeStringToDate = (timeString: string) => {
     const splittedTime = timeString.split(':');
-    return new Date(new Date().setHours(parseInt(splittedTime[0]), parseInt(splittedTime[1]), 0, 0));
+    return new Date(
+      new Date().setHours(
+        parseInt(splittedTime[0]),
+        parseInt(splittedTime[1]),
+        0,
+        0
+      )
+    );
   };
 
   const onToggleColorTheme = async () => {
@@ -126,6 +142,7 @@ export default function Settings() {
       isDataAnonymized: isDataAnonymized,
       snapshotShortcut: snapshotShortcut,
       endOfDayPopUpTime: convertTimeStringToDate(endOfDayPopUpTime),
+      showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
     };
     setIsDarkMode(!isDarkMode);
     setSettings(updatedSettings);
@@ -137,6 +154,7 @@ export default function Settings() {
       isDataAnonymized: !isDataAnonymized,
       snapshotShortcut: snapshotShortcut,
       endOfDayPopUpTime: convertTimeStringToDate(endOfDayPopUpTime),
+      showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
     };
     setIsDataAnonymized(!isDataAnonymized);
     setSettings(updatedSettings);
@@ -149,6 +167,7 @@ export default function Settings() {
       isDataAnonymized: isDataAnonymized,
       snapshotShortcut: updatedShortcut,
       endOfDayPopUpTime: convertTimeStringToDate(endOfDayPopUpTime),
+      showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
     };
     setSnapshotShortcut(updatedShortcut);
     setSettings(updatedSettings);
@@ -162,13 +181,32 @@ export default function Settings() {
         isDataAnonymized: isDataAnonymized,
         snapshotShortcut: snapshotShortcut,
         endOfDayPopUpTime: convertTimeStringToDate(updatedTimeString),
+        showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
       };
       setEndOfDayPopUpTime(value);
       setSettings(updatedSettings);
     }
   };
 
+  const onToggleOnlyShowOnWorkdays = async () => {
+    const updatedSettings: UserSettings = {
+      isDarkModeEnabled: isDarkMode,
+      isDataAnonymized: isDataAnonymized,
+      snapshotShortcut: snapshotShortcut,
+      endOfDayPopUpTime: convertTimeStringToDate(endOfDayPopUpTime),
+      showQuestionnaireOnlyOnWorkdays: !showQuestionnaireOnlyOnWorkdays,
+    };
+    setShowQuestionnaireOnlyOnWorkdays(!showQuestionnaireOnlyOnWorkdays);
+    setSettings(updatedSettings);
+  };
+
+  const getStudyPhase = async () => {
+    const phase = await window.electron.ipcRenderer.invoke('get-study-phase');
+    setStudyPhase(phase);
+  };
+
   useEffect(() => {
+    getStudyPhase();
     getSettings();
     getKnownApplications();
     getConnectionStatus();
@@ -213,21 +251,33 @@ export default function Settings() {
           <div className={styles.inputContainer}>
             <Input value={snapshotShortcut} onChange={onShortcutChange} />
           </div>
-          <div className={styles.titleWithInfo}>
-            <h4>End-Of-Day Questionnaire Time</h4>
-            <InfoIcon
-              className={styles.infoIcon}
-              data-tooltip-id={'task-snap'}
-              data-tooltip-html={
-                'At this time, a short study-related questionnaire will pop up'
-              }
-            />
-          </div>
-          <TimePicker
-            value={endOfDayPopUpTime}
-            onChange={onChangeEndOfDayPopUpTime}
-            clearIcon={null}
-          />
+          {studyPhase !== StudyPhase.NoStudy ? (
+            <>
+              <div className={styles.titleWithInfo}>
+                <h4>End-Of-Day Questionnaire Time</h4>
+                <InfoIcon
+                  className={styles.infoIcon}
+                  data-tooltip-id={'task-snap'}
+                  data-tooltip-html={
+                    'At this time, a short study-related questionnaire will pop up'
+                  }
+                />
+              </div>
+              <TimePicker
+                value={endOfDayPopUpTime}
+                onChange={onChangeEndOfDayPopUpTime}
+                clearIcon={null}
+              />
+              <h4>Show End-Of-Day Questionnaire only on workdays</h4>
+              <TaskSnapToggle
+                defaultChecked={showQuestionnaireOnlyOnWorkdays}
+                leftLabel={'no'}
+                rightLabel={'yes'}
+                icons={false}
+                onChange={onToggleOnlyShowOnWorkdays}
+              />
+            </>
+          ) : null}
         </div>
       )}
 

@@ -1,31 +1,23 @@
 /* Copyright Human Aspects of Software Engineering Lab (HASEL), Department of Informatics, University of Zurich - All Rights Reserved
  * Unauthorized copying of this file, via any medium is strictly prohibited
  * Proprietary and confidential
- * Written by Remy Egloff <remy.egloff@uzh.ch>, April 2023
+ * Written by Remy Egloff <remy.egloff@uzh.ch>, June 2023
  */
 
-import { useState } from 'react';
-import EditIcon from '../Icons/EditIcon';
-import styles from './SnapshotPreview.module.scss';
 import SnapshotEntity from 'main/entity/Snapshot';
-import TrashIcon from '../Icons/TrashIcon';
-import PlayIcon from '../Icons/PlayIcon';
-import { toast } from 'react-toastify';
+import styles from './SnapshotPreview.module.scss';
+import CameraIcon from '../Icons/CameraIcon';
+import EditIcon from '../Icons/EditIcon';
 import BrowserPreview from './BrowserPreview';
 import IDEPreview from './IDEPreview';
 import ApplicationPreview from './ApplicationPreview';
-import Artifact from 'types/Artifact';
-import CameraIcon from '../Icons/CameraIcon';
 
 type Props = {
   snapshot: SnapshotEntity;
-  onDelete: () => void;
+  isExpanded: boolean;
 };
 
 export default function SnapshotPreview(props: Props) {
-  const [isHovering, setIsHovering] = useState<boolean>(false);
-  const [isExpanded, setIsExpanded] = useState<boolean>(false);
-
   const getSelectedApplications = () => {
     return props.snapshot.applications.filter((app) => {
       if (!app.isSelected) {
@@ -52,176 +44,79 @@ export default function SnapshotPreview(props: Props) {
     });
   };
 
-  const onClickSnapshot = async (e: React.MouseEvent) => {
-    // needed just for logging. Just log when it is expanded.
-    if (!isExpanded) {
-      await window.electron.ipcRenderer.invoke(
-        'expand-snapshot-preview',
-        props.snapshot.id
-      );
-    }
-
-    setIsExpanded(!isExpanded);
-  };
-
-  const onClickApplication = async (e: React.MouseEvent, path: string) => {
-    // makes sure Preview is not expanded
-    e.stopPropagation();
-
-    const artifact: Artifact = {
-      artifact: path,
-    };
-    await window.electron.ipcRenderer.invoke('open-artifact', artifact);
-  };
-
-  const onClickEdit = async () => {
-    await window.electron.ipcRenderer.invoke(
-      'open-snapshot',
-      props.snapshot.id
-    );
-  };
-
-  const onClickDelete = async () => {
-    if (
-      confirm(
-        `Are you sure that you want to delete "${props.snapshot.name}"?`
-      ) === true
-    ) {
-      try {
-        toast.promise(
-          async () =>
-            await window.electron.ipcRenderer.invoke(
-              'gallery-delete-snapshot',
-              props.snapshot.id
-            ),
-          {
-            pending: 'Deleting Snapshot...',
-            success: 'Snapshot Deleted',
-            error: 'Something went wrong',
-          }
-        );
-        props.onDelete();
-      } catch (err) {
-        console.error(err);
-      }
-    }
-  };
-
-  const onClickRestore = async () => {
-    await window.electron.ipcRenderer.invoke(
-      'restore-snapshot',
-      props.snapshot.id
-    );
-  };
 
   return (
-    <div
-      className={styles.singleSnapshot}
-      onMouseEnter={() => {
-        setIsHovering(true);
-      }}
-      onMouseLeave={() => {
-        setIsHovering(false);
-      }}
-    >
-      <div
-        className={styles.snapshotPreviewContainer}
-        onClick={onClickSnapshot}
-      >
-        <div className={styles.left}>
-          <div className={styles.upper}>
-            <div className={styles.timeAndName}>
-              <div className={styles.time}>
-                {getFormattedTime(props.snapshot.lastChange)}
-                {props.snapshot.lastChange === props.snapshot.created ? (
-                  <CameraIcon className={styles.icon} />
-                ) : (
-                  <EditIcon className={styles.icon} />
-                )}
-              </div>
-              <div className={styles.name}>{props.snapshot.name}</div>
+    <div className={styles.snapshotPreviewContainer}>
+      <div className={styles.left}>
+        <div className={styles.upper}>
+          <div className={styles.timeAndName}>
+            <div className={styles.time}>
+              {getFormattedTime(props.snapshot.lastChange)}
+              {props.snapshot.lastChange === props.snapshot.created ? (
+                <CameraIcon className={styles.icon} />
+              ) : (
+                <EditIcon className={styles.icon} />
+              )}
             </div>
-          </div>
-
-          <div className={styles.lower}>
-            <div
-              className={`${styles.applications} ${
-                isExpanded ? styles.isExpanded : undefined
-              }`}
-            >
-              {getSelectedBrowsers().map((browser) => {
-                return (
-                  <BrowserPreview
-                    key={browser.id}
-                    browser={browser}
-                    isExpanded={isExpanded}
-                  />
-                );
-              })}
-              {getSelectedIDEs().map((ide) => {
-                return (
-                  <IDEPreview key={ide.id} ide={ide} isExpanded={isExpanded} />
-                );
-              })}
-              {getSelectedApplications().map((app) => {
-                return <ApplicationPreview key={app.id} app={app} />;
-              })}
-            </div>
+            <div className={styles.name}>{props.snapshot.name}</div>
           </div>
         </div>
 
-        <div className={styles.right}>
-          <div className={styles.postIt}>
+        <div className={styles.lower}>
+          <div
+            className={`${styles.applications} ${
+              props.isExpanded ? styles.isExpanded : undefined
+            }`}
+          >
+            {getSelectedBrowsers().map((browser) => {
+              return (
+                <BrowserPreview
+                  key={browser.id}
+                  browser={browser}
+                  isExpanded={props.isExpanded}
+                />
+              );
+            })}
+            {getSelectedIDEs().map((ide) => {
+              return (
+                <IDEPreview
+                  key={ide.id}
+                  ide={ide}
+                  isExpanded={props.isExpanded}
+                />
+              );
+            })}
+            {getSelectedApplications().map((app) => {
+              return <ApplicationPreview key={app.id} app={app} />;
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.right}>
+        <div className={styles.postIt}>
+          <span
+            className={styles.postItIcon}
+            data-tooltip-id={'task-snap'}
+            data-tooltip-content={'What was I doing?'}
+          >
+            ⏪
+          </span>
+          <span>{props.snapshot.summary}</span>
+        </div>
+        {props.isExpanded ? (
+          <div className={`${styles.postIt} ${styles.intent}`}>
             <span
               className={styles.postItIcon}
               data-tooltip-id={'task-snap'}
-              data-tooltip-content={'What was I doing?'}
+              data-tooltip-content={'What was I about to do?'}
             >
-              ⏪
+              💭
             </span>
-            <span>{props.snapshot.summary}</span>
+            <span>{props.snapshot.intent}</span>
           </div>
-          {isExpanded ? (
-            <div className={`${styles.postIt} ${styles.intent}`}>
-              <span
-                className={styles.postItIcon}
-                data-tooltip-id={'task-snap'}
-                data-tooltip-content={'What was I about to do?'}
-              >
-                💭
-              </span>
-              <span>{props.snapshot.intent}</span>
-            </div>
-          ) : null}
-        </div>
+        ) : null}
       </div>
-      {isHovering ? (
-        <div className={styles.buttonBox}>
-          <div
-            className={`${styles.dot} ${styles.edit}`}
-            onClick={() => {
-              onClickEdit();
-            }}
-          >
-            <EditIcon className={styles.icon} />
-          </div>
-          <div
-            className={`${styles.dot} ${styles.delete}`}
-            onClick={() => {
-              onClickDelete();
-            }}
-          >
-            <TrashIcon className={styles.icon} />
-          </div>
-          <div
-            className={`${styles.dot} ${styles.restore}`}
-            onClick={() => onClickRestore()}
-          >
-            <PlayIcon className={styles.icon} />
-            <span>Restore</span>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

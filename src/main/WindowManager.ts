@@ -291,7 +291,7 @@ export default class WindowManager {
 
     this.endOfDayWindow = new BrowserWindow({
       show: false,
-      width: 700,
+      width: 850,
       height: 700,
       minWidth: 500,
       minHeight: 250,

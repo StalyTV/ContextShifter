@@ -48,6 +48,10 @@ export async function getOpenFileExplorerPaths(): Promise<string[]> {
     );
     const stdout = res.stdout;
     const cleanedString = stdout.replace(/\n/g, '');
+    if (cleanedString === '') {
+      return [];
+    }
+
     let listOfPaths = cleanedString.split(',');
     listOfPaths = listOfPaths.map((path) => path.replace(/^\s*/g, '')); // remove spaces in front
     return listOfPaths.map((path) => path.replace(/\/$/g, '')); // remove last slash of paths
@@ -129,6 +133,15 @@ async function resolveLink(linkPath: string) {
     const res = await asyncExec(command, { shell: 'powershell.exe' });
     const cleanedRes = res.stdout.replace('\r\n', '');
     return cleanedRes;
+  } catch (err) {
+    error(err);
+  }
+}
+
+export function playWavSoundWindows(filePath: string) {
+  try {
+    const command = `(New-Object Media.SoundPlayer ${filePath}).PlaySync()`;
+    exec(command, { shell: 'powershell.exe' });
   } catch (err) {
     error(err);
   }

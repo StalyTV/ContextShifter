@@ -1,0 +1,64 @@
+.singleSnapshot {
+  display: flex;
+  align-items: center;
+  width: 100%;
+
+  .buttonBox {
+    display: flex;
+    align-items: center;
+
+    .dot {
+      margin-left: 1rem;
+      background-color: var(--accent-color-2);
+      border-radius: 50%;
+      width: 2rem;
+      height: 2rem;
+      cursor: pointer;
+
+
+      .icon {
+        height: 1rem;
+        margin: 0.5rem;
+        fill: var(--border-color);
+      }
+    }
+
+    .dot.edit:hover {
+      transform: scale(1.05);
+      transition: all ease-in 0.1s;
+    }
+
+    .dot.delete {
+      background-color: red;
+
+      &:hover {
+        transform: scale(1.05);
+        transition: all ease-in 0.1s;
+      }
+    }
+
+    .dot.restore {
+      display: flex;
+      align-items: center;
+      background-color: var(--accent-color-1);
+
+      .icon {
+        margin-left: 0.6rem;
+      }
+
+      span {
+        display: none;
+        font-size: x-small;
+      }
+
+      &:hover {
+        width: 5.2rem;
+        border-radius: 2rem / 2rem;
+
+        span {
+          display: block;
+        }
+      }
+    }
+  }
+}

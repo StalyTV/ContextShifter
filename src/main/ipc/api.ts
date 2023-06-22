@@ -198,6 +198,8 @@ typedIpcMain.handle('get-settings', async () => {
     isDataAnonymized: await Settings.getIsDataAnonymized(),
     snapshotShortcut: await Settings.getSnapshotShortcut(),
     endOfDayPopUpTime: await Settings.getEndOfDayPopUpTime(),
+    showQuestionnaireOnlyOnWorkdays:
+      await Settings.getShowQuestionnaireOnlyOnWorkdays(),
   };
   return userSettings;
 });
@@ -220,6 +222,10 @@ typedIpcMain.handle('set-settings', async (e, updatedSettings) => {
   await Database.manager.save(Settings, {
     key: 'endOfDayPopUpTime',
     value: updatedSettings.endOfDayPopUpTime.toISOString(),
+  });
+  await Database.manager.save(Settings, {
+    key: 'showQuestionnaireOnlyOnWorkdays',
+    value: updatedSettings.showQuestionnaireOnlyOnWorkdays ? 'true' : 'false',
   });
   await UsageData.addEntry(
     'update-settings',
@@ -281,3 +287,7 @@ typedIpcMain.handle(
     info(`[API] Saved task resumption questionnaire`);
   }
 );
+
+typedIpcMain.handle('get-last-two-snapshots-of-today', async () => {
+  return await SnapshotEntity.getLastTwoSnapshotsOfToday();
+});
