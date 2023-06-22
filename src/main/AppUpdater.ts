@@ -33,11 +33,11 @@ export default class AppUpdater {
 
       const dialogOpts = {
         type: 'info',
-        buttons: ['Restart', 'Later'],
-        title: 'Application Update',
+        buttons: ['Restart TaskSnap', 'Update later'],
+        title: 'TaskSnap Update',
         message: '',
         detail:
-          'A new version has been downloaded. Restart the application to apply the updates.',
+          'A new version of TaskSnap has been downloaded. Restart TaskSnap to apply the updates.',
       };
 
       const returnValue = await dialog.showMessageBox(dialogOpts);
@@ -49,16 +49,16 @@ export default class AppUpdater {
     });
 
     autoUpdater.on('update-available', () => {
-      info('[AppUpdater] There is an update available');
+      info('[AppUpdater] There is an update for TaskSnap available');
     });
 
     autoUpdater.on('update-not-available', () => {
-      info('[AppUpdater] There is no update available');
+      info('[AppUpdater] There is no update for TaskSnap available');
     });
 
     autoUpdater.on('error', (message) => {
       error(
-        '[AppUpdater] There was a problem updating the application',
+        '[AppUpdater] There was a problem updating TaskSnap',
         message
       );
     });
