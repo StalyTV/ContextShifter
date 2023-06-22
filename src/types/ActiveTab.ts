@@ -6,5 +6,6 @@
 
 export type ActiveTab = {
   url: string;
+  title?: string;
   ts: Date;
 };

@@ -18,9 +18,7 @@ import {
 import { Tabs } from 'webextension-polyfill';
 import Browser from '../entity/Browser';
 import BrowserTab from '../entity/BrowserTab';
-import ActiveBrowserTab from '../entity/ActiveBrowserTab';
 import { BrowserType } from 'types/BrowserType';
-import { hashUrl } from '../helpers/hashUrl';
 import { ActiveTab } from '../../types/ActiveTab';
 import ActiveArtifact from './ActiveArtifact';
 
@@ -141,6 +139,7 @@ export default class BrowserTracker {
     if (activeTab && activeTab.url) {
       const tab: ActiveTab = {
         url: activeTab.url,
+        title: activeTab.title,
         ts: new Date(),
       };
       ActiveArtifact.setCurrentTab(tab);
