@@ -140,6 +140,27 @@ export default class Snapshot extends BaseEntity {
     }
   }
 
+  static async getLastTwoSnapshotsOfToday(): Promise<Snapshot[]> {
+    const lastTwoSnapshotsOfToday = await this.find({
+      where: { isArchived: false },
+      order: { created: 'DESC' },
+      take: 2,
+    });
+    const snapshotIds = lastTwoSnapshotsOfToday.map((snapshot) => snapshot.id);
+    const res: Snapshot[] = [];
+    for await (const id of snapshotIds) {
+      const snapshot = await this.getSnapshotById(id);
+      if (snapshot) {
+        const creationDate = new Date(snapshot.created);
+        if (creationDate.getDate() === new Date().getDate()) {
+          res.push(snapshot);
+        }
+      }
+    }
+
+    return res;
+  }
+
   static async getTotalNumSnapshots(): Promise<number> {
     return this.count();
   }

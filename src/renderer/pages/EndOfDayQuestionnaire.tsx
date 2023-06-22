@@ -10,11 +10,16 @@ import PostponeButton from '../components/PostponeButton';
 import Button from '../components/Button';
 import LikertScale from '../components/Questionnaire/LikertScale';
 import { StudyPhase } from '../../types/StudyPhase';
+import SnapshotEntity from '../../main/entity/Snapshot';
+import SnapshotPreview from '../components/Gallery/SnapshotPreview';
 
 type Props = {};
 
 export default function EndOfDayQuestionnaire(props: Props) {
   const [studyPhase, setStudyPhase] = useState<StudyPhase>(StudyPhase.NoStudy);
+  const [lastTwoSnapshotsOfToday, setLastTwoSnapshotsOfToday] = useState<
+    SnapshotEntity[]
+  >([]);
   const [answerQ1, setAnswerQ1] = useState<string>('');
 
   const onClickSave = async () => {
@@ -49,6 +54,21 @@ export default function EndOfDayQuestionnaire(props: Props) {
     setStudyPhase(phase);
   };
 
+  const getLastTwoSnapshotsOfToday = async () => {
+    const snapshots = await window.electron.ipcRenderer.invoke(
+      'get-last-two-snapshots-of-today'
+    );
+    setLastTwoSnapshotsOfToday(snapshots);
+  };
+
+  const getFormattedTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   // questions
   const question01 = 'Overall, how satisfied are you with your workday?';
 
@@ -67,6 +87,7 @@ export default function EndOfDayQuestionnaire(props: Props) {
 
   useEffect(() => {
     getStudyPhase();
+    getLastTwoSnapshotsOfToday();
   }, []);
 
   return (
@@ -90,7 +111,21 @@ export default function EndOfDayQuestionnaire(props: Props) {
           onSelect={setQ1}
         />
       </div>
-
+      {studyPhase === StudyPhase.Intervention ? (
+        <div>
+          {lastTwoSnapshotsOfToday.map((snapshot) => {
+            return (
+              <div className={styles.snapshotExample} key={snapshot.id}>
+                <h3>
+                  You created the following snapshot today at{' '}
+                  {getFormattedTime(snapshot.created)}
+                </h3>
+                <SnapshotPreview snapshot={snapshot} isExpanded={true} />
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
       <div className={styles.saveContainer}>
         <Button isFilled={true} onClick={() => onClickSave()} disabled={false}>
           Save

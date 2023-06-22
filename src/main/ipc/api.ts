@@ -287,3 +287,7 @@ typedIpcMain.handle(
     info(`[API] Saved task resumption questionnaire`);
   }
 );
+
+typedIpcMain.handle('get-last-two-snapshots-of-today', async () => {
+  return await SnapshotEntity.getLastTwoSnapshotsOfToday();
+});
