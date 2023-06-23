@@ -637,12 +637,20 @@ export default class TaskSnap {
     const alreadyKnownApplications = await KnownApplication.find();
     const appsToAdd: KnownApplication[] = [];
 
-    openWindows.forEach((win) => {
+    for await (const win of openWindows) {
       const appPath = win.owner.path;
       const appName = win.owner.name;
       const isAlreadyAdded = alreadyKnownApplications.some((knownApp) => {
         return knownApp.path === appPath;
       });
+
+      // some apps (e.g. Spotify) have a new path after updating the app. -> delete old entry in this case
+      const outdatedApp = alreadyKnownApplications.find((knownApp) => {
+        return knownApp.name === appName && knownApp.path !== appPath;
+      });
+      if (outdatedApp) {
+        await outdatedApp.remove();
+      }
 
       // multiple windows of the same application can be open
       const isDuplicate = appsToAdd.some((appInList) => {
@@ -663,7 +671,7 @@ export default class TaskSnap {
         newKnownApp.icon = this.getApplicationIcon(appPath);
         appsToAdd.push(newKnownApp);
       }
-    });
+    }
     await KnownApplication.save(appsToAdd);
 
     return await KnownApplication.find();

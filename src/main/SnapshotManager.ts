@@ -144,7 +144,7 @@ export default class SnapshotManager {
       if (browser.browserTabs.length === tabsToClose.length) {
         const doNotCloseThisApp = appsThatShouldNeverBeClosed.some(
           (notCloseApp) => {
-            return notCloseApp.path === browser.path;
+            return notCloseApp.name === browser.name;
           }
         );
         if (browser.isSelected && !doNotCloseThisApp) {
@@ -166,7 +166,7 @@ export default class SnapshotManager {
       if (ide.ideFiles.length === ideFilesToClose.length) {
         const doNotCloseThisApp = appsThatShouldNeverBeClosed.some(
           (notCloseApp) => {
-            return notCloseApp.path === ide.path;
+            return notCloseApp.name === ide.name;
           }
         );
         if (ide.isSelected && !doNotCloseThisApp) {
@@ -195,7 +195,7 @@ export default class SnapshotManager {
       else {
         const doNotCloseThisApp = appsThatShouldNeverBeClosed.some(
           (notCloseApp) => {
-            return notCloseApp.path === app.path;
+            return notCloseApp.name === app.name;
           }
         );
 
