@@ -262,6 +262,8 @@ export default class TaskSnap {
         destination?.send('snapshot-selected', snapshot.id);
         this.restoreWorkingContext(snapshot);
       }
+    } else {
+      this.restoreWorkingContext(snapshot);
     }
   }
 
