@@ -147,7 +147,7 @@ export function playWavSoundWindows(filePath: string) {
   }
 }
 
-export async function sampleOpenApplications() {
+export async function sampleOpenApplications(): Promise<string[]> {
   if (isMac) {
     const command = `osascript -e 'set apps to {}' -e 'tell application "System Events"' -e 'repeat with theProcess in processes' -e 'if not background only of theProcess then' -e 'tell theProcess' -e 'set processName to name' -e 'set appWindows to windows' -e 'end tell' -e 'if (count of appWindows) > 0 then' -e 'set end of apps to processName' -e 'end if' -e 'end if' -e 'end repeat' -e 'end tell' -e 'return apps'`;
     const res = await asyncExec(command);
@@ -162,6 +162,15 @@ export async function sampleOpenApplications() {
     listOfApps = listOfApps.map((app) => app.replace(/^\s*/g, '')); // remove spaces in front
     return listOfApps;
   } else {
-    // TODO: Add this next
+    const command = `(Get-Process | where {$_.MainWindowTitle} | select -expand ProcessName) -join ','`;
+    const res = await asyncExec(command, { shell: 'powershell.exe' });
+    const cleanedString = res.stdout.replace(/\r\n/g, '');
+    const listOfApps = cleanedString.split(',');
+
+    const filteredList = listOfApps.filter(
+      (appName) =>
+        appName !== 'ApplicationFrameHost' && appName !== 'TextInputHost'
+    );
+    return filteredList;
   }
 }
