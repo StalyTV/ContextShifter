@@ -20,7 +20,7 @@ export default function OpenText(props: Props) {
 
   return (
     <div>
-      <h3 className={styles.title}>{props.title}</h3>
+      <h4 className={styles.title}>{props.title}</h4>
       <textarea
         className={styles.text}
         value={props.text}

@@ -24,7 +24,7 @@ export default function LikertScale(props: Props) {
 
   return (
     <div>
-      <h3 className={styles.likertTitle}>{props.title}</h3>
+      <h4 className={styles.likertTitle}>{props.title}</h4>
       <div className={styles.buttonBox}>
         {props.options.map((item) => (
           <Button

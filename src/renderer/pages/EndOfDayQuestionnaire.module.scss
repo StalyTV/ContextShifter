@@ -3,6 +3,20 @@
   display: flex
 }
 
+.introText {
+  margin-bottom: 3rem;
+}
+
+.section {
+  margin-bottom: 3rem;
+  padding: 0.5rem;
+  background-color: var(--bg-color-2);
+
+  h3 {
+    margin-top: 0;
+  }
+}
+
 .saveContainer {
   display: flex;
   justify-content: flex-end;

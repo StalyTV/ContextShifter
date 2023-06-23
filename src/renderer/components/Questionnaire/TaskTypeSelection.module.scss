@@ -1,0 +1,19 @@
+fieldset {
+  font-size: small;
+  .option {
+    display: flex;
+    align-items: center;
+
+    input {
+      margin-left: 0;
+      margin-right: 1rem;
+      height: 1rem;
+      width: 1rem;
+    }
+
+    input.subOption {
+      margin-left: 2rem;
+    }
+  }
+}
+
