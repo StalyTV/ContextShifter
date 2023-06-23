@@ -14,6 +14,7 @@ import { hashUrl } from '../helpers/hashUrl';
 import ActiveBrowserTab from '../entity/ActiveBrowserTab';
 import ActiveFileDb from '../entity/ActiveFile';
 import { ActiveFile } from 'types/ActiveFile';
+import StaticSettings from '../StaticSettings';
 
 // the purpose of this class is to provide references to the currently open artifact and to store it to db
 export default class ActiveArtifact {
@@ -106,7 +107,7 @@ export default class ActiveArtifact {
 
   public static startIdleCheck() {
     this._idleCheckLoopRef = setInterval(async () => {
-      if (powerMonitor.getSystemIdleTime() > 5 * 60) {
+      if (powerMonitor.getSystemIdleTime() > StaticSettings.IDLE_TIMEOUT) {
         this.storeAll();
       }
     }, 10000);

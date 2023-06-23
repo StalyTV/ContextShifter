@@ -104,6 +104,7 @@ export default class TaskSnap {
     ActiveArtifact.startIdleCheck();
     Exporter.startBackupLoop();
     StudyManager.startCheckTimeLoop();
+    StudyManager.startOpenApplicationsSampling();
   }
 
   public async stopTrackers() {
@@ -114,6 +115,7 @@ export default class TaskSnap {
     await ActiveArtifact.stopIdleCheck();
     Exporter.stopBackupLoop();
     StudyManager.stopCheckTimeLoop();
+    StudyManager.stopOpenApplicationsSampling();
   }
 
   public async createNewSnapshot(origin: UsageDataOrigin) {
