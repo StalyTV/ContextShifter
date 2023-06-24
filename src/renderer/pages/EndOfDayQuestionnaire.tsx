@@ -90,6 +90,9 @@ export default function EndOfDayQuestionnaire(props: Props) {
         ...answerIntervention2_2,
         answerIntervention2_2Other,
       ];
+      const consideredSnapshots: number[] = [];
+      if (snapshot1) consideredSnapshots.push(snapshot1.id);
+      if (snapshot2) consideredSnapshots.push(snapshot2.id);
 
       const answerObj = [
         { question: questionCommon1, answer: answerCommon1 },
@@ -103,6 +106,7 @@ export default function EndOfDayQuestionnaire(props: Props) {
         { question: questionIntervention2, answer: mergedAnswer2_2 },
         { question: questionIntervention3, answer: answerIntervention3 },
         { question: questionComments, answer: answerComments },
+        { consideredSnapshots: consideredSnapshots },
       ];
       return JSON.stringify(answerObj);
     }
@@ -136,7 +140,7 @@ export default function EndOfDayQuestionnaire(props: Props) {
   // questions
   const questionCommon1 = 'Did you work on multiple tasks today?';
   const questionCommon2 =
-    'Did you have to instantly switch from one task to another today? If yes, what triggered that particular task switch?';
+    'Did you have to _instantly_ switch from one task to another today? If yes, what triggered that particular task switch?';
   const questionCommon3 =
     'For your _last_ task switch today, how much time did you need to restore the working context (apps, windows, files…) of the task?';
   const questionCommon4 =
@@ -212,7 +216,7 @@ export default function EndOfDayQuestionnaire(props: Props) {
   );
 
   const baselinePart = () => (
-    <div className={styles.section}>
+    <div className={`${styles.section} ${styles.noMarginTop}`}>
       <OpenText
         title={questionBaseline1}
         text={answerBaseline1}
