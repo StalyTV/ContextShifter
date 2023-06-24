@@ -11,6 +11,14 @@ fieldset {
       width: 1rem;
     }
 
+    .otherInput {
+      width: 10rem;
+      margin-left: 1rem;
+      font-size: small;
+      background-color: var(--bg-color-1);
+      border-radius: var(--border-radius);
+    }
+
     input.subOption {
       margin-left: 2rem;
     }

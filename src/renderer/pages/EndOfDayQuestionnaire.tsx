@@ -34,11 +34,15 @@ export default function EndOfDayQuestionnaire(props: Props) {
   const [answerIntervention1_2, setAnswerIntervention1_2] = useState<string[]>(
     []
   );
+  const [answerIntervention1_2Other, setAnswerIntervention1_2Other] =
+    useState<string>('');
   const [answerIntervention2_1, setAnswerIntervention2_1] =
     useState<string>('');
   const [answerIntervention2_2, setAnswerIntervention2_2] = useState<string[]>(
     []
   );
+  const [answerIntervention2_2Other, setAnswerIntervention2_2Other] =
+    useState<string>('');
   const [answerIntervention3, setAnswerIntervention3] = useState<string>('');
   const [answerComments, setAnswerComments] = useState<string>('');
 
@@ -78,6 +82,15 @@ export default function EndOfDayQuestionnaire(props: Props) {
       ];
       return JSON.stringify(answerObj);
     } else {
+      const mergedAnswer1_2 = [
+        ...answerIntervention1_2,
+        answerIntervention1_2Other,
+      ];
+      const mergedAnswer2_2 = [
+        ...answerIntervention2_2,
+        answerIntervention2_2Other,
+      ];
+
       const answerObj = [
         { question: questionCommon1, answer: answerCommon1 },
         { question: questionCommon2, answer: answerCommon2 },
@@ -85,9 +98,9 @@ export default function EndOfDayQuestionnaire(props: Props) {
         { question: questionCommon4, answer: answerCommon4 },
         { question: questionCommon5, answer: answerCommon5 },
         { question: questionIntervention1, answer: answerIntervention1_1 },
-        { question: questionIntervention2, answer: answerIntervention1_2 },
+        { question: questionIntervention2, answer: mergedAnswer1_2 },
         { question: questionIntervention1, answer: answerIntervention2_1 },
-        { question: questionIntervention2, answer: answerIntervention2_2 },
+        { question: questionIntervention2, answer: mergedAnswer2_2 },
         { question: questionIntervention3, answer: answerIntervention3 },
         { question: questionComments, answer: answerComments },
       ];
@@ -233,7 +246,8 @@ export default function EndOfDayQuestionnaire(props: Props) {
             />
             <TaskTypeSelection
               title={questionIntervention2}
-              onSelectionChange={setAnswerIntervention2_2}
+              onSelectionChange={setAnswerIntervention1_2}
+              onOtherChange={setAnswerIntervention1_2Other}
             />
           </div>
         ) : null}
@@ -255,6 +269,7 @@ export default function EndOfDayQuestionnaire(props: Props) {
             <TaskTypeSelection
               title={questionIntervention2}
               onSelectionChange={setAnswerIntervention2_2}
+              onOtherChange={setAnswerIntervention2_2Other}
             />
           </div>
         ) : null}

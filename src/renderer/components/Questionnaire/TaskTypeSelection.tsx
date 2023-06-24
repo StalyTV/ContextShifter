@@ -10,6 +10,7 @@ import styles from './TaskTypeSelection.module.scss';
 type Props = {
   title: string;
   onSelectionChange: (selection: string[]) => void;
+  onOtherChange: (text: string) => void;
 };
 
 export default function TaskTypeSelection(props: Props) {
@@ -27,6 +28,11 @@ export default function TaskTypeSelection(props: Props) {
     }
     props.onSelectionChange(updatedSelection);
     setSelection(updatedSelection);
+  };
+
+  const onOtherChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const otherText = e.target.value;
+    props.onOtherChange(otherText);
   };
 
   return (
@@ -185,6 +191,16 @@ export default function TaskTypeSelection(props: Props) {
             onChange={handleCheckboxChange}
           />
           <label htmlFor="study">Work related to this study </label>
+        </div>
+        <div className={styles.option}>
+          <label htmlFor="other">Other:</label>
+          <input
+            className={styles.otherInput}
+            type="text"
+            id="other"
+            name="other"
+            onChange={onOtherChange}
+          />
         </div>
       </fieldset>
     </div>

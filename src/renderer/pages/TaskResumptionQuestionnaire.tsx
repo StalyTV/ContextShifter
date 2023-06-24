@@ -17,6 +17,7 @@ export default function TaskResumptionQuestionnaire(props: Props) {
   const [snapshotId, setSnapshotId] = useState<number | null>(null);
   const [answer1, setAnswer1] = useState<string>('');
   const [answer2, setAnswer2] = useState<string[]>([]);
+  const [answer2Other, setAnswer2Other] = useState<string>('');
   const [answer3, setAnswer3] = useState<string>('');
 
   const registerEventListeners = () => {
@@ -40,9 +41,10 @@ export default function TaskResumptionQuestionnaire(props: Props) {
   };
 
   const getFormattedAnswers = (): string => {
+    const mergedAnswer2 = [...answer2, answer2Other];
     const answerObj = [
       { question: question1, answer: answer1 },
-      { question: question2, answer: answer2 },
+      { question: question2, answer: mergedAnswer2 },
       { question: question3, answer: answer3 },
     ];
     return JSON.stringify(answerObj);
@@ -89,6 +91,7 @@ export default function TaskResumptionQuestionnaire(props: Props) {
         <GalleryFeatureSelection
           title={question2}
           onSelectionChange={setAnswer2}
+          onOtherChange={setAnswer2Other}
         />
         <OpenText
           title={question3}
