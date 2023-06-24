@@ -230,52 +230,48 @@ export default function EndOfDayQuestionnaire(props: Props) {
 
   const interventionPart = () => (
     <>
-      <div className={styles.section}>
-        {snapshot1 ? (
-          <div className={styles.snapshotExample} key={snapshot1.id}>
-            <h3>
-              You created the following snapshot today at{' '}
-              {getFormattedTime(snapshot1.created)}
-            </h3>
-            <SnapshotPreview snapshot={snapshot1} isExpanded={true} />
-            <OpenText
-              title={questionIntervention1}
-              text={answerIntervention1_1}
-              onTextChange={setAnswerIntervention1_1}
-              rows={3}
-            />
-            <TaskTypeSelection
-              title={questionIntervention2}
-              onSelectionChange={setAnswerIntervention1_2}
-              onOtherChange={setAnswerIntervention1_2Other}
-            />
-          </div>
-        ) : null}
-      </div>
-      <div className={styles.section}>
-        {snapshot2 ? (
-          <div className={styles.snapshotExample} key={snapshot2.id}>
-            <h3>
-              You created the following snapshot today at{' '}
-              {getFormattedTime(snapshot2.created)}
-            </h3>
-            <SnapshotPreview snapshot={snapshot2} isExpanded={true} />
-            <OpenText
-              title={questionIntervention1}
-              text={answerIntervention2_1}
-              onTextChange={setAnswerIntervention2_1}
-              rows={3}
-            />
-            <TaskTypeSelection
-              title={questionIntervention2}
-              onSelectionChange={setAnswerIntervention2_2}
-              onOtherChange={setAnswerIntervention2_2Other}
-            />
-          </div>
-        ) : null}
-      </div>
+      {snapshot1 ? (
+        <div className={styles.section}>
+          <h3>
+            You created the following snapshot today at{' '}
+            {getFormattedTime(snapshot1.created)}
+          </h3>
+          <SnapshotPreview snapshot={snapshot1} isExpanded={true} />
+          <OpenText
+            title={questionIntervention1}
+            text={answerIntervention1_1}
+            onTextChange={setAnswerIntervention1_1}
+            rows={3}
+          />
+          <TaskTypeSelection
+            title={questionIntervention2}
+            onSelectionChange={setAnswerIntervention1_2}
+            onOtherChange={setAnswerIntervention1_2Other}
+          />
+        </div>
+      ) : null}
+      {snapshot2 ? (
+        <div className={styles.section}>
+          <h3>
+            You created the following snapshot today at{' '}
+            {getFormattedTime(snapshot2.created)}
+          </h3>
+          <SnapshotPreview snapshot={snapshot2} isExpanded={true} />
+          <OpenText
+            title={questionIntervention1}
+            text={answerIntervention2_1}
+            onTextChange={setAnswerIntervention2_1}
+            rows={3}
+          />
+          <TaskTypeSelection
+            title={questionIntervention2}
+            onSelectionChange={setAnswerIntervention2_2}
+            onOtherChange={setAnswerIntervention2_2Other}
+          />
+        </div>
+      ) : null}
 
-      <div className={styles.section}>
+      <div className={`${styles.section} ${styles.noMarginTop}`}>
         <OpenText
           title={questionIntervention3}
           text={answerIntervention3}
@@ -288,13 +284,15 @@ export default function EndOfDayQuestionnaire(props: Props) {
 
   return (
     <>
-      <h1>End-of-Workday Questionnaire</h1>
-      <div className={styles.postponeContainer}>
-        <PostponeButton
-          isFilled={false}
-          title={'Postpone Questionnaire'}
-          onSelect={postponeQuestionnaire}
-        />
+      <div className={styles.header}>
+        <h1>End-of-Workday Questionnaire</h1>
+        <div className={styles.postponeContainer}>
+          <PostponeButton
+            isFilled={false}
+            title={'Postpone Questionnaire'}
+            onSelect={postponeQuestionnaire}
+          />
+        </div>
       </div>
       <p className={styles.introText}>
         For the following questions and statements, please consider{' '}
@@ -302,7 +300,7 @@ export default function EndOfDayQuestionnaire(props: Props) {
       </p>
       {commonPart()}
       {studyPhase === StudyPhase.Baseline ? baselinePart() : interventionPart()}
-      <div className={styles.section}>
+      <div className={`${styles.section} ${styles.noMarginTop}`}>
         <OpenText
           title={questionComments}
           text={answerComments}
