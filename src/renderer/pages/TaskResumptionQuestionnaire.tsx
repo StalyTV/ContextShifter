@@ -8,12 +8,16 @@ import { useState, useEffect } from 'react';
 import styles from './TaskResumptionQuestionnaire.module.scss';
 import Button from '../components/Button';
 import OpenText from 'renderer/components/Questionnaire/OpenText';
+import LikertScale from '../components/Questionnaire/LikertScale';
+import GalleryFeatureSelection from '../components/Questionnaire/GalleryFeatureSelection';
 
 type Props = {};
 
 export default function TaskResumptionQuestionnaire(props: Props) {
   const [snapshotId, setSnapshotId] = useState<number | null>(null);
-  const [answerQ1, setAnswerQ1] = useState<string>('');
+  const [answer1, setAnswer1] = useState<string>('');
+  const [answer2, setAnswer2] = useState<string[]>([]);
+  const [answer3, setAnswer3] = useState<string>('');
 
   const registerEventListeners = () => {
     window.electron.onSnapshotSelected((e, id) => setSnapshotId(id));
@@ -29,7 +33,6 @@ export default function TaskResumptionQuestionnaire(props: Props) {
         'save-task-resumption-questionnaire',
         getFormattedAnswers(),
         snapshotId
-
       );
     } catch (err) {
       console.error(err);
@@ -37,16 +40,30 @@ export default function TaskResumptionQuestionnaire(props: Props) {
   };
 
   const getFormattedAnswers = (): string => {
-    const answerObj = [{ question: question01, answer: answerQ1 }];
+    const answerObj = [
+      { question: question1, answer: answer1 },
+      { question: question2, answer: answer2 },
+      { question: question3, answer: answer3 },
+    ];
     return JSON.stringify(answerObj);
   };
 
   // questions
-  const question01 = 'How did you re-identify the selected snapshot?';
+  const question1 =
+    'How difficult was it to reidentify this task from the Snapshot Gallery?';
+  const question2 =
+    'Which features or information helped you to reidentify the snapshot?';
+  const question3 =
+    'Is there something that could have helped you better reidentify the snapshot? And if so what?';
 
-  const setQ1 = async (text: string) => {
-    setAnswerQ1(text);
-  };
+  // answers
+  const likertOptionsDifficulty = [
+    'very difficult',
+    'difficult',
+    'neither difficult nor easy',
+    'easy',
+    'very easy',
+  ];
 
   useEffect(() => {
     registerEventListeners();
@@ -64,10 +81,19 @@ export default function TaskResumptionQuestionnaire(props: Props) {
         questions:
       </p>
       <div>
+        <LikertScale
+          title={question1}
+          options={likertOptionsDifficulty}
+          onSelect={setAnswer1}
+        />
+        <GalleryFeatureSelection
+          title={question2}
+          onSelectionChange={setAnswer2}
+        />
         <OpenText
-          title={question01}
-          text={answerQ1}
-          onTextChange={setQ1}
+          title={question3}
+          text={answer3}
+          onTextChange={setAnswer3}
           rows={3}
         />
       </div>

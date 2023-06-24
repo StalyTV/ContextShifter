@@ -125,9 +125,9 @@ export default function EndOfDayQuestionnaire(props: Props) {
   const questionCommon2 =
     'Did you have to instantly switch from one task to another today? If yes, what triggered that particular task switch?';
   const questionCommon3 =
-    'After your _last_ task switch today, how much time did you need to restore the working context (apps, windows, files…) of the task?';
+    'For your _last_ task switch today, how much time did you need to restore the working context (apps, windows, files…) of the task?';
   const questionCommon4 =
-    'After your _last_ task switch today, how much time did you need to restore the mental context (goals, plans, mental model…) of the task?';
+    'For your _last_ task switch today, how much time did you need to restore the mental context (goals, plans, mental model…) of the task?';
   const questionCommon5 = 'Overall, I felt that my workspace was...';
 
   const questionBaseline1 = `Today, how did you keep track of important task information that might be needed later? (if it's the same method that you described yesterday in detail, please state so instead)`;
