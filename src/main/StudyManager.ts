@@ -64,7 +64,7 @@ export default class StudyManager {
 
     // hide dock icon during first study phase
     if (isMac && this._currentStudyPhase === StudyPhase.Baseline) {
-      app.dock.hide;
+      app.dock.hide();
     }
     info(`[StudyManager] Current study phase: ${this._currentStudyPhase}`);
   }
