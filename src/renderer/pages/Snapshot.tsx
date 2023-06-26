@@ -186,8 +186,8 @@ export default function Snapshot() {
           updatedSnapshot
         ),
       {
-        pending: 'Opening Artifacts...',
-        success: 'Opened Artifacts',
+        pending: 'Opening Selected Artifacts...',
+        success: 'Opened Selected Artifacts',
         error: 'Something went wrong',
       }
     );

@@ -17,12 +17,14 @@ export default class SummaryProvider {
     const mostActiveApp = await ActiveWindow.getMostActiveApp(startTimeWindow);
     const lastActiveTab = ActiveArtifact.getLastActiveTab();
 
-    let latestActiveURL = '';
+    let latestActiveTabTitle = '';
     if (lastActiveTab) {
       if (lastActiveTab.ts.getTime() > startTimeWindow.getTime()) {
-        if (lastActiveTab.url) {
+        if (lastActiveTab.title) {
+          latestActiveTabTitle = lastActiveTab.title;
+        } else {
           const url = new URL(lastActiveTab.url);
-          latestActiveURL = url.hostname;
+          latestActiveTabTitle = url.hostname;
         }
       }
     }
@@ -35,11 +37,11 @@ export default class SummaryProvider {
     ) {
       summaryString += `Recently, I was working in ${mostActiveApp}`;
     }
-    if (summaryString !== '' && latestActiveURL) {
+    if (summaryString !== '' && latestActiveTabTitle) {
       summaryString += ' and ';
     }
-    if (latestActiveURL) {
-      summaryString += `visited ${latestActiveURL}`;
+    if (latestActiveTabTitle) {
+      summaryString += `visited "${latestActiveTabTitle}" in the browser`;
     }
     if (summaryString !== '') {
       summaryString += '.';

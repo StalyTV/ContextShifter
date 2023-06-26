@@ -95,7 +95,7 @@ export default class WindowManager {
     this.instantCurationWindow = new BrowserWindow({
       show: false,
       width: 590,
-      height: 160,
+      height: 170,
       minWidth: 500,
       minHeight: 150,
       minimizable: false,
@@ -305,9 +305,7 @@ export default class WindowManager {
       },
     });
 
-    this.endOfDayWindow.loadURL(
-      resolveHtmlPath('index.html') + `#/endOfDay`
-    );
+    this.endOfDayWindow.loadURL(resolveHtmlPath('index.html') + `#/endOfDay`);
     await UsageData.addEntry('open-end-of-day-window');
 
     this.endOfDayWindow.on('ready-to-show', () => {

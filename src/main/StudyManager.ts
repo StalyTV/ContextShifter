@@ -10,16 +10,20 @@ import { Database } from './database';
 import Log from './entity/Log';
 import Settings from './entity/Settings';
 import UsageData from './entity/UsageData';
-import { info, debug } from 'electron-log';
+import { info, debug, error } from 'electron-log';
 import isMac from './helpers/isMac';
-import { app } from 'electron';
+import { app, powerMonitor } from 'electron';
 import path from 'path';
 import fs from 'fs';
+import { sampleOpenApplications } from './helpers/osCommands';
+import StaticSettings from './StaticSettings';
+import AnalysisOpenApplications from './entity/AnalysisOpenApplications';
 
 export default class StudyManager {
   private static _currentStudyPhase: StudyPhase = StudyPhase.NoStudy; // default
   private static _postponeTimeoutRef: NodeJS.Timeout | undefined;
   private static _checkTimeLoopRef: NodeJS.Timeout | undefined;
+  private static _openApplicationsLoopRef: NodeJS.Timeout | undefined;
 
   public static async init() {
     const tempPath = isMac
@@ -141,5 +145,44 @@ export default class StudyManager {
 
   public static async stopCheckTimeLoop() {
     clearInterval(this._checkTimeLoopRef);
+  }
+
+  public static async startOpenApplicationsSampling(): Promise<void> {
+    if (this._currentStudyPhase === StudyPhase.NoStudy) {
+      info(
+        `[StudyManager] Not in study mode. Don't start sampling of open applications`
+      );
+      return;
+    }
+    info('[StudyManager] Started sampling of open applications');
+
+    const loop = async () => {
+      const dbEntry = new AnalysisOpenApplications();
+      dbEntry.ts = new Date().toISOString();
+      dbEntry.isIdle =
+        powerMonitor.getSystemIdleTime() > StaticSettings.IDLE_TIMEOUT;
+      try {
+        const openApps = await sampleOpenApplications();
+        dbEntry.additionalInformation = JSON.stringify(openApps);
+      } catch (err) {
+        error(
+          '[StudyManager] An error occurred while sampling open applications',
+          err
+        );
+        dbEntry.additionalInformation =
+          'error while sampling open applications';
+      }
+      await dbEntry.save();
+    };
+
+    await loop();
+    this._openApplicationsLoopRef = setInterval(
+      loop,
+      StaticSettings.OPEN_APPLICATIONS_SAMPLING_RATE
+    );
+  }
+
+  public static async stopOpenApplicationsSampling() {
+    clearInterval(this._openApplicationsLoopRef);
   }
 }

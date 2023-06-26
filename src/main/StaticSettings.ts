@@ -12,6 +12,8 @@ export default class StaticSettings {
   public static MOST_USED_APP_TIME_WINDOW = 12 * 60 * 1000;
   public static LIGHT_PULSE_COLOR: RGB = { r: 8, g: 192, b: 221 };
   public static LIGHT_PULSE_LENGTH = 100; // time in ms
+  public static IDLE_TIMEOUT = 5 * 60 // in seconds
+  public static OPEN_APPLICATIONS_SAMPLING_RATE = 60 * 1000; // for study analysis
 
   public static appsWithNoFiles = ['Notes', 'Music'];
 
