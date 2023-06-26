@@ -8,6 +8,7 @@ import MentalContext from './pages/MentalContext';
 import EndOfDayQuestionnaire from './pages/EndOfDayQuestionnaire';
 import TaskSnapTooltip from './components/Tooltip/TaskSnapTooltip';
 import TaskResumptionQuestionnaire from './pages/TaskResumptionQuestionnaire';
+import Settings from './pages/Settings';
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
             path="/taskResumption"
             element={<TaskResumptionQuestionnaire />}
           />
+          <Route path="/settings" element={<Settings />} />
           <Route path="/" element={<Snapshot />} />
         </Routes>
       </HashRouter>

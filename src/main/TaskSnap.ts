@@ -119,6 +119,11 @@ export default class TaskSnap {
   }
 
   public async createNewSnapshot(origin: UsageDataOrigin) {
+    // disable the creation of snapshots during baseline phase
+    if (StudyManager.getStudyPhase() === StudyPhase.Baseline) {
+      return;
+    }
+
     info('[TaskSnap] New snapshot created');
     if (isMac) {
       soundPlayer.play(this._cameraShutterSoundPathMp3);
