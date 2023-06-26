@@ -65,6 +65,17 @@ export default class TrayManager {
         },
         visible: areActionsVisible,
       },
+      {
+        label: 'Settings',
+        click: async () => {
+          if (WindowManager.settingsWindow === null) {
+            await WindowManager.createSettingsWindow();
+          } else {
+            WindowManager.settingsWindow.show();
+          }
+        },
+        visible: !areActionsVisible, // only visible during baseline phase
+      },
       { type: 'separator' },
       {
         label: 'Open Logs',

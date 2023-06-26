@@ -22,6 +22,7 @@ export default class WindowManager {
   public static mentalContextWindow: BrowserWindow | null = null;
   public static endOfDayWindow: BrowserWindow | null = null; // questionnaire
   public static taskResumptionWindow: BrowserWindow | null = null; // questionnaire
+  public static settingsWindow: BrowserWindow | null = null; // only used during baseline phase
 
   public static async createSnapshotWindow(onDomReady: () => void = () => {}) {
     if (this.snapshotWindow) return;
@@ -407,6 +408,64 @@ export default class WindowManager {
     });
 
     const menuBuilder = new MenuBuilder(this.taskResumptionWindow);
+    menuBuilder.buildMenu();
+  }
+
+  public static async createSettingsWindow() {
+    if (this.settingsWindow) return;
+
+    this.settingsWindow = new BrowserWindow({
+      show: false,
+      width: 400,
+      height: 700,
+      minWidth: 300,
+      minHeight: 500,
+      icon: getAssetPath('icon.png'),
+      title: 'Settings',
+      webPreferences: {
+        preload: app.isPackaged
+          ? path.join(__dirname, 'preload.js')
+          : path.join(__dirname, '../../.erb/dll/preload.js'),
+      },
+    });
+
+    this.settingsWindow.loadURL(resolveHtmlPath('index.html') + `#/settings`);
+    await UsageData.addEntry('open-settings-window');
+
+    this.settingsWindow.on('ready-to-show', () => {
+      if (!this.settingsWindow) {
+        throw new Error('"settingsWindow" is not defined');
+      }
+      if (process.env.START_MINIMIZED) {
+        this.settingsWindow.minimize();
+      } else {
+        this.settingsWindow.show();
+      }
+    });
+
+    this.settingsWindow.webContents.once('did-finish-load', () => {
+      this.settingsWindow?.setMenuBarVisibility(false);
+    });
+
+    this.settingsWindow.on('closed', async () => {
+      this.settingsWindow = null;
+      await UsageData.addEntry('close-settings-window');
+    });
+
+    this.settingsWindow.on('minimize', async () => {
+      await UsageData.addEntry('minimize-settings-window');
+    });
+    this.settingsWindow.on('restore', async () => {
+      await UsageData.addEntry('restore-settings-window');
+    });
+    this.settingsWindow.on('focus', async () => {
+      await UsageData.addEntry('focus-settings-window');
+    });
+    this.settingsWindow.on('blur', async () => {
+      await UsageData.addEntry('blur-settings-window');
+    });
+
+    const menuBuilder = new MenuBuilder(this.settingsWindow);
     menuBuilder.buildMenu();
   }
 }
