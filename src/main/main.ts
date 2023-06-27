@@ -42,6 +42,9 @@ if (isDebug) {
 log.transports.file.level = 'info';
 log.transports.file.maxSize = 10485760; // 10MB
 
+if (require("electron-squirrel-startup")) app.quit();
+app.setAppUserModelId("com.squirrel.tasksnap.TaskSnap");
+
 // auto-start (https://www.electronjs.org/docs/latest/api/app#appsetloginitemsettingssettings-macos-windows)
 const appFolder = path.dirname(process.execPath);
 const updateExe = path.resolve(appFolder, '..', 'Update.exe');
