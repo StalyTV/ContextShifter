@@ -106,6 +106,7 @@ export default class BrowserTracker {
         }
         if (browserToRemove) {
           self._wsClients.delete(browserToRemove);
+          self._openTabs.set(browserToRemove, []);
         }
         debug('[BrowserTracker] Socket closed');
       });
