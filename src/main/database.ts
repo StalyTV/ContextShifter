@@ -25,6 +25,8 @@ import IDEFileEvent from './entity/IDEFileEvent';
 import Settings from './entity/Settings';
 import QuestionnaireAnswers from './entity/QuestionnaireAnswers';
 import AnalysisOpenApplications from './entity/AnalysisOpenApplications';
+import AnalysisOpenBrowserTabs from './entity/AnalysisOpenBrowserTabs';
+import AnalysisOpenIDEFiles from './entity/AnalysisOpenIDEFiles';
 
 const dbPath = path.join(
   app.getPath('appData'),
@@ -54,6 +56,8 @@ export const Database = new DataSource({
     ActiveFile,
     QuestionnaireAnswers,
     AnalysisOpenApplications,
+    AnalysisOpenBrowserTabs,
+    AnalysisOpenIDEFiles,
   ],
   synchronize: true,
 });

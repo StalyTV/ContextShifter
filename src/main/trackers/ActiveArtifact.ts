@@ -10,7 +10,7 @@ import Settings from '../entity/Settings';
 import ActiveWindowDb from '../entity/ActiveWindow';
 import { powerMonitor } from 'electron';
 import { ActiveTab } from 'types/ActiveTab';
-import { hashUrl } from '../helpers/hashUrl';
+import { hashString } from '../helpers/hashString';
 import ActiveBrowserTab from '../entity/ActiveBrowserTab';
 import ActiveFileDb from '../entity/ActiveFile';
 import { ActiveFile } from 'types/ActiveFile';
@@ -64,7 +64,7 @@ export default class ActiveArtifact {
 
   public static async storeCurrentTab() {
     if (this._currentTab) {
-      const urlToStore = hashUrl(this._currentTab.url);
+      const urlToStore = hashString(this._currentTab.url);
       const dbEntry = new ActiveBrowserTab();
       dbEntry.url = urlToStore;
       dbEntry.tsStart = this._currentTab.ts.toISOString();

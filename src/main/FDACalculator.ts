@@ -8,9 +8,8 @@ import ActiveBrowserTab from './entity/ActiveBrowserTab';
 import ActiveWindow from './entity/ActiveWindow';
 import ActiveFile from './entity/ActiveFile';
 import Snapshot from './entity/Snapshot';
-import { hashUrl } from './helpers/hashUrl';
+import { hashString } from './helpers/hashString';
 import { info } from 'electron-log';
-import StaticSettings from './StaticSettings';
 
 // based on the algorithm proposed in the paper "Using contexts similarity to predict relationships between tasks"
 // by Walid Maalej, Mathias Ellmann & Romain Robbes
@@ -87,7 +86,7 @@ export default class FDACalculator {
     }
 
     for await (const url of urls) {
-      const hashedUrl = hashUrl(url);
+      const hashedUrl = hashString(url);
       const lastAccess = await ActiveBrowserTab.getLastURLAccess(hashedUrl);
       if (!lastAccess || lastAccess.getTime() < taskStart.getTime()) {
         continue;
@@ -155,7 +154,7 @@ export default class FDACalculator {
     }
 
     for await (const url of urls) {
-      const hashedUrl = hashUrl(url);
+      const hashedUrl = hashString(url);
       const lastAccess = await ActiveBrowserTab.getLastURLAccess(hashedUrl);
       if (!lastAccess || lastAccess.getTime() < taskStart.getTime()) {
         relevances.set(url, 0);

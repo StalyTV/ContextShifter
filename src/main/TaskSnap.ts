@@ -77,7 +77,7 @@ export default class TaskSnap {
     this._windowTracker = new WindowTracker();
     this._browserTracker = BrowserTracker.getInstance();
     this._fileSystemWatcher = new FileSystemWatcher();
-    this._vscodeTracker = new VSCodeTracker();
+    this._vscodeTracker = VSCodeTracker.getInstance();
     this._deviceManager = DeviceManager.getInstance();
     this._snapshotManager = SnapshotManager.getInstance();
   }
@@ -104,7 +104,7 @@ export default class TaskSnap {
     ActiveArtifact.startIdleCheck();
     Exporter.startBackupLoop();
     StudyManager.startCheckTimeLoop();
-    StudyManager.startOpenApplicationsSampling();
+    StudyManager.startOpenArtifactsSampling();
   }
 
   public async stopTrackers() {
@@ -115,7 +115,7 @@ export default class TaskSnap {
     await ActiveArtifact.stopIdleCheck();
     Exporter.stopBackupLoop();
     StudyManager.stopCheckTimeLoop();
-    StudyManager.stopOpenApplicationsSampling();
+    StudyManager.stopOpenArtifactsSampling();
   }
 
   public async createNewSnapshot(origin: UsageDataOrigin) {
@@ -241,7 +241,7 @@ export default class TaskSnap {
     // show questionnaire during study
     if (
       StudyManager.getStudyPhase() === StudyPhase.Intervention &&
-      origin !== UsageDataOrigin.SnapshotWindow
+      origin === UsageDataOrigin.SnapshotGalleryWindow
     ) {
       await WindowManager.createTaskResumptionWindow(() => {
         const destination = WindowManager.taskResumptionWindow

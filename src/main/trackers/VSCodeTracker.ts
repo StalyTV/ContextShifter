@@ -6,7 +6,11 @@
 
 import { WebSocketServer, WebSocket } from 'ws';
 import { info, debug, error } from 'electron-log';
-import { VSCodeSnapshot } from 'types/VSCodeSnapshot';
+import {
+  ActiveFileMessage,
+  OpenVSCodeFile,
+  VSCodeSnapshot,
+} from 'types/VSCodeSnapshot';
 import Snapshot from '../entity/Snapshot';
 import IDEFile from '../entity/IDEFile';
 import { getFileNameFromPath } from '../helpers/getFileNameFromPath';
@@ -15,17 +19,24 @@ import IDEFileEvent from '../entity/IDEFileEvent';
 import ActiveArtifact from './ActiveArtifact';
 import { ActiveFile } from '../../types/ActiveFile';
 import FDACalculator from '../FDACalculator';
+import { hashString } from '../helpers/hashString';
 
 export default class VSCodeTracker {
+  private static _instance: VSCodeTracker;
   private _port = 8086;
   private _server: WebSocketServer;
   private _lastUsedSocket: WebSocket | undefined;
   private _connectionListeners: Array<() => void> = [];
+  private _openFiles: OpenVSCodeFile[] = [];
 
-  constructor() {
+  private constructor() {
     this._server = new WebSocketServer({ port: this._port });
     this.initEventListeners();
     info(`[VSCodeTracker] listening on port ${this._port}`);
+  }
+
+  public static getInstance() {
+    return this._instance || (this._instance = new this());
   }
 
   public subscribeToConnection(fn: () => void) {
@@ -39,6 +50,11 @@ export default class VSCodeTracker {
       socket.on('open', function () {
         self._lastUsedSocket = socket;
         debug('[VSCodeTracker] Socket opened');
+      });
+
+      socket.on('close', function () {
+        self._openFiles = [];
+        debug('[VSCodeTracker] Socket closed');
       });
 
       socket.on('error', () => {
@@ -59,8 +75,8 @@ export default class VSCodeTracker {
           const vscodeSnapshot = obj.data as VSCodeSnapshot;
           self.handleVSCodeSnapshotEvent(vscodeSnapshot);
         } else if (obj.endpoint === 'active-file') {
-          const filePath = obj.data as string;
-          self.handleActiveFileEvent(filePath);
+          const activeFileMessage = obj.data as ActiveFileMessage;
+          self.handleActiveFileEvent(activeFileMessage);
         } else if (obj.endpoint === 'file-save') {
           const filePath = obj.data as string;
           self.handleFileSaveEvent(filePath);
@@ -194,7 +210,10 @@ export default class VSCodeTracker {
     FDACalculator.addRelevanceToSnapshotArtifacts(latestSnapshot.id);
   }
 
-  public handleActiveFileEvent(filePath: string): void {
+  public handleActiveFileEvent(activeFileMessage: ActiveFileMessage): void {
+    const filePath = activeFileMessage.activeFile;
+    this._openFiles = activeFileMessage.openFiles;
+
     const dbEntry = new IDEFileEvent();
     dbEntry.path = filePath;
     dbEntry.ts = new Date().toISOString();
@@ -229,5 +248,15 @@ export default class VSCodeTracker {
       fn();
     }
     this._connectionListeners = [];
+  }
+
+  public getOpenFilesForAnalysis(): string[] {
+    const allFiles: string[] = [];
+    this._openFiles.forEach((file) => {
+      const path = file.path;
+      const hashedPath = hashString(path);
+      allFiles.push(hashedPath);
+    });
+    return allFiles;
   }
 }

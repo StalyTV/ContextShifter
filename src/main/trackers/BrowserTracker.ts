@@ -21,6 +21,7 @@ import BrowserTab from '../entity/BrowserTab';
 import { BrowserType } from 'types/BrowserType';
 import { ActiveTab } from '../../types/ActiveTab';
 import ActiveArtifact from './ActiveArtifact';
+import { hashString } from '../helpers/hashString';
 
 export default class BrowserTracker {
   private static _instance: BrowserTracker;
@@ -105,6 +106,7 @@ export default class BrowserTracker {
         }
         if (browserToRemove) {
           self._wsClients.delete(browserToRemove);
+          self._openTabs.set(browserToRemove, []);
         }
         debug('[BrowserTracker] Socket closed');
       });
@@ -253,5 +255,18 @@ export default class BrowserTracker {
     } else {
       return 'chrome';
     }
+  }
+
+  public getOpenTabsForAnalysis(): string[] {
+    const allURLs: string[] = [];
+    this._openTabs.forEach((tabs) => {
+      tabs.forEach((tab) => {
+        if (tab.url) {
+          const hashedURL = hashString(tab.url);
+          allURLs.push(hashedURL);
+        }
+      });
+    });
+    return allURLs;
   }
 }

@@ -36,6 +36,10 @@
     border: solid var(--border-color) 1px;
     border-radius: var(--border-radius);
     font-size: small;
+    min-height: 35rem;
+    max-height: 80vh;
+    overflow: hidden;
+    overflow-y: scroll;
 
     .header {
       padding: 0.5rem 0.5rem 0.5rem 1rem;
@@ -44,8 +48,6 @@
     }
 
     .body {
-      overflow-y: scroll;
-      max-height: 35rem;
       width: 34rem;
     }
   }

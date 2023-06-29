@@ -18,12 +18,16 @@ import fs from 'fs';
 import { sampleOpenApplications } from './helpers/osCommands';
 import StaticSettings from './StaticSettings';
 import AnalysisOpenApplications from './entity/AnalysisOpenApplications';
+import AnalysisOpenBrowserTabs from './entity/AnalysisOpenBrowserTabs';
+import AnalysisOpenIDEFiles from './entity/AnalysisOpenIDEFiles';
+import BrowserTracker from './trackers/BrowserTracker';
+import VSCodeTracker from './trackers/VSCodeTracker';
 
 export default class StudyManager {
   private static _currentStudyPhase: StudyPhase = StudyPhase.NoStudy; // default
   private static _postponeTimeoutRef: NodeJS.Timeout | undefined;
   private static _checkTimeLoopRef: NodeJS.Timeout | undefined;
-  private static _openApplicationsLoopRef: NodeJS.Timeout | undefined;
+  private static _openArtifactsLoopRef: NodeJS.Timeout | undefined;
 
   public static async init() {
     const tempPath = isMac
@@ -147,7 +151,7 @@ export default class StudyManager {
     clearInterval(this._checkTimeLoopRef);
   }
 
-  public static async startOpenApplicationsSampling(): Promise<void> {
+  public static async startOpenArtifactsSampling(): Promise<void> {
     if (this._currentStudyPhase === StudyPhase.NoStudy) {
       info(
         `[StudyManager] Not in study mode. Don't start sampling of open applications`
@@ -157,32 +161,52 @@ export default class StudyManager {
     info('[StudyManager] Started sampling of open applications');
 
     const loop = async () => {
-      const dbEntry = new AnalysisOpenApplications();
-      dbEntry.ts = new Date().toISOString();
-      dbEntry.isIdle =
+      const timestamp = new Date().toISOString();
+      const isIdle =
         powerMonitor.getSystemIdleTime() > StaticSettings.IDLE_TIMEOUT;
+
+      // applications
+      const dbEntryApps = new AnalysisOpenApplications();
+      dbEntryApps.ts = timestamp;
+      dbEntryApps.isIdle = isIdle;
       try {
         const openApps = await sampleOpenApplications();
-        dbEntry.additionalInformation = JSON.stringify(openApps);
+        dbEntryApps.additionalInformation = JSON.stringify(openApps);
       } catch (err) {
         error(
           '[StudyManager] An error occurred while sampling open applications',
           err
         );
-        dbEntry.additionalInformation =
+        dbEntryApps.additionalInformation =
           'error while sampling open applications';
       }
-      await dbEntry.save();
+      await dbEntryApps.save();
+
+      // browser tabs
+      const dbEntryBrowserTabs = new AnalysisOpenBrowserTabs();
+      dbEntryBrowserTabs.ts = timestamp;
+      dbEntryBrowserTabs.isIdle = isIdle;
+      const openTabs = BrowserTracker.getInstance().getOpenTabsForAnalysis();
+      dbEntryBrowserTabs.additionalInformation = JSON.stringify(openTabs);
+      await dbEntryBrowserTabs.save();
+
+      // IDE files
+      const dbEntryIDEFiles = new AnalysisOpenIDEFiles();
+      dbEntryIDEFiles.ts = timestamp;
+      dbEntryIDEFiles.isIdle = isIdle;
+      const openFiles = VSCodeTracker.getInstance().getOpenFilesForAnalysis();
+      dbEntryIDEFiles.additionalInformation = JSON.stringify(openFiles);
+      await dbEntryIDEFiles.save();
     };
 
     await loop();
-    this._openApplicationsLoopRef = setInterval(
+    this._openArtifactsLoopRef = setInterval(
       loop,
-      StaticSettings.OPEN_APPLICATIONS_SAMPLING_RATE
+      StaticSettings.OPEN_ARTIFACTS_SAMPLING_RATE
     );
   }
 
-  public static async stopOpenApplicationsSampling() {
-    clearInterval(this._openApplicationsLoopRef);
+  public static async stopOpenArtifactsSampling() {
+    clearInterval(this._openArtifactsLoopRef);
   }
 }

@@ -5,11 +5,11 @@
  */
 
 // simple hash function form https://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript
-export function hashUrl(url: string): string {
+export function hashString(text: string): string {
   let hash = 0;
-  if (url.length === 0) return hash.toString();
-  for (let i = 0; i < url.length; i++) {
-    const chr = url.charCodeAt(i);
+  if (text.length === 0) return hash.toString();
+  for (let i = 0; i < text.length; i++) {
+    const chr = text.charCodeAt(i);
     hash = (hash << 5) - hash + chr;
     hash |= 0; // Convert to 32bit integer
   }
