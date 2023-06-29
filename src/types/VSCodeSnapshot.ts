@@ -37,3 +37,8 @@ export type Edit = {
   functionName: string | undefined;
   timestamp: Date;
 };
+
+export type ActiveFileMessage = {
+  activeFile: string;
+  openFiles: OpenVSCodeFile[];
+};

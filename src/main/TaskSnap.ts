@@ -77,7 +77,7 @@ export default class TaskSnap {
     this._windowTracker = new WindowTracker();
     this._browserTracker = BrowserTracker.getInstance();
     this._fileSystemWatcher = new FileSystemWatcher();
-    this._vscodeTracker = new VSCodeTracker();
+    this._vscodeTracker = VSCodeTracker.getInstance();
     this._deviceManager = DeviceManager.getInstance();
     this._snapshotManager = SnapshotManager.getInstance();
   }

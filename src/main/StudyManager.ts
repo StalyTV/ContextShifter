@@ -19,7 +19,9 @@ import { sampleOpenApplications } from './helpers/osCommands';
 import StaticSettings from './StaticSettings';
 import AnalysisOpenApplications from './entity/AnalysisOpenApplications';
 import AnalysisOpenBrowserTabs from './entity/AnalysisOpenBrowserTabs';
+import AnalysisOpenIDEFiles from './entity/AnalysisOpenIDEFiles';
 import BrowserTracker from './trackers/BrowserTracker';
+import VSCodeTracker from './trackers/VSCodeTracker';
 
 export default class StudyManager {
   private static _currentStudyPhase: StudyPhase = StudyPhase.NoStudy; // default
@@ -160,11 +162,12 @@ export default class StudyManager {
 
     const loop = async () => {
       const timestamp = new Date().toISOString();
-      const isIdle = powerMonitor.getSystemIdleTime() > StaticSettings.IDLE_TIMEOUT;
+      const isIdle =
+        powerMonitor.getSystemIdleTime() > StaticSettings.IDLE_TIMEOUT;
 
       // applications
       const dbEntryApps = new AnalysisOpenApplications();
-      dbEntryApps.ts = timestamp
+      dbEntryApps.ts = timestamp;
       dbEntryApps.isIdle = isIdle;
       try {
         const openApps = await sampleOpenApplications();
@@ -181,14 +184,19 @@ export default class StudyManager {
 
       // browser tabs
       const dbEntryBrowserTabs = new AnalysisOpenBrowserTabs();
-      dbEntryBrowserTabs.ts = timestamp
+      dbEntryBrowserTabs.ts = timestamp;
       dbEntryBrowserTabs.isIdle = isIdle;
       const openTabs = BrowserTracker.getInstance().getOpenTabsForAnalysis();
       dbEntryBrowserTabs.additionalInformation = JSON.stringify(openTabs);
       await dbEntryBrowserTabs.save();
 
       // IDE files
-      // TODO
+      const dbEntryIDEFiles = new AnalysisOpenIDEFiles();
+      dbEntryIDEFiles.ts = timestamp;
+      dbEntryIDEFiles.isIdle = isIdle;
+      const openFiles = VSCodeTracker.getInstance().getOpenFilesForAnalysis();
+      dbEntryIDEFiles.additionalInformation = JSON.stringify(openFiles);
+      await dbEntryIDEFiles.save();
     };
 
     await loop();
