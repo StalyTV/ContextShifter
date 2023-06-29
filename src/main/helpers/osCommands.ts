@@ -60,7 +60,8 @@ export async function getOpenFileExplorerPaths(): Promise<string[]> {
     const res = await asyncExec(command, { shell: 'powershell.exe' });
     const filePaths = res.stdout.split('\r\n');
     filePaths.pop(); // remove last element as empty
-    return filePaths;
+    const cleanedList = filePaths.filter((path) => !path.startsWith('::')); // artifact that appears when viewing "QuickAccess"
+    return cleanedList;
   }
 }
 
