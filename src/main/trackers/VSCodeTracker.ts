@@ -19,7 +19,7 @@ import IDEFileEvent from '../entity/IDEFileEvent';
 import ActiveArtifact from './ActiveArtifact';
 import { ActiveFile } from '../../types/ActiveFile';
 import FDACalculator from '../FDACalculator';
-import { hashUrl } from '../helpers/hashUrl';
+import { hashString } from '../helpers/hashString';
 
 export default class VSCodeTracker {
   private static _instance: VSCodeTracker;
@@ -254,7 +254,7 @@ export default class VSCodeTracker {
     const allFiles: string[] = [];
     this._openFiles.forEach((file) => {
       const path = file.path;
-      const hashedPath = hashUrl(path);
+      const hashedPath = hashString(path);
       allFiles.push(hashedPath);
     });
     return allFiles;

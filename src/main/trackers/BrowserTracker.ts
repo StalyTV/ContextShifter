@@ -21,7 +21,7 @@ import BrowserTab from '../entity/BrowserTab';
 import { BrowserType } from 'types/BrowserType';
 import { ActiveTab } from '../../types/ActiveTab';
 import ActiveArtifact from './ActiveArtifact';
-import { hashUrl } from '../helpers/hashUrl';
+import { hashString } from '../helpers/hashString';
 
 export default class BrowserTracker {
   private static _instance: BrowserTracker;
@@ -262,7 +262,7 @@ export default class BrowserTracker {
     this._openTabs.forEach((tabs) => {
       tabs.forEach((tab) => {
         if (tab.url) {
-          const hashedURL = hashUrl(tab.url);
+          const hashedURL = hashString(tab.url);
           allURLs.push(hashedURL);
         }
       });
