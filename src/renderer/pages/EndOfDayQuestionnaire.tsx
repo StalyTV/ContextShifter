@@ -172,8 +172,7 @@ export default function EndOfDayQuestionnaire(props: Props) {
 
   const questionIntervention1 =
     'What was your motivation to create a snapshot at this point?';
-  const questionIntervention2 =
-    'Please briefly summarize what this task was about.';
+  const questionIntervention2 = 'What was this task about?';
   const questionIntervention3 =
     'Have there been additional task switches that you did not capture by a snapshot? What was the reason for not creating one?';
 
