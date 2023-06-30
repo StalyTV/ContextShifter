@@ -141,10 +141,29 @@ export default function EndOfDayQuestionnaire(props: Props) {
   const questionCommon1 = 'Did you work on multiple tasks today?';
   const questionCommon2 =
     'Did you have to _instantly_ switch from one task to another today? If yes, what triggered that particular task switch?';
+  const questionCommon2HTML = (
+    <span>
+      Did you have to <u>instantly</u> switch from one task to another today? If
+      yes, what triggered that particular task switch?
+    </span>
+  );
   const questionCommon3 =
-    'For your _last_ task switch today, how much time did you need to restore the working context (apps, windows, files…) of the task?';
+    'For your _most recent_ task switch today, how much time did you need to restore the _working context_ (apps, windows, files…) of the task?';
+  const questionCommon3HTML = (
+    <span>
+      For your <u>most recent</u> task switch today, how much time did you need
+      to restore the <u>working context</u> (apps, windows, files…) of the task?
+    </span>
+  );
   const questionCommon4 =
-    'For your _last_ task switch today, how much time did you need to restore the mental context (goals, plans, mental model…) of the task?';
+    'For your _most recent_ task switch today, how much time did you need to restore the _mental context_ (goals, plans, mental model…) of the task?';
+  const questionCommon4HTML = (
+    <span>
+      For your <u>most recent</u> task switch today, how much time did you need
+      to restore the <u>mental context</u> (goals, plans, mental model…) of the
+      task?
+    </span>
+  );
   const questionCommon5 = 'Overall, I felt that my workspace was...';
 
   const questionBaseline1 = `Today, how did you keep track of important task information that might be needed later? (if it's the same method that you described yesterday in detail, please state so instead)`;
@@ -191,17 +210,23 @@ export default function EndOfDayQuestionnaire(props: Props) {
         <>
           <OpenText
             title={questionCommon2}
+            htmlTitle={questionCommon2HTML}
             text={answerCommon2}
             onTextChange={setAnswerCommon2}
             rows={3}
           />
+          <p className={styles.questionIntro}>
+            Please consider your most recent task switch of the day...
+          </p>
           <LikertScale
             title={questionCommon3}
+            htmlTitle={questionCommon3HTML}
             options={likertOptionsTime}
             onSelect={setAnswerCommon3}
           />
           <LikertScale
             title={questionCommon4}
+            htmlTitle={questionCommon4HTML}
             options={likertOptionsTime}
             onSelect={setAnswerCommon4}
           />

@@ -31,7 +31,7 @@ export default function BooleanQuestion(props: Props) {
           onClick={() => onSetValue(true)}
           disabled={false}
         >
-          {'True'}
+          {'Yes'}
         </Button>
         <Button
           key={'false'}
@@ -39,7 +39,7 @@ export default function BooleanQuestion(props: Props) {
           onClick={() => onSetValue(false)}
           disabled={false}
         >
-          {'False'}
+          {'No'}
         </Button>
       </div>
     </div>
