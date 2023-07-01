@@ -27,6 +27,7 @@ import QuestionnaireAnswers from './entity/QuestionnaireAnswers';
 import AnalysisOpenApplications from './entity/AnalysisOpenApplications';
 import AnalysisOpenBrowserTabs from './entity/AnalysisOpenBrowserTabs';
 import AnalysisOpenIDEFiles from './entity/AnalysisOpenIDEFiles';
+import AnalysisOpenFileSystemTabs from './entity/AnalysisOpenFileSystemTabs';
 
 const dbPath = path.join(
   app.getPath('appData'),
@@ -58,6 +59,7 @@ export const Database = new DataSource({
     AnalysisOpenApplications,
     AnalysisOpenBrowserTabs,
     AnalysisOpenIDEFiles,
+    AnalysisOpenFileSystemTabs,
   ],
   synchronize: true,
 });
