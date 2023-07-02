@@ -15,13 +15,18 @@ import isMac from './helpers/isMac';
 import { app, powerMonitor } from 'electron';
 import path from 'path';
 import fs from 'fs';
-import { sampleOpenApplications } from './helpers/osCommands';
+import {
+  getOpenFileExplorerPaths,
+  sampleOpenApplications,
+} from './helpers/osCommands';
 import StaticSettings from './StaticSettings';
 import AnalysisOpenApplications from './entity/AnalysisOpenApplications';
 import AnalysisOpenBrowserTabs from './entity/AnalysisOpenBrowserTabs';
 import AnalysisOpenIDEFiles from './entity/AnalysisOpenIDEFiles';
 import BrowserTracker from './trackers/BrowserTracker';
 import VSCodeTracker from './trackers/VSCodeTracker';
+import AnalysisOpenFileSystemTabs from './entity/AnalysisOpenFileSystemTabs';
+import { hashString } from './helpers/hashString';
 
 export default class StudyManager {
   private static _currentStudyPhase: StudyPhase = StudyPhase.NoStudy; // default
@@ -197,6 +202,27 @@ export default class StudyManager {
       const openFiles = VSCodeTracker.getInstance().getOpenFilesForAnalysis();
       dbEntryIDEFiles.additionalInformation = JSON.stringify(openFiles);
       await dbEntryIDEFiles.save();
+
+      // file system tabs
+      const dbEntryFileSystemTabs = new AnalysisOpenFileSystemTabs();
+      dbEntryFileSystemTabs.ts = timestamp;
+      dbEntryFileSystemTabs.isIdle = isIdle;
+      try {
+        const folderPaths = await getOpenFileExplorerPaths();
+        const hashedPaths = folderPaths.map((path) => {
+          return hashString(path);
+        });
+        dbEntryFileSystemTabs.additionalInformation =
+          JSON.stringify(hashedPaths);
+      } catch (err) {
+        error(
+          '[StudyManager] An error occurred while sampling open file system tabs',
+          err
+        );
+        dbEntryApps.additionalInformation =
+          'error while sampling open file system tabs';
+      }
+      await dbEntryFileSystemTabs.save();
     };
 
     await loop();

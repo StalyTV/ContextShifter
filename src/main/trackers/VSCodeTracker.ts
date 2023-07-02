@@ -10,6 +10,7 @@ import {
   ActiveFileMessage,
   OpenVSCodeFile,
   VSCodeSnapshot,
+  WindowUnfocusMessage,
 } from 'types/VSCodeSnapshot';
 import Snapshot from '../entity/Snapshot';
 import IDEFile from '../entity/IDEFile';
@@ -81,7 +82,8 @@ export default class VSCodeTracker {
           const filePath = obj.data as string;
           self.handleFileSaveEvent(filePath);
         } else if (obj.endpoint === 'window-unfocus') {
-          self.handleWindowUnfocusEvent();
+          const windowUnfocusMessage = obj.data as WindowUnfocusMessage;
+          self.handleWindowUnfocusEvent(windowUnfocusMessage);
         }
       });
     });
@@ -214,17 +216,19 @@ export default class VSCodeTracker {
     const filePath = activeFileMessage.activeFile;
     this._openFiles = activeFileMessage.openFiles;
 
-    const dbEntry = new IDEFileEvent();
-    dbEntry.path = filePath;
-    dbEntry.ts = new Date().toISOString();
-    dbEntry.type = 'active-file';
-    dbEntry.save();
+    if (filePath) {
+      const dbEntry = new IDEFileEvent();
+      dbEntry.path = filePath;
+      dbEntry.ts = new Date().toISOString();
+      dbEntry.type = 'active-file';
+      dbEntry.save();
 
-    const file: ActiveFile = {
-      path: filePath,
-      ts: new Date(),
-    };
-    ActiveArtifact.setCurrentFile(file);
+      const file: ActiveFile = {
+        path: filePath,
+        ts: new Date(),
+      };
+      ActiveArtifact.setCurrentFile(file);
+    }
   }
 
   public handleFileSaveEvent(filePath: string): void {
@@ -235,7 +239,10 @@ export default class VSCodeTracker {
     dbEntry.save();
   }
 
-  public handleWindowUnfocusEvent(): void {
+  public handleWindowUnfocusEvent(
+    windowUnfocusMessage: WindowUnfocusMessage
+  ): void {
+    this._openFiles = windowUnfocusMessage.openFiles;
     ActiveArtifact.storeCurrentFile();
   }
 

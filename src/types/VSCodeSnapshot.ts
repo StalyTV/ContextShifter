@@ -39,6 +39,10 @@ export type Edit = {
 };
 
 export type ActiveFileMessage = {
-  activeFile: string;
+  activeFile: string | null;
+  openFiles: OpenVSCodeFile[];
+};
+
+export type WindowUnfocusMessage = {
   openFiles: OpenVSCodeFile[];
 };

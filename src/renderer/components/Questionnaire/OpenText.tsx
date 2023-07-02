@@ -4,10 +4,12 @@
  * Written by Remy Egloff <remy.egloff@bf.uzh.ch>, June 2023
  */
 
+import { ReactElement } from 'react';
 import styles from './OpenText.module.scss';
 
 type Props = {
   title: string;
+  htmlTitle?: ReactElement; // if underline etc. should be used
   text: string;
   rows: number;
   onTextChange: (text: string) => void;
@@ -20,7 +22,7 @@ export default function OpenText(props: Props) {
 
   return (
     <div>
-      <h4 className={styles.title}>{props.title}</h4>
+      <h4 className={styles.title}>{props.htmlTitle || props.title}</h4>
       <textarea
         className={styles.text}
         value={props.text}

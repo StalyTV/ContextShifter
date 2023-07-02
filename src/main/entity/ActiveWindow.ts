@@ -49,6 +49,9 @@ export default class ActiveWindow extends BaseEntity {
       .andWhere(`active_window.application != 'loginwindow'`)
       .andWhere(`active_window.application != 'Windows Shell Experience Host'`)
       .andWhere(`active_window.application != 'SearchHost.exe'`)
+      .andWhere(
+        `active_window.application != 'Windows host process (Rundll32)'`
+      )
       .groupBy('active_window.application')
       .getMany();
     return recentActiveWindows;

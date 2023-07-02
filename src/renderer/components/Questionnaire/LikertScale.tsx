@@ -6,10 +6,11 @@
 
 import styles from './LikertScale.module.scss';
 import Button from '../Button';
-import { useState } from 'react';
+import { ReactElement, useState } from 'react';
 
 type Props = {
   title: string;
+  htmlTitle?: ReactElement; // if underline etc. should be used
   options: string[];
   onSelect: (item: string) => void;
 };
@@ -24,7 +25,7 @@ export default function LikertScale(props: Props) {
 
   return (
     <div>
-      <h4 className={styles.likertTitle}>{props.title}</h4>
+      <h4 className={styles.likertTitle}>{props.htmlTitle || props.title}</h4>
       <div className={styles.buttonBox}>
         {props.options.map((item) => (
           <Button

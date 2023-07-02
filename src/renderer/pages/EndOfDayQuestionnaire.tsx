@@ -27,6 +27,7 @@ export default function EndOfDayQuestionnaire(props: Props) {
   const [answerCommon3, setAnswerCommon3] = useState<string>('');
   const [answerCommon4, setAnswerCommon4] = useState<string>('');
   const [answerCommon5, setAnswerCommon5] = useState<string>('');
+  const [answerCommon6, setAnswerCommon6] = useState<string>('');
   const [answerBaseline1, setAnswerBaseline1] = useState<string>('');
   const [answerBaseline2, setAnswerBaseline2] = useState<string>('');
   const [answerIntervention1_1, setAnswerIntervention1_1] =
@@ -76,6 +77,7 @@ export default function EndOfDayQuestionnaire(props: Props) {
         { question: questionCommon3, answer: answerCommon3 },
         { question: questionCommon4, answer: answerCommon4 },
         { question: questionCommon5, answer: answerCommon5 },
+        { question: questionCommon6, answer: answerCommon6 },
         { question: questionBaseline1, answer: answerBaseline1 },
         { question: questionBaseline2, answer: answerBaseline2 },
         { question: questionComments, answer: answerComments },
@@ -100,6 +102,7 @@ export default function EndOfDayQuestionnaire(props: Props) {
         { question: questionCommon3, answer: answerCommon3 },
         { question: questionCommon4, answer: answerCommon4 },
         { question: questionCommon5, answer: answerCommon5 },
+        { question: questionCommon6, answer: answerCommon6 },
         { question: questionIntervention1, answer: answerIntervention1_1 },
         { question: questionIntervention2, answer: mergedAnswer1_2 },
         { question: questionIntervention1, answer: answerIntervention2_1 },
@@ -141,11 +144,36 @@ export default function EndOfDayQuestionnaire(props: Props) {
   const questionCommon1 = 'Did you work on multiple tasks today?';
   const questionCommon2 =
     'Did you have to _instantly_ switch from one task to another today? If yes, what triggered that particular task switch?';
-  const questionCommon3 =
-    'For your _last_ task switch today, how much time did you need to restore the working context (apps, windows, files…) of the task?';
+  const questionCommon2HTML = (
+    <span>
+      Did you have to <u>instantly</u> switch from one task to another today? If
+      yes, what triggered that particular task switch?
+    </span>
+  );
+  const questionCommon3 = 'Briefly describe your _most recent_ task switch';
+  const questionCommon3HTML = (
+    <span>
+      Briefly describe your <u>most recent</u> task switch
+    </span>
+  );
   const questionCommon4 =
-    'For your _last_ task switch today, how much time did you need to restore the mental context (goals, plans, mental model…) of the task?';
-  const questionCommon5 = 'Overall, I felt that my workspace was...';
+    'For your _most recent_ task switch today, how much time did you need to restore the _working context_ (apps, windows, files…) of the task?';
+  const questionCommon4HTML = (
+    <span>
+      For your <u>most recent</u> task switch today, how much time did you need
+      to restore the <u>working context</u> (apps, windows, files…) of the task?
+    </span>
+  );
+  const questionCommon5 =
+    'For your _most recent_ task switch today, how much time did you need to restore the _mental context_ (goals, plans, mental model…) of the task?';
+  const questionCommon5HTML = (
+    <span>
+      For your <u>most recent</u> task switch today, how much time did you need
+      to restore the <u>mental context</u> (goals, plans, mental model…) of the
+      task?
+    </span>
+  );
+  const questionCommon6 = 'Overall, I felt that my workspace was...';
 
   const questionBaseline1 = `Today, how did you keep track of important task information that might be needed later? (if it's the same method that you described yesterday in detail, please state so instead)`;
   const questionBaseline2 =
@@ -153,8 +181,7 @@ export default function EndOfDayQuestionnaire(props: Props) {
 
   const questionIntervention1 =
     'What was your motivation to create a snapshot at this point?';
-  const questionIntervention2 =
-    'Please briefly summarize what this task was about.';
+  const questionIntervention2 = 'What was this task about?';
   const questionIntervention3 =
     'Have there been additional task switches that you did not capture by a snapshot? What was the reason for not creating one?';
 
@@ -191,26 +218,39 @@ export default function EndOfDayQuestionnaire(props: Props) {
         <>
           <OpenText
             title={questionCommon2}
+            htmlTitle={questionCommon2HTML}
             text={answerCommon2}
             onTextChange={setAnswerCommon2}
             rows={3}
           />
-          <LikertScale
+          <p className={styles.questionIntro}>
+            Please consider your most recent task switch of the day...
+          </p>
+          <OpenText
             title={questionCommon3}
-            options={likertOptionsTime}
-            onSelect={setAnswerCommon3}
+            text={answerCommon3}
+            htmlTitle={questionCommon3HTML}
+            onTextChange={setAnswerCommon3}
+            rows={2}
           />
           <LikertScale
             title={questionCommon4}
+            htmlTitle={questionCommon4HTML}
             options={likertOptionsTime}
             onSelect={setAnswerCommon4}
+          />
+          <LikertScale
+            title={questionCommon5}
+            htmlTitle={questionCommon5HTML}
+            options={likertOptionsTime}
+            onSelect={setAnswerCommon5}
           />
         </>
       ) : null}
       <LikertScale
-        title={questionCommon5}
+        title={questionCommon6}
         options={likertOptionsClutter}
-        onSelect={setAnswerCommon5}
+        onSelect={setAnswerCommon6}
       />
     </div>
   );
