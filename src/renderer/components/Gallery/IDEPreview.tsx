@@ -78,18 +78,22 @@ export default function IDEPreview(props: Props) {
         data-tooltip-content={props.ide.title}
         onClick={onClickApplicationIcon}
       />
-      {getFiles().map((file) => {
-        return (
-          <div
-            key={file.id}
-            className={styles.file}
-            onClick={(e) => onClickFile(e, file)}
-          >
-            <span>{file.name}</span>
-            {file.isActive ? <EyeIcon className={styles.eyeIcon} /> : null}
-          </div>
-        );
-      })}
+      {hasFiles() ? (
+        getFiles().map((file) => {
+          return (
+            <div
+              key={file.id}
+              className={styles.file}
+              onClick={(e) => onClickFile(e, file)}
+            >
+              <span>{file.name}</span>
+              {file.isActive ? <EyeIcon className={styles.eyeIcon} /> : null}
+            </div>
+          );
+        })
+      ) : (
+        <span className={styles.windowTitle}>{props.ide.title}</span>
+      )}
     </div>
   );
 }
