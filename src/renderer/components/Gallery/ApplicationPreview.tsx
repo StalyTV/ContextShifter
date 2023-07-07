@@ -55,19 +55,23 @@ export default function ApplicationPreview(props: Props) {
         data-tooltip-content={props.app.title}
         onClick={onClickApplicationIcon}
       />
-      {getFiles().map((file) => {
-        return (
-          <div
-            key={file.id}
-            className={styles.file}
-            onClick={(e) => onClickFile(e, file.path)}
-            data-tooltip-id={'task-snap'}
-            data-tooltip-html={file.path}
-          >
-            <span>{file.name}</span>
-          </div>
-        );
-      })}
+      {hasFiles() ? (
+        getFiles().map((file) => {
+          return (
+            <div
+              key={file.id}
+              className={styles.file}
+              onClick={(e) => onClickFile(e, file.path)}
+              data-tooltip-id={'task-snap'}
+              data-tooltip-html={file.path}
+            >
+              <span>{file.name}</span>
+            </div>
+          );
+        })
+      ) : (
+        <span className={styles.windowTitle}>{props.app.title}</span>
+      )}
     </div>
   );
 }

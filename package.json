@@ -64,7 +64,7 @@
     }
   },
   "dependencies": {
-    "electron-builder-squirrel-windows": "^24.4.0",
+    "electron-builder-squirrel-windows": "^24.5.2",
     "electron-debug": "^3.2.0",
     "electron-log": "^4.4.8",
     "electron-positioner": "^4.1.0",
@@ -167,7 +167,6 @@
       "target": {
         "target": "default",
         "arch": [
-          "arm64",
           "x64"
         ]
       },
