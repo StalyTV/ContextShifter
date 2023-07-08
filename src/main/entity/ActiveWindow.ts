@@ -53,6 +53,7 @@ export default class ActiveWindow extends BaseEntity {
         `active_window.application != 'Windows host process (Rundll32)'`
       )
       .andWhere(`active_window.application != 'Pick an app'`)
+      .andWhere(`active_window.title != '[no window selected]'`) // likely, this makes the checks above obsolete
       .groupBy('active_window.application')
       .getMany();
     return recentActiveWindows;
