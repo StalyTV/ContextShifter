@@ -19,13 +19,14 @@ type Props = {
 
 export default function SnapshotPreview(props: Props) {
   const getSelectedApplications = () => {
-    return props.snapshot.applications.filter((app) => {
+    const selectedApps = props.snapshot.applications.filter((app) => {
       if (!app.isSelected) {
         return false;
       } else {
         return true;
       }
     });
+    return selectedApps.sort((a, b) => b.relevance - a.relevance);
   };
 
   const getSelectedBrowsers = () => {
@@ -43,7 +44,6 @@ export default function SnapshotPreview(props: Props) {
       minute: '2-digit',
     });
   };
-
 
   return (
     <div className={styles.snapshotPreviewContainer}>

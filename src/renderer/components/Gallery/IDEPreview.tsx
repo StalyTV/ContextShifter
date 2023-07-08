@@ -20,7 +20,10 @@ type Props = {
 export default function IDEPreview(props: Props) {
   const getFiles = () => {
     if (props.isExpanded) {
-      return props.ide.ideFiles.filter((file) => file.isSelected);
+      const selectedFiles = props.ide.ideFiles.filter(
+        (file) => file.isSelected
+      );
+      return selectedFiles.sort((a, b) => b.relevance - a.relevance);
     } else {
       return props.ide.ideFiles.filter(
         (file) => file.isSelected && file.isActive
