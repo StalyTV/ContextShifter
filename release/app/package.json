@@ -1,7 +1,7 @@
 {
   "name": "tasksnap",
   "productName": "TaskSnap",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Tool that supports task resumption",
   "license": "MIT",
   "author": {
