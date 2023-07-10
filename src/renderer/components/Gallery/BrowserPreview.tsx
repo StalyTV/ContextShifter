@@ -16,7 +16,10 @@ type Props = {
 
 export default function BrowserPreview(props: Props) {
   const getSelectedTabs = () => {
-    return props.browser.browserTabs.filter((tab) => tab.isSelected);
+    const selectedTabs = props.browser.browserTabs.filter(
+      (tab) => tab.isSelected
+    );
+    return selectedTabs.sort((a, b) => b.relevance - a.relevance);
   };
 
   const onClickApplicationIcon = async (e: React.MouseEvent) => {
