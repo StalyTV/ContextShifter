@@ -22,6 +22,7 @@ import KnownApplication from './entity/KnownApplication';
 import TrayManager from './TrayManager';
 import { UsageDataOrigin } from '../types/UsageDataOrigin';
 
+
 export default class SnapshotManager {
   private static _instance: SnapshotManager;
   private _postponeTimeoutRef: NodeJS.Timeout | undefined;
@@ -42,6 +43,7 @@ export default class SnapshotManager {
     return await Snapshot.getLatestNSnapshots(n);
   }
 
+
   public async saveSnapshot(updatedSnapshot: Snapshot) {
     const snapshotInDb = await Snapshot.findOneBy({ id: updatedSnapshot.id });
     if (snapshotInDb) {
@@ -56,14 +58,14 @@ export default class SnapshotManager {
         const browserInDb = await BrowserEntity.findOneBy({ id: browser.id });
         if (browserInDb && browserInDb.isSelected !== browser.isSelected) {
           browserInDb.isSelected = browser.isSelected;
-          browserInDb.save();
+          await browserInDb.save();
         }
 
         for (const tab of browser.browserTabs) {
           const tabInDb = await BrowserTabEntity.findOneBy({ id: tab.id });
           if (tabInDb && tabInDb.isSelected !== tab.isSelected) {
             tabInDb.isSelected = tab.isSelected;
-            tabInDb.save();
+            await tabInDb.save();
           }
         }
       }
@@ -72,7 +74,7 @@ export default class SnapshotManager {
         const ideInDb = await IDEEntity.findOneBy({ id: ide.id });
         if (ideInDb && ideInDb.isSelected !== ide.isSelected) {
           ideInDb.isSelected = ide.isSelected;
-          ideInDb.save();
+          await ideInDb.save();
         }
 
         for (const file of ide.ideFiles) {
@@ -128,47 +130,23 @@ export default class SnapshotManager {
   }
 
   public async closeApplications(snapshot: Snapshot) {
-    const appsThatShouldNeverBeClosed =
-      await KnownApplication.getAppsThatShouldNeverBeClosed();
+    const appsThatShouldNeverBeClosed = await KnownApplication.getAppsThatShouldNeverBeClosed();
+
 
     for (const browser of snapshot.browsers) {
-      const tabsToClose: BrowserTabEntity[] = [];
-
-      for (const tab of browser.browserTabs) {
-        if (tab.isSelected) {
-          tabsToClose.push(tab);
-        }
-      }
+      const tabsToClose: BrowserTabEntity[] = browser.browserTabs.filter((tab) => tab.isSelected);
       TaskSnap.getInstance().closeBrowserTabs(browser, tabsToClose);
-      // if all tabs were closed, quit browser
-      if (browser.browserTabs.length === tabsToClose.length) {
-        const doNotCloseThisApp = appsThatShouldNeverBeClosed.some(
-          (notCloseApp) => {
-            return notCloseApp.name === browser.name;
-          }
-        );
-        if (browser.isSelected && !doNotCloseThisApp) {
-          closeApplication(browser);
-        }
-      }
+
     }
 
     for (const ide of snapshot.ides) {
-      const ideFilesToClose: IDEFileEntity[] = [];
-
-      for (const file of ide.ideFiles) {
-        if (file.isSelected) {
-          ideFilesToClose.push(file);
-        }
-      }
+      const ideFilesToClose: IDEFileEntity[] = ide.ideFiles.filter((file) => file.isSelected);
       TaskSnap.getInstance().closeIDEFiles(ideFilesToClose);
-      // if all files were closed, quit IDE
+
+      // If all files were closed, quit the IDE
       if (ide.ideFiles.length === ideFilesToClose.length) {
-        const doNotCloseThisApp = appsThatShouldNeverBeClosed.some(
-          (notCloseApp) => {
-            return notCloseApp.name === ide.name;
-          }
-        );
+        const doNotCloseThisApp = appsThatShouldNeverBeClosed.some((notCloseApp) => notCloseApp.name === ide.name);
+
         if (ide.isSelected && !doNotCloseThisApp) {
           closeApplication(ide);
         }
@@ -176,34 +154,18 @@ export default class SnapshotManager {
     }
 
     for (const app of snapshot.applications) {
-      const filesToClose: File[] = [];
+      const filesToClose: File[] = app.files.filter((file) => file.isSelected);
 
-      for (const file of app.files) {
-        if (file.isSelected) {
-          filesToClose.push(file);
-        }
-      }
-
-      // we are only able to close specific windows / tabs of the Finder / Explorer
+      // We can only close specific windows/tabs of the Finder/Explorer
       if (app.name === 'Finder' || app.name === 'Windows Explorer') {
         for await (const folder of filesToClose) {
           await closeFileExplorerPath(folder.path);
         }
-      }
+      } else {
+        // Finder and Explorer should NEVER be closed entirely (leads to issues)
+        const doNotCloseThisApp = appsThatShouldNeverBeClosed.some((notCloseApp) => notCloseApp.name === app.name);
 
-      // on the other hand, Finder and Explorer should NEVER be closed entirely (leads to issues)
-      else {
-        const doNotCloseThisApp = appsThatShouldNeverBeClosed.some(
-          (notCloseApp) => {
-            return notCloseApp.name === app.name;
-          }
-        );
-
-        if (
-          app.isSelected &&
-          filesToClose.length === app.files.length &&
-          !doNotCloseThisApp
-        ) {
+        if (app.isSelected && filesToClose.length === app.files.length && !doNotCloseThisApp) {
           closeApplication(app);
         }
       }
@@ -390,18 +352,18 @@ export default class SnapshotManager {
     }
   }
 
-  private resetTimeout(): void {
-    if (this._postponeTimeoutRef) {
-      clearTimeout(this._postponeTimeoutRef);
-      this._postponeTimeoutRef = undefined;
-    }
-  }
-
   public updateSnapshotGalleryWindow(): void {
     if (WindowManager.snapshotGalleryWindow) {
       const destination = WindowManager.snapshotGalleryWindow
         .webContents as TypedWebContents<Events>;
       destination?.send('snapshots-updated');
+    }
+  }
+
+  private resetTimeout(): void {
+    if (this._postponeTimeoutRef) {
+      clearTimeout(this._postponeTimeoutRef);
+      this._postponeTimeoutRef = undefined;
     }
   }
 }

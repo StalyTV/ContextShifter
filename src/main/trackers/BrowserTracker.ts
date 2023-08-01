@@ -4,8 +4,8 @@
  * Written by Roy Rutishauser <royadrian.rutishauser@uzh.ch>, Remy Egloff <remy.egloff@uzh.ch>, April 2023
  */
 
-import { WebSocketServer, WebSocket } from 'ws';
-import { info, debug, error } from 'electron-log';
+import { WebSocket, WebSocketServer } from 'ws';
+import { debug, info } from 'electron-log';
 import {
   BrowserEvent,
   CloseTabClientRequest,
@@ -13,27 +13,30 @@ import {
   RuntimeInfo,
   ServerEndpoints,
   WebNavigationDetail,
-  WebNavigationSequenceUpdate,
+  WebNavigationSequenceUpdate
 } from '../../types/context-browser-extension-types/types';
-import { Tabs } from 'webextension-polyfill';
+import { Windows } from 'webextension-polyfill';
 import Browser from '../entity/Browser';
 import BrowserTab from '../entity/BrowserTab';
 import { BrowserType } from 'types/BrowserType';
-import { ActiveTab } from '../../types/ActiveTab';
-import ActiveArtifact from './ActiveArtifact';
 import { hashString } from '../helpers/hashString';
 
+
 export default class BrowserTracker {
+
   private static _instance: BrowserTracker;
   private _port = 8084;
   private _server: WebSocketServer;
+  //browserWindowId, Websocket
   private _wsClients: Map<BrowserType, WebSocket> = new Map();
+  //map BrowserWindow ID to tab
+  private _openWindows: Map<number, Windows.Window> = new Map();
   private _connectionListeners: Map<BrowserType, Array<() => void>> = new Map([
     ['chrome', []],
     ['firefox', []],
     ['edge', []],
   ]);
-  private _openTabs: Map<BrowserType, Tabs.Tab[]> = new Map();
+
 
   private constructor() {
     this._server = new WebSocketServer({ port: this._port });
@@ -52,164 +55,57 @@ export default class BrowserTracker {
     }
   }
 
-  private initEventListeners() {
-    const self = this;
+  public getSnapshotInformation() {
+    const browsers: Map<BrowserType, Browser[]> = new Map([
+      ['chrome', []],
+      ['firefox', []],
+      ['edge', []]
+    ]);
 
-    // initial connection made after a client requested protocol upgrade
-    this._server.on('connection', function (socket) {
-      let runtimeInfo: RuntimeInfo | undefined;
+    for (const [windowId, window] of this._openWindows) {
+      const taskSnapBrowserEntity = new Browser();
+      taskSnapBrowserEntity.browserTabs = [];
 
-      // actually establishing the socket
-      socket.on('open', function () {
-        debug('[BrowserTracker] Socket opened');
-      });
+      taskSnapBrowserEntity.windowId = windowId;
+      if (window.title != null) {
+        taskSnapBrowserEntity.type = this.getBrowserTypeFromWindowTitle(window.title);
+      }
+      taskSnapBrowserEntity.isSelected = window.focused;
 
-      socket.on('error', function (error) {
-        debug('[BrowserTracker] Socket error', error);
-      });
+      if (window.tabs != undefined) {
+        for (const tab of window.tabs) {
+          const TaskSnapTabEntity = new BrowserTab();
+          TaskSnapTabEntity.url = <string>tab.url;
+          TaskSnapTabEntity.title = <string>tab.title;
+          TaskSnapTabEntity.favIconUrl = <string>tab.favIconUrl;
+          TaskSnapTabEntity.index = tab.index;
+          TaskSnapTabEntity.isActive = tab.active;
+          TaskSnapTabEntity.browser = taskSnapBrowserEntity;
 
-      socket.on('message', async function (msg: string) {
-        const obj = JSON.parse(msg) as {
-          endpoint: ServerEndpoints;
-          data: unknown;
-        };
-
-        if (obj.endpoint === 'event') {
-          const data = obj.data as BrowserEvent;
-          debug(
-            `[BrowserTracker] "event" msg received of type "${data.type}" from "${data.runtimeInfo.browserInfo.name}"`
-          );
-          runtimeInfo = data.runtimeInfo as RuntimeInfo;
-          const browserType = self.getBrowserTypeFromRuntimeInfo(runtimeInfo);
-          self._wsClients.set(browserType, socket);
-          await self.handleEvent(data, runtimeInfo);
-
-          self.notifyConnectionListeners(browserType);
-        } else if (obj.endpoint === 'sequence') {
-          const data = obj.data as WebNavigationSequenceUpdate;
-          runtimeInfo = data.runtimeInfo as RuntimeInfo;
-          const browserType = self.getBrowserTypeFromRuntimeInfo(runtimeInfo);
-          self._wsClients.set(browserType, socket);
-          self.handleSequence(data, runtimeInfo);
-        } else if (obj.endpoint === 'navigation') {
-          self.handleNavigation(obj.data as WebNavigationDetail);
+          taskSnapBrowserEntity.browserTabs.push(TaskSnapTabEntity);
         }
-      });
-
-      // When a socket closes, or disconnects, remove it from the array.
-      socket.on('close', function () {
-        let browserToRemove: BrowserType | undefined;
-        for (let [type, storedSocket] of self._wsClients.entries()) {
-          if (storedSocket === socket) {
-            browserToRemove = type;
-          }
-        }
-        if (browserToRemove) {
-          self._wsClients.delete(browserToRemove);
-          self._openTabs.set(browserToRemove, []);
-        }
-        debug('[BrowserTracker] Socket closed');
-      });
-    });
-  }
-
-  private async handleEvent(data: BrowserEvent, runtimeInfo: RuntimeInfo) {
-    const allTabs: Tabs.Tab[] = [];
-    data.windows.forEach((win) => {
-      if (!win.incognito && win.tabs) {
-        const filteredTabs = win.tabs.filter(
-          (tab) => tab.url && tab.url !== 'chrome://newtab/'
-        );
-        allTabs.push(...filteredTabs);
-      }
-    });
-
-    let browserType: BrowserType;
-    if (runtimeInfo.browserInfo.name === 'Edge') {
-      browserType = 'edge';
-    } else if (runtimeInfo.browserInfo.name === 'Firefox') {
-      browserType = 'firefox';
-    } else {
-      browserType = 'chrome';
-    }
-    this._openTabs.set(browserType, allTabs);
-
-    // store currently active tab for smart pre-selection
-    const activeTab = allTabs.find((tab) => {
-      return tab.active;
-    });
-    if (activeTab && activeTab.url) {
-      const tab: ActiveTab = {
-        url: activeTab.url,
-        title: activeTab.title,
-        ts: new Date(),
-      };
-      ActiveArtifact.setCurrentTab(tab);
-    }
-
-    // if browser is no longer in focus, finish the session of the currently active tab
-    if (data.type === 'window-unfocus') {
-      await ActiveArtifact.storeCurrentTab();
-    }
-  }
-
-  private handleSequence(
-    data: WebNavigationSequenceUpdate,
-    runtimeInfo: RuntimeInfo
-  ) {}
-
-  private handleNavigation(data: WebNavigationDetail) {
-    debug(
-      `[BrowserTracker] Navigation of tab ${data.tab.url}: ${data.transitionType}`
-    );
-  }
-
-  public async saveOpenTabsToDb(browsers: Browser[]) {
-    for await (const browser of browsers) {
-      const browserType = browser.type;
-      const tabsOfBrowser = this._openTabs.get(browserType);
-      if (!tabsOfBrowser) {
-        error(
-          `[BrowserTracker] No tab information found for browser of type ${browserType}`
-        );
-        return;
       }
 
-      for await (const tab of tabsOfBrowser) {
-        if (!tab.url) continue;
+      browsers.get(taskSnapBrowserEntity.type)?.push(taskSnapBrowserEntity);
 
-        const tabEntity = new BrowserTab();
-        tabEntity.url = tab.url;
-        tabEntity.title = tab.title;
-        tabEntity.favIconUrl = tab.favIconUrl;
-        tabEntity.index = tab.index;
-        tabEntity.isActive = tab.active;
-        tabEntity.browser = browser;
-        tabEntity.save();
-      }
-
-      // if no tabs are open, deselect browser by default
-      if (tabsOfBrowser.length === 0) {
-        browser.isSelected = false;
-        browser.save();
-      }
-      info(
-        `[BrowserTracker] attached ${tabsOfBrowser.length} tabs to browser with id ${browser.id};`
-      );
     }
+    return browsers;
   }
 
   public sendTabOpeningRequest(
-    browserType: BrowserType,
     urls: string[],
+    browserType: BrowserType,
+    windowId?: number,
     label?: string
   ) {
-    const data: OpenTabClientRequest = { urls, label };
+    const data: OpenTabClientRequest = { urls, label, windowId };
 
     const connection = this._wsClients.get(browserType);
+
     if (connection && connection.readyState === WebSocket.OPEN) {
       connection.send(JSON.stringify({ endpoint: 'open-tabs', data }));
     }
+
   }
 
   public async sendTabClosingRequest(
@@ -220,6 +116,9 @@ export default class BrowserTracker {
     if (connection && connection.readyState === WebSocket.OPEN) {
       connection.send(JSON.stringify({ endpoint: 'close-tabs', data }));
     }
+
+    //reset memory of open Windows
+    this._openWindows.clear();
   }
 
   public isSocketOpen(browserType?: BrowserType): boolean {
@@ -247,6 +146,103 @@ export default class BrowserTracker {
     }
   }
 
+  public getOpenTabsForAnalysis(): string[] {
+    const allURLs: string[] = [];
+    this._openWindows.forEach((win) => {
+      win.tabs?.forEach((tab) => {
+        if (tab.url) {
+          const hashedURL = hashString(tab.url);
+          allURLs.push(hashedURL);
+        }
+      });
+    });
+    return allURLs;
+  }
+
+  private initEventListeners() {
+    const self = this;
+
+    // initial connection made after a client requested protocol upgrade
+    this._server.on('connection', function(socket) {
+      let runtimeInfo: RuntimeInfo | undefined;
+
+      // actually establishing the socket
+      socket.on('open', function() {
+        debug('[BrowserTracker] Socket opened');
+      });
+
+      socket.on('error', function(error) {
+        debug('[BrowserTracker] Socket error', error);
+      });
+
+      //new browser window has been created
+      socket.on('message', async function(msg: string) {
+        const obj = JSON.parse(msg) as {
+          endpoint: ServerEndpoints;
+          data: unknown;
+        };
+
+        if (obj.endpoint === 'event') {
+          const data = obj.data as BrowserEvent;
+          debug(
+            `[BrowserTracker] "event" msg received of type "${data.type}" from "${data.runtimeInfo.browserInfo.name}"`
+          );
+          runtimeInfo = data.runtimeInfo as RuntimeInfo;
+          const browserType = self.getBrowserTypeFromRuntimeInfo(runtimeInfo);
+          self._wsClients.set(browserType, socket);
+          await self.handleEvent(data);
+
+          self.notifyConnectionListeners(browserType);
+
+        } else if (obj.endpoint === 'sequence') {
+
+          const data = obj.data as WebNavigationSequenceUpdate;
+          runtimeInfo = data.runtimeInfo as RuntimeInfo;
+
+        } else if (obj.endpoint === 'navigation') {
+          self.handleNavigation(obj.data as WebNavigationDetail);
+        }
+
+      });
+
+      // When a socket closes, or disconnects, remove it from the array.
+      socket.on('close', function() {
+        let browserToRemove: BrowserType | undefined;
+        for (let [type, storedSocket] of self._wsClients.entries()) {
+          if (storedSocket === socket) {
+            browserToRemove = type;
+          }
+        }
+        if (browserToRemove) {
+          self._wsClients.delete(browserToRemove);
+        }
+        debug('[BrowserTracker] Socket closed');
+
+      });
+    });
+  }
+
+  private async handleEvent(data: BrowserEvent) {
+    data.windows.forEach((win) => {
+      {
+        //title is used for browserType
+        win.title = data.runtimeInfo.browserInfo.name;
+        if (!win.incognito && win.tabs && win.id) {
+          win.tabs = win.tabs.filter(
+            (tab) => tab.url && tab.url !== 'chrome://newtab/'
+          );
+          this._openWindows.set(win.id, win);
+        }
+      }
+    });
+  }
+
+  private handleNavigation(data: WebNavigationDetail) {
+    debug(
+      `[BrowserTracker] Navigation of tab ${data.tab.url}: ${data.transitionType}`
+    );
+  }
+
   private getBrowserTypeFromRuntimeInfo(runtimeInfo: RuntimeInfo): BrowserType {
     if (runtimeInfo.browserInfo.name === 'Edge') {
       return 'edge';
@@ -257,16 +253,15 @@ export default class BrowserTracker {
     }
   }
 
-  public getOpenTabsForAnalysis(): string[] {
-    const allURLs: string[] = [];
-    this._openTabs.forEach((tabs) => {
-      tabs.forEach((tab) => {
-        if (tab.url) {
-          const hashedURL = hashString(tab.url);
-          allURLs.push(hashedURL);
-        }
-      });
-    });
-    return allURLs;
+  private getBrowserTypeFromWindowTitle(windowTitle: string) {
+    if (windowTitle.includes('Edge')) {
+      return 'edge';
+    } else if (windowTitle.includes('Firefox')) {
+      return 'firefox';
+    } else {
+      return 'chrome';
+    }
   }
+
+
 }

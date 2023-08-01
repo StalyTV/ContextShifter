@@ -21,8 +21,11 @@ export default class Browser extends BaseEntity {
   @PrimaryGeneratedColumn()
   id!: number;
 
+  @Column({ type: 'double', nullable: true })
+  windowId!: number | undefined;
+
   @Column({ type: 'varchar', nullable: false })
-  name!: string;
+  name!: string | undefined;
 
   @Column({ type: 'varchar', nullable: false })
   type!: BrowserType;
@@ -34,7 +37,7 @@ export default class Browser extends BaseEntity {
   icon!: string;
 
   @Column({ type: 'text', nullable: false })
-  title!: string;
+  title!: string | undefined;
 
   @Column({ type: 'tinyint', nullable: false, default: true })
   isSelected!: boolean;
@@ -47,6 +50,6 @@ export default class Browser extends BaseEntity {
   })
   snapshot!: Snapshot;
 
-  @OneToMany(() => BrowserTab, (tab) => tab.browser)
+  @OneToMany(() => BrowserTab, (tab) => tab.browser, { cascade: true, onDelete: 'CASCADE' })
   browserTabs!: BrowserTab[];
 }

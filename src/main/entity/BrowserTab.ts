@@ -4,13 +4,7 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, April 2023
  */
 
-import {
-  Column,
-  PrimaryGeneratedColumn,
-  Entity,
-  BaseEntity,
-  ManyToOne,
-} from 'typeorm';
+import { BaseEntity, Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import Browser from './Browser';
 
 @Entity({ name: 'browser_tab' })
@@ -19,13 +13,13 @@ export default class BrowserTab extends BaseEntity {
   id!: number;
 
   @Column({ type: 'varchar', nullable: true })
-  title!: string | undefined;
+  title!: string;
 
   @Column({ type: 'varchar', nullable: false })
   url!: string;
 
   @Column({ type: 'varchar', nullable: true })
-  favIconUrl!: string | undefined;
+  favIconUrl!: string;
 
   @Column({ type: 'int', nullable: true })
   index!: number;
@@ -40,7 +34,7 @@ export default class BrowserTab extends BaseEntity {
   public relevance!: number;
 
   @ManyToOne(() => Browser, (browser) => browser.browserTabs, {
-    onDelete: 'CASCADE',
+    onDelete: 'CASCADE'
   })
   browser!: Browser;
 }

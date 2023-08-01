@@ -18,7 +18,8 @@ import Browser from '../entity/Browser';
 
 const asyncExec = promisify(exec);
 
-export function openArtifact(artifact: Artifact) {
+
+export async function openArtifact(artifact: Artifact) {
   if (isMac) {
     if (artifact.application) {
       exec(`open -a '${artifact.application}' '${artifact.artifact}'`);
