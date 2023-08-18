@@ -4,4 +4,4 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, May 2023
  */
 
-export type BrowserType = 'chrome' | 'firefox' | 'edge';
+export type BrowserType = 'chrome' | 'firefox' | 'edge' | 'safari';

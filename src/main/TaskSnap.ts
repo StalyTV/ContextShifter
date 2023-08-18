@@ -59,6 +59,13 @@ interface TaskSnapWindowObject {
   processId: number;
 }
 
+type SupportedBrowserTypes = {
+  edge: TaskSnapWindowObject[];
+  chrome: TaskSnapWindowObject[];
+  safari: TaskSnapWindowObject[];
+  firefox: TaskSnapWindowObject[];
+};
+
 /**
  * Main class of the application
  */
@@ -256,41 +263,20 @@ export default class TaskSnap {
     }
   }
 
-  public openBrowserTabs(
+  public async storeBrowserTabsToOpen(
     browser: Browser,
     urlsToOpen: string[],
     label?: string
-  ): void {
+  ) {
 
-    const artifact: Artifact = {
-      artifact: browser.path
-    };
-
-
-
-
-    // if websocket is not open, wait until browser is ready (sends any kind of message)
-    if (this._browserTracker.isSocketOpen()) {
-      openArtifact(artifact);
-      this._browserTracker.sendTabOpeningRequest(
+    this._browserTracker.subscribeToConnection(browser.type, () => {
+      this._browserTracker.tabOpeningRequest(
         urlsToOpen,
         browser.type,
         browser.windowId,
         label
       );
-    } else {
-      openArtifact(artifact);
-      this._browserTracker.subscribeToConnection(browser.type, () => {
-        this._browserTracker.sendTabOpeningRequest(
-          urlsToOpen,
-          browser.type,
-          undefined,
-          label
-        );
-      });
-    }
-
-
+    });
   }
 
   public openIDEFiles(ide: IDE, filePaths: string[]) {
@@ -381,8 +367,6 @@ export default class TaskSnap {
     }
 
     //TODO calulateRelevanceForPreSelection?
-
-
 
     const [browsers, ides, fileExplorers, regularApps] = this.sortWindowsByType(windowsToConsider);
 
@@ -538,7 +522,12 @@ export default class TaskSnap {
           urlsToOpen.push(tab.url);
         }
       });
-      this.openBrowserTabs(browser, urlsToOpen, snapshot.name);
+      const artifact: Artifact = {
+        artifact: browser.path
+      };
+
+      openArtifact(artifact);
+      this.storeBrowserTabsToOpen(browser, urlsToOpen, snapshot.name);
     }
   }
 
@@ -627,18 +616,23 @@ export default class TaskSnap {
     return openApplications;
   }
 
+
   private async handleBrowsers(windows: TaskSnapWindowObject[]) {
     const browsersTrackerObjects = this._browserTracker.getSnapshotInformation();
 
-    const filteredBrowsers = {
+
+    const filteredBrowsers: SupportedBrowserTypes = {
       chrome: windows.filter((win) => win.application.toLowerCase().includes('chrome')),
       firefox: windows.filter((win) => win.application.toLowerCase().includes('firefox')),
-      edge: windows.filter((win) => win.application.toLowerCase().includes('edge'))
+      edge: windows.filter((win) => win.application.toLowerCase().includes('edge')),
+      safari: windows.filter((win) => win.application.toLowerCase().includes('safari'))
     };
+
 
     let chromeBrowsers = browsersTrackerObjects.get('chrome');
     let firefoxBrowsers = browsersTrackerObjects.get('firefox');
     let edgeBrowsers = browsersTrackerObjects.get('edge');
+    let safariBrowsers = browsersTrackerObjects.get('safari');
 
     if (filteredBrowsers.chrome[0] != null) {
       chromeBrowsers?.forEach((browser) => {
@@ -651,23 +645,32 @@ export default class TaskSnap {
 
     if (filteredBrowsers.firefox[0] != null) {
       firefoxBrowsers?.forEach((browser) => {
-        browser.path = filteredBrowsers.chrome[0].applicationPath;
-        browser.icon = this.getApplicationIcon(filteredBrowsers.chrome[0].applicationPath);
-        browser.title = filteredBrowsers.chrome[0].title;
-        browser.name = filteredBrowsers.chrome[0].application;
+        browser.path = filteredBrowsers.firefox[0].applicationPath;
+        browser.icon = this.getApplicationIcon(filteredBrowsers.firefox[0].applicationPath);
+        browser.title = filteredBrowsers.firefox[0].title;
+        browser.name = filteredBrowsers.firefox[0].application;
       });
     }
 
     if (filteredBrowsers.edge[0] != null) {
       edgeBrowsers?.forEach((browser) => {
-        browser.path = filteredBrowsers.chrome[0].applicationPath;
-        browser.icon = this.getApplicationIcon(filteredBrowsers.chrome[0].applicationPath);
-        browser.title = filteredBrowsers.chrome[0].title;
-        browser.name = filteredBrowsers.chrome[0].application;
+        browser.path = filteredBrowsers.edge[0].applicationPath;
+        browser.icon = this.getApplicationIcon(filteredBrowsers.edge[0].applicationPath);
+        browser.title = filteredBrowsers.edge[0].title;
+        browser.name = filteredBrowsers.edge[0].application;
       });
     }
 
-    let allBrowsers = (chromeBrowsers ?? []).concat(firefoxBrowsers ?? [], edgeBrowsers ?? []);
+    if (filteredBrowsers.safari[0] != null) {
+      safariBrowsers?.forEach((browser) => {
+        browser.path = filteredBrowsers.safari[0].applicationPath;
+        browser.icon = this.getApplicationIcon(filteredBrowsers.safari[0].applicationPath);
+        browser.title = filteredBrowsers.safari[0].title;
+        browser.name = filteredBrowsers.safari[0].application;
+      });
+    }
+
+    let allBrowsers = (chromeBrowsers ?? []).concat(firefoxBrowsers ?? [], edgeBrowsers ?? [], safariBrowsers ?? []);
 
     //don't display browser windows if they have no tabs
     allBrowsers = allBrowsers.filter((browser) => {
@@ -675,7 +678,10 @@ export default class TaskSnap {
     });
 
     return allBrowsers;
+
+
   }
+
 
   private async handleRegularApplications(windows: TaskSnapWindowObject[], processInfos: ProcessInfo[], recentlyOpenedFiles: string[]) {
     const openApplications: Application[] = [];
@@ -783,7 +789,7 @@ export default class TaskSnap {
 
     windows.forEach((win) => {
       const appName = win.application;
-      if (appName.includes('Google Chrome') || appName.includes('Firefox') || appName.includes('Edge')) {
+      if (appName.includes('Google Chrome') || appName.includes('Firefox') || appName.includes('Edge') || appName.includes('Safari')) {
         browserWindows.push(win);
       } else if (
         appName === 'Code' ||

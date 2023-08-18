@@ -35,8 +35,8 @@ export default class BrowserTracker {
     ['chrome', []],
     ['firefox', []],
     ['edge', []],
+    ['safari', []]
   ]);
-
 
   private constructor() {
     this._server = new WebSocketServer({ port: this._port });
@@ -53,23 +53,23 @@ export default class BrowserTracker {
     if (subscribers) {
       subscribers.push(fn);
     }
+
   }
 
   public getSnapshotInformation() {
     const browsers: Map<BrowserType, Browser[]> = new Map([
       ['chrome', []],
       ['firefox', []],
-      ['edge', []]
+      ['edge', []],
+      ['safari', []]
     ]);
+
 
     for (const [windowId, window] of this._openWindows) {
       const taskSnapBrowserEntity = new Browser();
       taskSnapBrowserEntity.browserTabs = [];
-
       taskSnapBrowserEntity.windowId = windowId;
-      if (window.title != null) {
-        taskSnapBrowserEntity.type = this.getBrowserTypeFromWindowTitle(window.title);
-      }
+      taskSnapBrowserEntity.type = this.getBrowserTypeFromWindowTitle(<string>window.title);
       taskSnapBrowserEntity.isSelected = window.focused;
 
       if (window.tabs != undefined) {
@@ -80,19 +80,16 @@ export default class BrowserTracker {
           TaskSnapTabEntity.favIconUrl = <string>tab.favIconUrl;
           TaskSnapTabEntity.index = tab.index;
           TaskSnapTabEntity.isActive = tab.active;
-          TaskSnapTabEntity.browser = taskSnapBrowserEntity;
 
           taskSnapBrowserEntity.browserTabs.push(TaskSnapTabEntity);
         }
       }
-
-      browsers.get(taskSnapBrowserEntity.type)?.push(taskSnapBrowserEntity);
-
+      browsers.get(taskSnapBrowserEntity.type)!.push(taskSnapBrowserEntity);
     }
     return browsers;
   }
 
-  public sendTabOpeningRequest(
+  public tabOpeningRequest(
     urls: string[],
     browserType: BrowserType,
     windowId?: number,
@@ -108,7 +105,7 @@ export default class BrowserTracker {
 
   }
 
-  public async sendTabClosingRequest(
+  public sendTabClosingRequest(
     browserType: BrowserType,
     data: CloseTabClientRequest[]
   ) {
@@ -116,9 +113,6 @@ export default class BrowserTracker {
     if (connection && connection.readyState === WebSocket.OPEN) {
       connection.send(JSON.stringify({ endpoint: 'close-tabs', data }));
     }
-
-    //reset memory of open Windows
-    this._openWindows.clear();
   }
 
   public isSocketOpen(browserType?: BrowserType): boolean {
@@ -133,16 +127,6 @@ export default class BrowserTracker {
       } else {
         return false;
       }
-    }
-  }
-
-  private notifyConnectionListeners(browserType: BrowserType) {
-    const subscribers = this._connectionListeners.get(browserType);
-    if (subscribers) {
-      for (const fn of subscribers) {
-        fn();
-      }
-      this._connectionListeners.set(browserType, []);
     }
   }
 
@@ -175,7 +159,7 @@ export default class BrowserTracker {
         debug('[BrowserTracker] Socket error', error);
       });
 
-      //new browser window has been created
+      // new browser window has been created
       socket.on('message', async function(msg: string) {
         const obj = JSON.parse(msg) as {
           endpoint: ServerEndpoints;
@@ -188,16 +172,19 @@ export default class BrowserTracker {
             `[BrowserTracker] "event" msg received of type "${data.type}" from "${data.runtimeInfo.browserInfo.name}"`
           );
           runtimeInfo = data.runtimeInfo as RuntimeInfo;
-          const browserType = self.getBrowserTypeFromRuntimeInfo(runtimeInfo);
+          const browserType = self.getBrowserTypeFromWindowTitle(runtimeInfo.browserInfo.name);
           self._wsClients.set(browserType, socket);
-          await self.handleEvent(data);
 
           self.notifyConnectionListeners(browserType);
 
-        } else if (obj.endpoint === 'sequence') {
+          await self.handleEvent(data);
 
+        } else if (obj.endpoint === 'sequence') {
           const data = obj.data as WebNavigationSequenceUpdate;
           runtimeInfo = data.runtimeInfo as RuntimeInfo;
+          const browserType = self.getBrowserTypeFromWindowTitle(runtimeInfo.browserInfo.name);
+          self._wsClients.set(browserType, socket);
+          self.notifyConnectionListeners(browserType);
 
         } else if (obj.endpoint === 'navigation') {
           self.handleNavigation(obj.data as WebNavigationDetail);
@@ -217,21 +204,34 @@ export default class BrowserTracker {
           self._wsClients.delete(browserToRemove);
         }
         debug('[BrowserTracker] Socket closed');
-
       });
     });
   }
 
   private async handleEvent(data: BrowserEvent) {
+    //get all stored windows for one browserType
+    const keysForWindowsToCleanUp = [];
+    for (const [key, window] of this._openWindows.entries()) {
+      if (window.title == data.runtimeInfo.browserInfo.name) {
+        keysForWindowsToCleanUp.push(key);
+      }
+    }
+    //remove all the windows for one browserType
+    for (const key of keysForWindowsToCleanUp) {
+      this._openWindows.delete(key);
+    }
+
+    //store the new windows
     data.windows.forEach((win) => {
       {
         //title is used for browserType
         win.title = data.runtimeInfo.browserInfo.name;
+
         if (!win.incognito && win.tabs && win.id) {
-          win.tabs = win.tabs.filter(
-            (tab) => tab.url && tab.url !== 'chrome://newtab/'
-          );
-          this._openWindows.set(win.id, win);
+          //if a window doesn't have any tabs, it shouldn't be considered
+          if (win.tabs.length > 0) {
+            this._openWindows.set(win.id, win);
+          }
         }
       }
     });
@@ -243,13 +243,13 @@ export default class BrowserTracker {
     );
   }
 
-  private getBrowserTypeFromRuntimeInfo(runtimeInfo: RuntimeInfo): BrowserType {
-    if (runtimeInfo.browserInfo.name === 'Edge') {
-      return 'edge';
-    } else if (runtimeInfo.browserInfo.name === 'Firefox') {
-      return 'firefox';
-    } else {
-      return 'chrome';
+  private notifyConnectionListeners(browserType: BrowserType) {
+    const subscribers = this._connectionListeners.get(browserType);
+    if (subscribers) {
+      for (const fn of subscribers) {
+        fn();
+      }
+      this._connectionListeners.set(browserType, []);
     }
   }
 
@@ -258,8 +258,10 @@ export default class BrowserTracker {
       return 'edge';
     } else if (windowTitle.includes('Firefox')) {
       return 'firefox';
-    } else {
+    } else if (windowTitle.includes('Chrome')) {
       return 'chrome';
+    } else {
+      return 'safari';
     }
   }
 
