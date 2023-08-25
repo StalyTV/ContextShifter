@@ -742,7 +742,8 @@ export default class TaskSnap {
                   }
 
                   const file = new File();
-                  file.path = path;
+                  //Implementation escapes special character such as "ä", "ö", "ü" which leads to the terminal failing when opening applications. Therefore, the escape process is reverted here.
+                  file.path = decodeURIComponent(path.replace(/\\x/g, '%'));
                   file.name = getFileNameFromPath(path);
                   associatedFiles.push(file);
                 }
