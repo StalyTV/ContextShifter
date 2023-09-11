@@ -22,7 +22,7 @@ const asyncExec = promisify(exec);
 export async function openArtifact(artifact: Artifact) {
   if (isMac) {
     if (artifact.application) {
-      exec(`open -a '${artifact.application}' '${artifact.artifact}'`);
+      exec(`open -a '${artifact.application}' '${artifact.artifact}' && wait`);
     } else {
       exec(`open '${artifact.artifact}'`);
     }
