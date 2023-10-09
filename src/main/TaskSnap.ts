@@ -738,9 +738,12 @@ export default class TaskSnap {
                 (f) => f.name
               );
             }
-            for await (const path of filePaths) {
+            for await (let path of filePaths) {
               // Remove paths that are simply "/"
               if (path && path.length > 1) {
+                //Special characters are escaped which leads to issues when comparing paths. This function reverts the escaping.
+                path = decodeURIComponent(path.replace(/\\x/g, '%'));
+
                 const fileName = getFileNameFromPath(path, true);
                 const lowerCaseFileName = fileName.toLowerCase();
                 if (
@@ -754,8 +757,7 @@ export default class TaskSnap {
                   }
 
                   const file = new File();
-                  //Implementation escapes special character such as "ä", "ö", "ü" which leads to the terminal failing when opening applications. Therefore, the escape process is reverted here.
-                  file.path = decodeURIComponent(path.replace(/\\x/g, '%'));
+                  file.path = path;
                   file.name = getFileNameFromPath(path);
                   associatedFiles.push(file);
                 }
@@ -769,7 +771,9 @@ export default class TaskSnap {
 
           // Windows case
         } else {
-          for await (const path of recentlyOpenedFiles) {
+          for await (let path of recentlyOpenedFiles) {
+            //Special characters are escaped which leads to issues when comparing paths. This function reverts the escaping.
+            path = decodeURIComponent(path.replace(/\\x/g, '%'));
             const fileName = getFileNameFromPath(path, true);
             const lowerCaseFileName = fileName.toLowerCase();
             if (
