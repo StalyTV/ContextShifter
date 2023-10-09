@@ -528,8 +528,20 @@ export default class TaskSnap {
 
       openArtifact(artifact);
       this.storeBrowserTabsToOpen(browser, urlsToOpen, snapshot.name);
+      this.cleanBrowserWindows(browser);
     }
   }
+
+  /*Empty tabs will be opened when resuming a snapshot. This can lead to unnecessary clutter. Therefore, this function makes sure to close tabs which are opened by the system.*/
+  private cleanBrowserWindows(browser: Browser){
+    this._browserTracker.subscribeToConnection(browser.type, () => {
+      this._browserTracker.sendTabClosingRequest(
+        browser.type,
+        [{url: ""}, {url: "chrome://newtab/"}, {url: "edge://newtab/"}]
+      );
+    });
+  }
+
 
   private mapActiveWinToTaskSnapWindows(activeWindows?: activeWin.Result[], recentWindows?: ActiveWindow[]) {
     const taskSnapWindows: TaskSnapWindowObject[] = [];
@@ -539,7 +551,7 @@ export default class TaskSnap {
           title: win.title,
           application: win.owner.name,
           applicationPath: win.owner.path,
-          processId: win.owner.processId
+          processId: win.owner.processId,
         };
         taskSnapWindows.push(taskSnapWindowObject);
       });
