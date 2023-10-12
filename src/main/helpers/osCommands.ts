@@ -15,19 +15,46 @@ import { app } from 'electron';
 import { promisify } from 'util';
 import IDE from '../entity/IDE';
 import Browser from '../entity/Browser';
+import ArtifactFiles from "../../types/ArtifactFiles";
 
 const asyncExec = promisify(exec);
 
-
+//TODO remove openArtifacts and merge method with openFiles
 export async function openArtifact(artifact: Artifact) {
   if (isMac) {
     if (artifact.application) {
-      exec(`open -a '${artifact.application}' '${artifact.artifact}' && wait`);
+      exec(`open -a '${artifact.application}' '${artifact.artifact}'`);
+
     } else {
       exec(`open '${artifact.artifact}'`);
     }
   } else {
     const command = `ii "${artifact.artifact}"`;
+    exec(command, { shell: 'powershell.exe' });
+  }
+}
+
+
+export async function openFiles(artifact: ArtifactFiles) {
+  if (isMac) {
+    let filesToOpen = artifact.artifact.map((file) => {
+      return "'" + file + "'";
+    }).join(' ');
+
+    if(artifact.application){
+      exec(`open -a '${artifact.application}' ${filesToOpen}`);
+    }else{
+      exec(`open -a ${filesToOpen}`);
+    }
+
+  }
+
+  else {
+    let filesToOpen = artifact.artifact.map((file) => {
+      return  `"`+ file + `"`;
+    }).join(',');
+
+    const command = `ii ${filesToOpen}`;
     exec(command, { shell: 'powershell.exe' });
   }
 }

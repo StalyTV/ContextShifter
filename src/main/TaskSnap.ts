@@ -21,10 +21,8 @@ import { lsof, Options, ProcessInfo } from 'list-open-files';
 import Artifact from 'types/Artifact';
 import {
   getOpenFileExplorerPaths,
-  getRecentlyOpenedFilePaths,
-  openArtifact,
-  playWavSoundWindows
-} from './helpers/osCommands';
+  getRecentlyOpenedFilePaths, openArtifact, openFiles, playWavSoundWindows
+} from "./helpers/osCommands";
 import { getFileNameFromPath } from './helpers/getFileNameFromPath';
 import isMac from './helpers/isMac';
 import BrowserTracker from './trackers/BrowserTracker';
@@ -48,6 +46,7 @@ import ActiveWindow from './entity/ActiveWindow';
 import ActiveArtifact from './trackers/ActiveArtifact';
 import StudyManager from './StudyManager';
 import { StudyPhase } from '../types/StudyPhase';
+import ArtifactFiles from "../types/ArtifactFiles";
 
 const fileIcon = require('extract-file-icon');
 const soundPlayer = require('sound-play');
@@ -481,20 +480,15 @@ export default class TaskSnap {
 
       // If selected files are present, don't open application but files associated with application
       const selectedFiles = app.files.filter((file) => file.isSelected);
-      if (selectedFiles.length > 0) {
-        for (const file of selectedFiles) {
-          const artifact: Artifact = {
-            artifact: file.path,
-            application: app.path
-          };
-          openArtifact(artifact);
-        }
-      } else {
-        const artifact: Artifact = {
-          artifact: app.path
-        };
-        openArtifact(artifact);
+      let artifact: ArtifactFiles = {
+        artifact: [],
+        application: app.path
+      };
+      for (const file of selectedFiles) {
+        artifact.artifact.push(file.path);
       }
+      openFiles(artifact);
+
     }
   }
 
