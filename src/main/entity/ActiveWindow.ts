@@ -20,7 +20,7 @@ export default class ActiveWindow extends BaseEntity {
   @Column({ type: 'varchar', nullable: true })
   applicationPath!: string;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'int', nullable: true })
   processId!: number;
 
   @Column({ type: 'varchar', nullable: true })
@@ -41,6 +41,7 @@ export default class ActiveWindow extends BaseEntity {
   ): Promise<ActiveWindow[]> {
     const recentActiveWindows = await this.createQueryBuilder('active_window')
       .addSelect('MAX(active_window.tsStart)', 'maxTs')
+      .addSelect('CAST(active_window.processId AS UNSIGNED) AS processId')
       .where('active_window.tsStart >= :tsStart', {
         tsStart: startTime.toISOString(),
       })
