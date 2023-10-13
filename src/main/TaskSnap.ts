@@ -593,7 +593,7 @@ export default class TaskSnap {
       // only add file explorer once
       if (
         openApplications.some(
-          (app) => app.name === 'Finder' || app.name === 'Windows Explorer'
+          (app) => app.name.includes('Finder') || app.name.includes('Windows Explorer') || app.name.includes('Windows-Explorer')
         )
       ) {
         continue;
@@ -613,6 +613,9 @@ export default class TaskSnap {
         const file = new File();
         file.path = path;
         file.name = getFileNameFromPath(path);
+        if(file.name == ""){
+          file.name = file.path
+        }
         associatedFolders.push(file);
       });
       if (associatedFolders.length > 0) {
@@ -621,7 +624,6 @@ export default class TaskSnap {
       app.files = associatedFolders;
 
       //save app
-      //TODO: necessary?
       app.save();
       openApplications.push(app);
     }
@@ -820,7 +822,7 @@ export default class TaskSnap {
         appName === 'Visual Studio Code.app'
       ) {
         ideFiles.push(win);
-      } else if (appName === 'Finder' || appName === 'Windows Explorer') {
+      } else if (appName.includes('Finder') || appName.includes('Windows Explorer') || appName.includes('Windows-Explorer')) {
         fileExplorer.push(win);
       } else {
         otherWindows.push(win);

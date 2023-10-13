@@ -157,7 +157,7 @@ export default class SnapshotManager {
       const filesToClose: File[] = app.files.filter((file) => file.isSelected);
 
       // We can only close specific windows/tabs of the Finder/Explorer
-      if (app.name === 'Finder' || app.name === 'Windows Explorer') {
+      if (app.name.includes('Finder') || app.name.includes('Windows Explorer') || app.name.includes('Windows-Explorer')) {
         for await (const folder of filesToClose) {
           await closeFileExplorerPath(folder.path);
         }
