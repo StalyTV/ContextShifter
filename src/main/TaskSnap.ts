@@ -4,48 +4,51 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
-import { app, dialog } from 'electron';
-import { info } from 'electron-log';
-import WindowTracker from './trackers/WindowTracker';
-import FileSystemWatcher from './trackers/FileSystemWatcher';
-import TrayManager from './TrayManager';
-import activeWin from 'active-win';
-import Snapshot from './entity/Snapshot';
-import Application from './entity/Application';
-import File from './entity/File';
-import IDE from './entity/IDE';
-import IDEFileEntity from './entity/IDEFile';
-import WindowManager from './WindowManager';
-import SnapshotManager from './SnapshotManager';
-import { lsof, Options, ProcessInfo } from 'list-open-files';
-import Artifact from 'types/Artifact';
+import { app, dialog } from "electron";
+import { info } from "electron-log";
+import WindowTracker from "./trackers/WindowTracker";
+import FileSystemWatcher from "./trackers/FileSystemWatcher";
+import TrayManager from "./TrayManager";
+import activeWin from "active-win";
+import Snapshot from "./entity/Snapshot";
+import Application from "./entity/Application";
+import File from "./entity/File";
+import IDE from "./entity/IDE";
+import IDEFileEntity from "./entity/IDEFile";
+import WindowManager from "./WindowManager";
+import SnapshotManager from "./SnapshotManager";
+import { lsof, Options, ProcessInfo } from "list-open-files";
+import Artifact from "types/Artifact";
 import {
   getOpenFileExplorerPaths,
-  getRecentlyOpenedFilePaths, openArtifact, openFiles, playWavSoundWindows
+  getRecentlyOpenedFilePaths,
+  openArtifact,
+  openFiles,
+  playWavSoundWindows
 } from "./helpers/osCommands";
-import { getFileNameFromPath } from './helpers/getFileNameFromPath';
-import isMac from './helpers/isMac';
-import BrowserTracker from './trackers/BrowserTracker';
-import BrowserTabEntity from './entity/BrowserTab';
-import { CloseTabClientRequest } from '../types/context-browser-extension-types/types';
-import Browser from './entity/Browser';
-import VSCodeTracker from './trackers/VSCodeTracker';
-import getAssetPath from './helpers/getAssetPath';
-import ExtensionsStatus from '../types/ExtensionsStatus';
-import UsageData from './entity/UsageData';
-import DeviceManager from './HID/DeviceManager';
-import KnownApplication from './entity/KnownApplication';
-import { TypedWebContents } from './ipc/types/electron-typed-ipc';
-import Events from '../types/Events';
-import { UsageDataOrigin } from '../types/UsageDataOrigin';
-import Exporter from './Exporter';
-import FDACalculator from './FDACalculator';
-import SummaryProvider from './SummaryProvider';
-import StaticSettings from './StaticSettings';
-import ActiveWindow from './entity/ActiveWindow';
-import ActiveArtifact from './trackers/ActiveArtifact';
-import StudyManager from './StudyManager';
-import { StudyPhase } from '../types/StudyPhase';
+import { getFileNameFromPath } from "./helpers/getFileNameFromPath";
+import isMac from "./helpers/isMac";
+import BrowserTracker from "./trackers/BrowserTracker";
+import BrowserTabEntity from "./entity/BrowserTab";
+import { CloseTabClientRequest } from "../types/context-browser-extension-types/types";
+import Browser from "./entity/Browser";
+import VSCodeTracker from "./trackers/VSCodeTracker";
+import getAssetPath from "./helpers/getAssetPath";
+import ExtensionsStatus from "../types/ExtensionsStatus";
+import UsageData from "./entity/UsageData";
+import DeviceManager from "./HID/DeviceManager";
+import KnownApplication from "./entity/KnownApplication";
+import { TypedWebContents } from "./ipc/types/electron-typed-ipc";
+import Events from "../types/Events";
+import { UsageDataOrigin } from "../types/UsageDataOrigin";
+import Exporter from "./Exporter";
+import FDACalculator from "./FDACalculator";
+import SummaryProvider from "./SummaryProvider";
+import StaticSettings from "./StaticSettings";
+import ActiveWindow from "./entity/ActiveWindow";
+import ActiveArtifact from "./trackers/ActiveArtifact";
+import StudyManager from "./StudyManager";
+import { StudyPhase } from "../types/StudyPhase";
 import ArtifactFiles from "../types/ArtifactFiles";
 
 const fileIcon = require('extract-file-icon');
@@ -331,6 +334,7 @@ export default class TaskSnap {
       tsStart
     );
 
+
     const recentlyActiveTaskSnapWindows = this.mapActiveWinToTaskSnapWindows(undefined, recentlyActiveWindows);
 
     //add recently active windows to list
@@ -364,8 +368,6 @@ export default class TaskSnap {
       const searchStart = new Date(new Date().setHours(0));
       recentlyOpenedFiles = await getRecentlyOpenedFilePaths(searchStart);
     }
-
-    //TODO calulateRelevanceForPreSelection?
 
     const [browsers, ides, fileExplorers, regularApps] = this.sortWindowsByType(windowsToConsider);
 
@@ -647,15 +649,23 @@ export default class TaskSnap {
         browser.title = filteredBrowsers.chrome[0].title;
         browser.name = filteredBrowsers.chrome[0].application;
       });
+    }else{
+      //fix bug if application quit too quickly for browser tracker
+      chromeBrowsers = []
     }
 
     if (filteredBrowsers.firefox[0] != null) {
-      firefoxBrowsers?.forEach((browser) => {
-        browser.path = filteredBrowsers.firefox[0].applicationPath;
-        browser.icon = this.getApplicationIcon(filteredBrowsers.firefox[0].applicationPath);
-        browser.title = filteredBrowsers.firefox[0].title;
-        browser.name = filteredBrowsers.firefox[0].application;
-      });
+      if(firefoxBrowsers){
+          firefoxBrowsers.forEach((browser) => {
+            browser.path = filteredBrowsers.firefox[0].applicationPath;
+            browser.icon = this.getApplicationIcon(filteredBrowsers.firefox[0].applicationPath);
+            browser.title = filteredBrowsers.firefox[0].title;
+            browser.name = filteredBrowsers.firefox[0].application;
+          });
+      }
+    }else{
+      //fix bug if application quit too quickly for browser tracker
+      firefoxBrowsers = []
     }
 
     if (filteredBrowsers.edge[0] != null) {
@@ -665,6 +675,9 @@ export default class TaskSnap {
         browser.title = filteredBrowsers.edge[0].title;
         browser.name = filteredBrowsers.edge[0].application;
       });
+    }else{
+      //fix bug if application quit too quickly for browser tracker
+      edgeBrowsers = []
     }
 
     if (filteredBrowsers.safari[0] != null) {
@@ -674,17 +687,11 @@ export default class TaskSnap {
         browser.title = filteredBrowsers.safari[0].title;
         browser.name = filteredBrowsers.safari[0].application;
       });
+    }else{
+      //fix bug if application quit too quickly for browser tracker
+      safariBrowsers = []
     }
-
-    let allBrowsers = (chromeBrowsers ?? []).concat(firefoxBrowsers ?? [], edgeBrowsers ?? [], safariBrowsers ?? []);
-
-    //don't display browser windows if they have no tabs
-    allBrowsers = allBrowsers.filter((browser) => {
-      return browser.browserTabs.length > 0;
-    });
-
-    return allBrowsers;
-
+    return (chromeBrowsers ?? []).concat(firefoxBrowsers ?? [], edgeBrowsers ?? [], safariBrowsers ?? []);
 
   }
 
@@ -800,7 +807,7 @@ export default class TaskSnap {
 
     windows.forEach((win) => {
       const appName = win.application;
-      if (appName.includes('Google Chrome') || appName.includes('Firefox') || appName.includes('Edge') || appName.includes('Safari')) {
+      if ((appName.includes('Google Chrome') || appName.includes('Firefox') || appName.includes('Edge') || appName.includes('Safari')) && this._browserTracker.isActiveBrowserAddon(appName)) {
         browserWindows.push(win);
       } else if (
         appName === 'Code' ||

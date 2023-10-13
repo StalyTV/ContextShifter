@@ -53,6 +53,10 @@ export default class BrowserTracker {
     if (subscribers) {
       subscribers.push(fn);
     }
+  }
+
+  public isActiveBrowserAddon(browserName: string): boolean{
+    return this._wsClients.has(this.getBrowserTypeFromWindowTitle(browserName))
 
   }
 
