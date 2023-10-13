@@ -25,7 +25,7 @@ import {
   openArtifact,
   openFiles,
   playWavSoundWindows
-} from "./helpers/osCommands";
+} from './helpers/osCommands';
 import { getFileNameFromPath } from "./helpers/getFileNameFromPath";
 import isMac from "./helpers/isMac";
 import BrowserTracker from "./trackers/BrowserTracker";
@@ -509,6 +509,7 @@ export default class TaskSnap {
   }
 
   private restoreBrowserWindows(snapshot: Snapshot) {
+    const browserWindowsToClean: Browser[] = [];
     for (const browser of snapshot.browsers) {
       if (!browser.isSelected) continue;
 
@@ -524,8 +525,12 @@ export default class TaskSnap {
 
       openArtifact(artifact);
       this.storeBrowserTabsToOpen(browser, urlsToOpen, snapshot.name);
-      this.cleanBrowserWindows(browser);
+      browserWindowsToClean.push(browser)
     }
+    //It's important to do this in a second step to avoid bugs due to latency (especially problematic on windows)
+    browserWindowsToClean.forEach((browser) => {
+      this.cleanBrowserWindows(browser);
+    })
   }
 
   /*Empty tabs will be opened when resuming a snapshot. This can lead to unnecessary clutter. Therefore, this function makes sure to close tabs which are opened by the system.*/
