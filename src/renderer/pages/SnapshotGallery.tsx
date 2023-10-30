@@ -88,7 +88,7 @@ export default function SnapshotGallery() {
       snap.browsers.forEach((browser) => {
         if (
           browser.isSelected &&
-          browser.name.toLowerCase().includes(searchString)
+          browser.name?.toLowerCase().includes(searchString)
         ) {
           isMatch = true;
         }

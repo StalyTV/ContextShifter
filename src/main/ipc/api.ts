@@ -179,7 +179,7 @@ typedIpcMain.handle('expand-snapshot-preview', async (e, snapshotId) => {
 
 typedIpcMain.handle('open-browser-tab', async (e, browser, browserTab) => {
   await UsageData.addEntry('open-browser-tab');
-  TaskSnap.getInstance().openBrowserTabs(browser, [browserTab.url]);
+  TaskSnap.getInstance().storeBrowserTabsToOpen(browser, [browserTab.url]);
 });
 
 typedIpcMain.handle('open-ide-file', async (e, ide, file) => {
@@ -199,7 +199,7 @@ typedIpcMain.handle('get-settings', async () => {
     snapshotShortcut: await Settings.getSnapshotShortcut(),
     endOfDayPopUpTime: await Settings.getEndOfDayPopUpTime(),
     showQuestionnaireOnlyOnWorkdays:
-      await Settings.getShowQuestionnaireOnlyOnWorkdays(),
+      await Settings.getShowQuestionnaireOnlyOnWorkdays()
   };
   return userSettings;
 });
@@ -213,19 +213,19 @@ typedIpcMain.handle('set-settings', async (e, updatedSettings) => {
 
   await Database.manager.save(Settings, {
     key: 'isDataAnonymized',
-    value: updatedSettings.isDataAnonymized ? 'true' : 'false',
+    value: updatedSettings.isDataAnonymized ? 'true' : 'false'
   });
   await Database.manager.save(Settings, {
     key: 'snapshotShortcut',
-    value: updatedSettings.snapshotShortcut,
+    value: updatedSettings.snapshotShortcut
   });
   await Database.manager.save(Settings, {
     key: 'endOfDayPopUpTime',
-    value: updatedSettings.endOfDayPopUpTime.toISOString(),
+    value: updatedSettings.endOfDayPopUpTime.toISOString()
   });
   await Database.manager.save(Settings, {
     key: 'showQuestionnaireOnlyOnWorkdays',
-    value: updatedSettings.showQuestionnaireOnlyOnWorkdays ? 'true' : 'false',
+    value: updatedSettings.showQuestionnaireOnlyOnWorkdays ? 'true' : 'false'
   });
   await UsageData.addEntry(
     'update-settings',
@@ -266,7 +266,7 @@ typedIpcMain.handle(
       ts: new Date().toISOString(),
       type: 'end-of-day',
       studyPhase: StudyManager.getStudyPhase(),
-      answers: json,
+      answers: json
     });
     WindowManager.endOfDayWindow?.close();
     info(`[API] Saved end-of-day questionnaire`);
@@ -281,7 +281,7 @@ typedIpcMain.handle(
       type: 'task-resumption',
       studyPhase: StudyManager.getStudyPhase(),
       answers: json,
-      additionalInformation: `snapshotId: ${snapshotId}`,
+      additionalInformation: `snapshotId: ${snapshotId}`
     });
     WindowManager.taskResumptionWindow?.close();
     info(`[API] Saved task resumption questionnaire`);

@@ -15,18 +15,46 @@ import { app } from 'electron';
 import { promisify } from 'util';
 import IDE from '../entity/IDE';
 import Browser from '../entity/Browser';
+import ArtifactFiles from "../../types/ArtifactFiles";
 
 const asyncExec = promisify(exec);
 
-export function openArtifact(artifact: Artifact) {
+//TODO remove openArtifacts and merge method with openFiles
+export async function openArtifact(artifact: Artifact) {
   if (isMac) {
     if (artifact.application) {
       exec(`open -a '${artifact.application}' '${artifact.artifact}'`);
+
     } else {
       exec(`open '${artifact.artifact}'`);
     }
   } else {
     const command = `ii "${artifact.artifact}"`;
+    exec(command, { shell: 'powershell.exe' });
+  }
+}
+
+
+export async function openFiles(artifact: ArtifactFiles) {
+  if (isMac) {
+    let filesToOpen = artifact.artifact.map((file) => {
+      return "'" + file + "'";
+    }).join(' ');
+
+    if(artifact.application){
+      exec(`open -a '${artifact.application}' ${filesToOpen}`);
+    }else{
+      exec(`open -a ${filesToOpen}`);
+    }
+
+  }
+
+  else {
+    let filesToOpen = artifact.artifact.map((file) => {
+      return  `"`+ file + `"`;
+    }).join(',');
+
+    const command = `ii ${filesToOpen}`;
     exec(command, { shell: 'powershell.exe' });
   }
 }
@@ -57,7 +85,7 @@ export async function getOpenFileExplorerPaths(): Promise<string[]> {
     return listOfPaths.map((path) => path.replace(/\/$/g, '')); // remove last slash of paths
   } else {
     const command = `@((New-Object -com shell.application).Windows()).Document.Folder.Self.Path`;
-    const res = await asyncExec(command, { shell: 'powershell.exe' });
+    const res = await asyncExec(`chcp 65001>nul && powershell.exe "${command}"`, { shell: 'cmd.exe' });
     const filePaths = res.stdout.split('\r\n');
     filePaths.pop(); // remove last element as empty
     const cleanedList = filePaths.filter((path) => !path.startsWith('::')); // artifact that appears when viewing "QuickAccess"
@@ -106,8 +134,8 @@ export async function getRecentlyOpenedFilePaths(
       'Windows',
       'Recent'
     );
-    const command = `ls ${recentFolderPath} | where{$_.LastWriteTime -ge [DateTime]"${since.toISOString()}"} | select -expand Name`;
-    const res = await asyncExec(command, { shell: 'powershell.exe' });
+    const command = `ls ${recentFolderPath} | where{$_.LastWriteTime -ge [DateTime]'${since.toISOString()}'} | select -expand Name`;
+    const res = await asyncExec(`chcp 65001>nul && powershell.exe "${command}"`, { shell: 'cmd.exe' });
     const stdout = res.stdout;
 
     // extract links from stdout
@@ -131,7 +159,7 @@ export async function getRecentlyOpenedFilePaths(
 async function resolveLink(linkPath: string) {
   try {
     const command = `(New-Object -ComObject WScript.Shell).CreateShortcut('${linkPath}').TargetPath`;
-    const res = await asyncExec(command, { shell: 'powershell.exe' });
+    const res = await asyncExec(`chcp 65001>nul && powershell.exe "${command}"`, { shell: 'cmd.exe' });
     const cleanedRes = res.stdout.replace('\r\n', '');
     return cleanedRes;
   } catch (err) {

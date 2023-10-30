@@ -4,51 +4,53 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
-import { app, dialog } from 'electron';
-import { info } from 'electron-log';
-import WindowTracker from './trackers/WindowTracker';
-import FileSystemWatcher from './trackers/FileSystemWatcher';
-import TrayManager from './TrayManager';
-import activeWin from 'active-win';
-import Snapshot from './entity/Snapshot';
-import Application from './entity/Application';
-import File from './entity/File';
-import IDE from './entity/IDE';
-import IDEFileEntity from './entity/IDEFile';
-import WindowManager from './WindowManager';
-import SnapshotManager from './SnapshotManager';
-import { lsof, Options, ProcessInfo } from 'list-open-files';
-import Artifact from 'types/Artifact';
+import { app, dialog } from "electron";
+import { info } from "electron-log";
+import WindowTracker from "./trackers/WindowTracker";
+import FileSystemWatcher from "./trackers/FileSystemWatcher";
+import TrayManager from "./TrayManager";
+import activeWin from "active-win";
+import Snapshot from "./entity/Snapshot";
+import Application from "./entity/Application";
+import File from "./entity/File";
+import IDE from "./entity/IDE";
+import IDEFileEntity from "./entity/IDEFile";
+import WindowManager from "./WindowManager";
+import SnapshotManager from "./SnapshotManager";
+import { lsof, Options, ProcessInfo } from "list-open-files";
+import Artifact from "types/Artifact";
 import {
   getOpenFileExplorerPaths,
   getRecentlyOpenedFilePaths,
   openArtifact,
-  playWavSoundWindows,
+  openFiles,
+  playWavSoundWindows
 } from './helpers/osCommands';
-import { getFileNameFromPath } from './helpers/getFileNameFromPath';
-import isMac from './helpers/isMac';
-import BrowserTracker from './trackers/BrowserTracker';
-import BrowserTabEntity from './entity/BrowserTab';
-import { CloseTabClientRequest } from '../types/context-browser-extension-types/types';
-import Browser from './entity/Browser';
-import VSCodeTracker from './trackers/VSCodeTracker';
-import getAssetPath from './helpers/getAssetPath';
-import ExtensionsStatus from '../types/ExtensionsStatus';
-import UsageData from './entity/UsageData';
-import DeviceManager from './HID/DeviceManager';
-import KnownApplication from './entity/KnownApplication';
-import { TypedWebContents } from './ipc/types/electron-typed-ipc';
-import Events from '../types/Events';
-import { BrowserType } from '../types/BrowserType';
-import { UsageDataOrigin } from '../types/UsageDataOrigin';
-import Exporter from './Exporter';
-import FDACalculator from './FDACalculator';
-import SummaryProvider from './SummaryProvider';
-import StaticSettings from './StaticSettings';
-import ActiveWindow from './entity/ActiveWindow';
-import ActiveArtifact from './trackers/ActiveArtifact';
-import StudyManager from './StudyManager';
-import { StudyPhase } from '../types/StudyPhase';
+import { getFileNameFromPath } from "./helpers/getFileNameFromPath";
+import isMac from "./helpers/isMac";
+import BrowserTracker from "./trackers/BrowserTracker";
+import BrowserTabEntity from "./entity/BrowserTab";
+import { CloseTabClientRequest } from "../types/context-browser-extension-types/types";
+import Browser from "./entity/Browser";
+import VSCodeTracker from "./trackers/VSCodeTracker";
+import getAssetPath from "./helpers/getAssetPath";
+import ExtensionsStatus from "../types/ExtensionsStatus";
+import UsageData from "./entity/UsageData";
+import DeviceManager from "./HID/DeviceManager";
+import KnownApplication from "./entity/KnownApplication";
+import { TypedWebContents } from "./ipc/types/electron-typed-ipc";
+import Events from "../types/Events";
+import { UsageDataOrigin } from "../types/UsageDataOrigin";
+import Exporter from "./Exporter";
+import FDACalculator from "./FDACalculator";
+import SummaryProvider from "./SummaryProvider";
+import StaticSettings from "./StaticSettings";
+import ActiveWindow from "./entity/ActiveWindow";
+import ActiveArtifact from "./trackers/ActiveArtifact";
+import StudyManager from "./StudyManager";
+import { StudyPhase } from "../types/StudyPhase";
+import ArtifactFiles from "../types/ArtifactFiles";
+
 const fileIcon = require('extract-file-icon');
 const soundPlayer = require('sound-play');
 
@@ -58,6 +60,13 @@ interface TaskSnapWindowObject {
   applicationPath: string;
   processId: number;
 }
+
+type SupportedBrowserTypes = {
+  edge: TaskSnapWindowObject[];
+  chrome: TaskSnapWindowObject[];
+  safari: TaskSnapWindowObject[];
+  firefox: TaskSnapWindowObject[];
+};
 
 /**
  * Main class of the application
@@ -164,7 +173,7 @@ export default class TaskSnap {
     ) {
       dialog.showMessageBox({
         message: 'No open windows to attach to a snapshot',
-        type: 'error',
+        type: 'error'
       });
       newSnapshot.isReady = true;
       await newSnapshot.save();
@@ -184,12 +193,7 @@ export default class TaskSnap {
     newSnapshot.isReady = true;
     await newSnapshot.save();
 
-    // latest tabs are already stored in memory. Save them to db.
-    if (openBrowsers.length > 0) {
-      await this._browserTracker.saveOpenTabsToDb(openBrowsers);
-    }
-
-    // same for vscode
+    // save latest tabs to db vscode
     if (openIDEs.length > 0) {
       this._vscodeTracker.sendGetVSCodeSnapshotRequest();
 
@@ -207,19 +211,6 @@ export default class TaskSnap {
 
     // update tray menu
     await TrayManager.updateTray();
-  }
-
-  private notifyWindows(snapshotId: number): void {
-    if (WindowManager.instantCurationWindow) {
-      const destination = WindowManager.instantCurationWindow
-        .webContents as TypedWebContents<Events>;
-      destination?.send('snapshot-ready', snapshotId);
-    }
-    if (WindowManager.snapshotWindow) {
-      const destination = WindowManager.snapshotWindow
-        .webContents as TypedWebContents<Events>;
-      destination?.send('snapshot-ready', snapshotId);
-    }
   }
 
   public async restoreSnapshot(snapshot: Snapshot, origin: UsageDataOrigin) {
@@ -274,88 +265,29 @@ export default class TaskSnap {
     }
   }
 
-  private restoreWorkingContext(snapshot: Snapshot) {
-    for (const browser of snapshot.browsers) {
-      if (!browser.isSelected) continue;
-
-      const urlsToOpen: string[] = [];
-      browser.browserTabs.forEach((tab) => {
-        if (tab.isSelected) {
-          urlsToOpen.push(tab.url);
-        }
-      });
-      this.openBrowserTabs(browser, urlsToOpen, snapshot.name);
-    }
-
-    for (const ide of snapshot.ides) {
-      if (!ide.isSelected) continue;
-
-      const filesToOpen: string[] = [];
-      ide.ideFiles.forEach((file) => {
-        if (file.isSelected) {
-          filesToOpen.push(file.path);
-        }
-      });
-      this.openIDEFiles(ide, filesToOpen);
-    }
-
-    for (const app of snapshot.applications) {
-      if (!app.isSelected) continue;
-
-      // If selected files are present, don't open application but files associated with application
-      const selectedFiles = app.files.filter((file) => file.isSelected);
-      if (selectedFiles.length > 0) {
-        for (const file of selectedFiles) {
-          const artifact: Artifact = {
-            artifact: file.path,
-            application: app.path,
-          };
-          openArtifact(artifact);
-        }
-      } else {
-        const artifact: Artifact = {
-          artifact: app.path,
-        };
-        openArtifact(artifact);
-      }
-    }
-  }
-
-  public openBrowserTabs(
+  public async storeBrowserTabsToOpen(
     browser: Browser,
     urlsToOpen: string[],
     label?: string
-  ): void {
-    // open browser
-    const artifact: Artifact = {
-      artifact: browser.path,
-    };
-    openArtifact(artifact);
+  ) {
 
-    // if websocket is not open, wait until browser is ready (sends any kind of message)
-    if (this._browserTracker.isSocketOpen()) {
-      this._browserTracker.sendTabOpeningRequest(
-        browser.type,
+    this._browserTracker.subscribeToConnection(browser.type, () => {
+      this._browserTracker.tabOpeningRequest(
         urlsToOpen,
+        browser.type,
+        browser.windowId,
         label
       );
-    } else {
-      this._browserTracker.subscribeToConnection(browser.type, () => {
-        this._browserTracker.sendTabOpeningRequest(
-          browser.type,
-          urlsToOpen,
-          label
-        );
-      });
-    }
+    });
   }
 
   public openIDEFiles(ide: IDE, filePaths: string[]) {
     // open ide. If workspace is defined, open workspace
     const artifact: Artifact = {
-      artifact: ide.workspacePath ? ide.workspacePath : ide.path,
+      artifact: ide.workspacePath ? ide.workspacePath : ide.path
     };
     openArtifact(artifact);
+
 
     // if websocket is not open, wait until ide is ready (sends any kind of message)
     if (this._vscodeTracker.isSocketOpen()) {
@@ -372,7 +304,10 @@ export default class TaskSnap {
     tabsToClose: BrowserTabEntity[]
   ): void {
     const closeRequest: CloseTabClientRequest[] = tabsToClose.map((tab) => {
-      return { url: tab.url };
+      return {
+        url: tab.url,
+        windowId: browser.windowId
+      };
     });
     this._browserTracker.sendTabClosingRequest(browser.type, closeRequest);
   }
@@ -384,24 +319,12 @@ export default class TaskSnap {
     this._vscodeTracker.sendFileClosingRequest(filePaths);
   }
 
-  // TODO [regloff] refactor this method
   public async getCurrentlyOpenApplications(): Promise<
-    [Browser[], IDE[], Application[]]
-  > {
+    [Browser[], IDE[], Application[]]> {
     const visibleWindows = (await activeWin.getOpenWindows()) || [];
 
-    // map results from activeWin to own window object
-    const windowsToConsider: TaskSnapWindowObject[] = visibleWindows.map(
-      (win) => {
-        return {
-          title: win.title,
-          application: win.owner.name,
-          applicationPath: win.owner.path,
-          processId: win.owner.processId,
-        };
-      }
-    );
-    //
+    let windowsToConsider = this.mapActiveWinToTaskSnapWindows(visibleWindows);
+
     // In addition, consider all applications used in the last 12 minutes.
     // Like this, we also get apps that are recently closed, minimized, or in full screen (mac).
     const tsStart = new Date(
@@ -410,29 +333,31 @@ export default class TaskSnap {
     const recentlyActiveWindows = await ActiveWindow.getRecentlyActiveWindows(
       tsStart
     );
-    recentlyActiveWindows.forEach((recentWin) => {
-      const isAlreadyInList = visibleWindows.some((visibleWin) => {
-        return visibleWin.owner.name === recentWin.application;
+
+
+    const recentlyActiveTaskSnapWindows = this.mapActiveWinToTaskSnapWindows(undefined, recentlyActiveWindows);
+
+    //add recently active windows to list
+    recentlyActiveTaskSnapWindows.forEach((win) => {
+      const isAlreadyInList = windowsToConsider.some((winInList) => {
+        return winInList.application === win.application && winInList.processId === win.processId;
       });
       if (!isAlreadyInList) {
-        const winObject: TaskSnapWindowObject = {
-          title: recentWin.title,
-          application: recentWin.application,
-          applicationPath: recentWin.applicationPath,
-          processId: recentWin.processId,
-        };
-        windowsToConsider.push(winObject);
+        windowsToConsider.push(win);
       }
     });
 
-    if (!windowsToConsider) {
-      return [[], [], []];
-    }
+    //Filter out electron and application itself from snapshots
+    windowsToConsider = windowsToConsider.filter((win) => {
+      return !(win.application === 'Electron' || win.application === app.getName());
+    });
+
+
     const pidsOfApplications: number[] = visibleWindows.map((win) => {
       return win.owner.processId;
     });
     const options: Options = {
-      pids: pidsOfApplications,
+      pids: pidsOfApplications
     };
 
     let processInfos: ProcessInfo[] = [];
@@ -444,180 +369,14 @@ export default class TaskSnap {
       recentlyOpenedFiles = await getRecentlyOpenedFilePaths(searchStart);
     }
 
-    // calculate relevance for smart pre-selection
-    const appNamesOfOpenWindows: string[] = [];
-    windowsToConsider.forEach((win) => {
-      const appName = win.application;
-      if (!appNamesOfOpenWindows.includes(appName)) {
-        appNamesOfOpenWindows.push(appName);
-      }
-    });
-    const openBrowsers: Browser[] = [];
-    const openIDEs: IDE[] = [];
-    const openApplications: Application[] = [];
-    for await (const win of windowsToConsider) {
-      const appName = win.application;
-      const appPath = win.applicationPath;
-      if (appName === app.getName() || appName === 'Electron') continue;
+    const [browsers, ides, fileExplorers, regularApps] = this.sortWindowsByType(windowsToConsider);
 
-      // browsers get stored separately, as handling of urls different than handling of files
-      if (
-        appName.includes('Google Chrome') ||
-        appName.includes('Firefox') ||
-        appName.includes('Edge')
-      ) {
-        let browserType: BrowserType;
-        if (appName.includes('Edge')) {
-          browserType = 'edge';
-        } else if (appName.includes('Firefox')) {
-          browserType = 'firefox';
-        } else {
-          browserType = 'chrome';
-        }
 
-        const browser = new Browser();
-        browser.name = appName;
-        browser.type = browserType;
-        browser.path = appPath;
-        browser.icon = this.getApplicationIcon(appPath);
-        browser.title = win.title;
-        openBrowsers.push(browser);
-
-        // ide
-      } else if (
-        appName === 'Code' ||
-        appName === 'Visual Studio Code' ||
-        appName === 'Visual Studio Code.app'
-      ) {
-        const ide = new IDE();
-        ide.name = appName;
-        ide.path = appPath;
-        ide.icon = this.getApplicationIcon(appPath);
-        ide.title = win.title;
-        openIDEs.push(ide);
-
-        // file explorer
-      } else if (appName === 'Finder' || appName === 'Windows Explorer') {
-        // only add file explorer once
-        if (
-          openApplications.some(
-            (app) => app.name === 'Finder' || app.name === 'Windows Explorer'
-          )
-        ) {
-          continue;
-        }
-
-        const app = new Application();
-        app.name = appName;
-        app.path = appPath;
-        app.icon = this.getApplicationIcon(appPath);
-        app.title = 'File System';
-        openApplications.push(app);
-
-        const associatedFolders: File[] = [];
-        const folderPaths = await getOpenFileExplorerPaths();
-        folderPaths.forEach((path) => {
-          const file = new File();
-          file.path = path;
-          file.name = getFileNameFromPath(path);
-          associatedFolders.push(file);
-        });
-        if (associatedFolders.length > 0) {
-          await File.save(associatedFolders);
-        }
-        app.files = associatedFolders;
-
-        // regular application case
-      } else {
-        let app: Application;
-        // check if this application was already added -> just append file
-        const alreadyAddedApplication = openApplications.find(
-          (app) => app.name === appName
-        );
-
-        if (alreadyAddedApplication) {
-          app = alreadyAddedApplication;
-          app.title = appName; // use app name as multiple windows have multiple titles
-        } else {
-          app = new Application();
-          app.name = appName;
-          app.path = appPath;
-          app.icon = this.getApplicationIcon(appPath);
-          app.title = win.title;
-          openApplications.push(app);
-        }
-
-        const associatedFiles: File[] = alreadyAddedApplication
-          ? alreadyAddedApplication.files
-          : [];
-
-        if (StaticSettings.shouldAppHaveFiles(appName)) {
-          if (isMac) {
-            const processInfoOfApplication = processInfos.filter((process) => {
-              return process.process.pid === win.processId;
-            });
-            if (processInfoOfApplication.length > 0) {
-              let filePaths = processInfoOfApplication[0].files.map(
-                (f) => f.name
-              );
-
-              // Apple Preview stores associated files differently
-              if (appName === 'Preview') {
-                filePaths = processInfoOfApplication[0].texts.map(
-                  (f) => f.name
-                );
-              }
-              for await (const path of filePaths) {
-                // Remove paths that are simply "/"
-                if (path && path.length > 1) {
-                  const fileName = getFileNameFromPath(path, true);
-                  const lowerCaseFileName = fileName.toLowerCase();
-                  if (
-                    (lowerCaseFileName.includes(win.title.toLowerCase()) ||
-                      win.title.toLowerCase().includes(lowerCaseFileName)) &&
-                    !lowerCaseFileName.includes('~$')
-                  ) {
-                    // check that file not already included
-                    if (associatedFiles.some((file) => file.path === path)) {
-                      continue;
-                    }
-
-                    const file = new File();
-                    file.path = path;
-                    file.name = getFileNameFromPath(path);
-                    associatedFiles.push(file);
-                  }
-                }
-              }
-              if (associatedFiles.length > 0) {
-                await File.save(associatedFiles);
-              }
-              app.files = associatedFiles;
-            }
-
-            // Windows case
-          } else {
-            for await (const path of recentlyOpenedFiles) {
-              const fileName = getFileNameFromPath(path, true);
-              const lowerCaseFileName = fileName.toLowerCase();
-              if (
-                lowerCaseFileName.includes(win.title.toLowerCase()) ||
-                win.title.toLowerCase().includes(lowerCaseFileName)
-              ) {
-                const file = new File();
-                file.path = path;
-                file.name = getFileNameFromPath(path);
-                associatedFiles.push(file);
-              }
-            }
-            if (associatedFiles.length > 0) {
-              await File.save(associatedFiles);
-            }
-            app.files = associatedFiles;
-          }
-        }
-      }
-    }
+    const openBrowsers: Browser[] = await this.handleBrowsers(browsers);
+    const openIDEs: IDE[] = [] = await this.handleIdes(ides);
+    let openApplications: Application[] = await this.handleFileExplorer(fileExplorers);
+    const otherApplications: Application[] = await this.handleRegularApplications(regularApps, processInfos, recentlyOpenedFiles);
+    openApplications = openApplications.concat(otherApplications);
 
     return [openBrowsers, openIDEs, openApplications];
   }
@@ -632,7 +391,7 @@ export default class TaskSnap {
   public getExtensionsStatus(): ExtensionsStatus {
     const status: ExtensionsStatus = {
       isVSCodeConnected: this._vscodeTracker.isSocketOpen(),
-      isBrowserConnected: this._browserTracker.isSocketOpen(),
+      isBrowserConnected: this._browserTracker.isSocketOpen()
     };
     return status;
   }
@@ -696,5 +455,380 @@ export default class TaskSnap {
         JSON.stringify(app)
       );
     }
+  }
+
+  private notifyWindows(snapshotId: number): void {
+    if (WindowManager.instantCurationWindow) {
+      const destination = WindowManager.instantCurationWindow
+        .webContents as TypedWebContents<Events>;
+      destination?.send('snapshot-ready', snapshotId);
+    }
+    if (WindowManager.snapshotWindow) {
+      const destination = WindowManager.snapshotWindow
+        .webContents as TypedWebContents<Events>;
+      destination?.send('snapshot-ready', snapshotId);
+    }
+  }
+
+  private restoreWorkingContext(snapshot: Snapshot) {
+    this.restoreBrowserWindows(snapshot);
+    this.restoreIdeFiles(snapshot);
+    this.restoreApplications(snapshot);
+  }
+
+  private restoreApplications(snapshot: Snapshot) {
+    for (const app of snapshot.applications) {
+      if (!app.isSelected) continue;
+
+      // If selected files are present, don't open application but files associated with application
+      const selectedFiles = app.files.filter((file) => file.isSelected);
+      let artifact: ArtifactFiles = {
+        artifact: [],
+        application: app.path
+      };
+      for (const file of selectedFiles) {
+        artifact.artifact.push(file.path);
+      }
+      openFiles(artifact);
+
+    }
+  }
+
+  private restoreIdeFiles(snapshot: Snapshot) {
+    for (const ide of snapshot.ides) {
+      if (!ide.isSelected) continue;
+
+      const filesToOpen: string[] = [];
+      ide.ideFiles.forEach((file) => {
+        if (file.isSelected) {
+          filesToOpen.push(file.path);
+        }
+      });
+      this.openIDEFiles(ide, filesToOpen);
+    }
+  }
+
+  private restoreBrowserWindows(snapshot: Snapshot) {
+    const browserWindowsToClean: Browser[] = [];
+    for (const browser of snapshot.browsers) {
+      if (!browser.isSelected) continue;
+
+      const urlsToOpen: string[] = [];
+      browser.browserTabs.forEach((tab) => {
+        if (tab.isSelected) {
+          urlsToOpen.push(tab.url);
+        }
+      });
+      const artifact: Artifact = {
+        artifact: browser.path
+      };
+
+      openArtifact(artifact);
+      this.storeBrowserTabsToOpen(browser, urlsToOpen, snapshot.name);
+      browserWindowsToClean.push(browser)
+    }
+    //It's important to do this in a second step to avoid bugs due to latency (especially problematic on windows)
+    browserWindowsToClean.forEach((browser) => {
+      this.cleanBrowserWindows(browser);
+    })
+  }
+
+  /*Empty tabs will be opened when resuming a snapshot. This can lead to unnecessary clutter. Therefore, this function makes sure to close tabs which are opened by the system.*/
+  private cleanBrowserWindows(browser: Browser){
+    this._browserTracker.subscribeToConnection(browser.type, () => {
+      this._browserTracker.sendTabClosingRequest(
+        browser.type,
+        [{url: ""}, {url: "chrome://newtab/"}, {url: "edge://newtab/"}]
+      );
+    });
+  }
+
+
+  private mapActiveWinToTaskSnapWindows(activeWindows?: activeWin.Result[], recentWindows?: ActiveWindow[]) {
+    const taskSnapWindows: TaskSnapWindowObject[] = [];
+    if (activeWindows) {
+      activeWindows.forEach((win) => {
+        const taskSnapWindowObject: TaskSnapWindowObject = {
+          title: win.title,
+          application: win.owner.name,
+          applicationPath: win.owner.path,
+          processId: win.owner.processId,
+        };
+        taskSnapWindows.push(taskSnapWindowObject);
+      });
+    } else if (recentWindows) {
+      recentWindows.forEach((win) => {
+        const taskSnapWindowObject: TaskSnapWindowObject = {
+          title: win.title,
+          application: win.application,
+          applicationPath: win.applicationPath,
+          processId: win.processId
+        };
+        taskSnapWindows.push(taskSnapWindowObject);
+      });
+    }
+    return taskSnapWindows;
+  }
+
+  private async handleIdes(windows: TaskSnapWindowObject[]) {
+    const openIDEs: IDE[] = [];
+    windows.forEach((win) => {
+      const ide = new IDE();
+      ide.name = win.application;
+      ide.path = win.applicationPath;
+      ide.icon = this.getApplicationIcon(ide.path);
+      ide.title = win.title;
+      ide.save();
+
+      openIDEs.push(ide);
+    });
+    return openIDEs;
+
+  }
+
+  private async handleFileExplorer(windows: TaskSnapWindowObject[]) {
+    const openApplications: Application[] = [];
+
+    for (const win of windows) {
+      // only add file explorer once
+      if (
+        openApplications.some(
+          (app) => app.name.includes('Finder') || app.name.includes('Windows Explorer') || app.name.includes('Windows-Explorer')
+        )
+      ) {
+        continue;
+      }
+
+      //create app
+      const app = new Application();
+      app.name = win.application;
+      app.path = win.applicationPath;
+      app.icon = this.getApplicationIcon(app.path);
+      app.title = 'File System';
+
+      //add associated Folders
+      const associatedFolders: File[] = [];
+      const folderPaths = await getOpenFileExplorerPaths();
+      folderPaths.forEach((path) => {
+        const file = new File();
+        file.path = path;
+        file.name = getFileNameFromPath(path);
+        if(file.name == ""){
+          file.name = file.path
+        }
+        associatedFolders.push(file);
+      });
+      if (associatedFolders.length > 0) {
+        await File.save(associatedFolders);
+      }
+      app.files = associatedFolders;
+
+      //save app
+      app.save();
+      openApplications.push(app);
+    }
+
+    return openApplications;
+  }
+
+
+  private async handleBrowsers(windows: TaskSnapWindowObject[]) {
+    const browsersTrackerObjects = this._browserTracker.getSnapshotInformation();
+
+
+    const filteredBrowsers: SupportedBrowserTypes = {
+      chrome: windows.filter((win) => win.application.toLowerCase().includes('chrome')),
+      firefox: windows.filter((win) => win.application.toLowerCase().includes('firefox')),
+      edge: windows.filter((win) => win.application.toLowerCase().includes('edge')),
+      safari: windows.filter((win) => win.application.toLowerCase().includes('safari'))
+    };
+
+
+    let chromeBrowsers = browsersTrackerObjects.get('chrome');
+    let firefoxBrowsers = browsersTrackerObjects.get('firefox');
+    let edgeBrowsers = browsersTrackerObjects.get('edge');
+    let safariBrowsers = browsersTrackerObjects.get('safari');
+
+    if (filteredBrowsers.chrome[0] != null) {
+      chromeBrowsers?.forEach((browser) => {
+        browser.path = filteredBrowsers.chrome[0].applicationPath;
+        browser.icon = this.getApplicationIcon(filteredBrowsers.chrome[0].applicationPath);
+        browser.title = filteredBrowsers.chrome[0].title;
+        browser.name = filteredBrowsers.chrome[0].application;
+      });
+    }else{
+      //fix bug if application quit too quickly for browser tracker
+      chromeBrowsers = []
+    }
+
+    if (filteredBrowsers.firefox[0] != null) {
+      if(firefoxBrowsers){
+          firefoxBrowsers.forEach((browser) => {
+            browser.path = filteredBrowsers.firefox[0].applicationPath;
+            browser.icon = this.getApplicationIcon(filteredBrowsers.firefox[0].applicationPath);
+            browser.title = filteredBrowsers.firefox[0].title;
+            browser.name = filteredBrowsers.firefox[0].application;
+          });
+      }
+    }else{
+      //fix bug if application quit too quickly for browser tracker
+      firefoxBrowsers = []
+    }
+
+    if (filteredBrowsers.edge[0] != null) {
+      edgeBrowsers?.forEach((browser) => {
+        browser.path = filteredBrowsers.edge[0].applicationPath;
+        browser.icon = this.getApplicationIcon(filteredBrowsers.edge[0].applicationPath);
+        browser.title = filteredBrowsers.edge[0].title;
+        browser.name = filteredBrowsers.edge[0].application;
+      });
+    }else{
+      //fix bug if application quit too quickly for browser tracker
+      edgeBrowsers = []
+    }
+
+    if (filteredBrowsers.safari[0] != null) {
+      safariBrowsers?.forEach((browser) => {
+        browser.path = filteredBrowsers.safari[0].applicationPath;
+        browser.icon = this.getApplicationIcon(filteredBrowsers.safari[0].applicationPath);
+        browser.title = filteredBrowsers.safari[0].title;
+        browser.name = filteredBrowsers.safari[0].application;
+      });
+    }else{
+      //fix bug if application quit too quickly for browser tracker
+      safariBrowsers = []
+    }
+    return (chromeBrowsers ?? []).concat(firefoxBrowsers ?? [], edgeBrowsers ?? [], safariBrowsers ?? []);
+
+  }
+
+
+  private async handleRegularApplications(windows: TaskSnapWindowObject[], processInfos: ProcessInfo[], recentlyOpenedFiles: string[]) {
+    const openApplications: Application[] = [];
+
+    for (const win of windows) {
+      let app: Application;
+      // check if this application was already added -> just append file
+      const alreadyAddedApplication = openApplications.find(
+        (app) => app.name === win.application
+      );
+
+      if (alreadyAddedApplication) {
+        app = alreadyAddedApplication;
+        app.title = win.application; // use app name as multiple windows have multiple titles
+      } else {
+        app = new Application();
+        app.name = win.application;
+        app.path = win.applicationPath;
+        app.icon = this.getApplicationIcon(win.applicationPath);
+        app.title = win.title;
+        openApplications.push(app);
+      }
+
+      const associatedFiles: File[] = alreadyAddedApplication
+        ? alreadyAddedApplication.files
+        : [];
+
+      if (StaticSettings.shouldAppHaveFiles(win.application)) {
+
+        if (isMac) {
+          const processInfoOfApplication = processInfos.filter((process) => {
+            return process.process.pid === win.processId;
+          });
+          if (processInfoOfApplication.length > 0) {
+            let filePaths = processInfoOfApplication[0].files.map(
+              (f) => f.name
+            );
+
+            // Apple Preview stores associated files differently
+            if (win.application === 'Preview') {
+              filePaths = processInfoOfApplication[0].texts.map(
+                (f) => f.name
+              );
+            }
+            for await (let path of filePaths) {
+              // Remove paths that are simply "/"
+              if (path && path.length > 1) {
+                //Special characters are escaped which leads to issues when comparing paths. This function reverts the escaping.
+                path = decodeURIComponent(path.replace(/\\x/g, '%'));
+
+                const fileName = getFileNameFromPath(path, true);
+                const lowerCaseFileName = fileName.toLowerCase();
+                if (
+                  (lowerCaseFileName.includes(win.title.toLowerCase()) ||
+                    win.title.toLowerCase().includes(lowerCaseFileName)) &&
+                  !lowerCaseFileName.includes('~$')
+                ) {
+                  // check that file not already included
+                  if (associatedFiles.some((file) => file.path === path)) {
+                    continue;
+                  }
+
+                  const file = new File();
+                  file.path = path;
+                  file.name = getFileNameFromPath(path);
+                  associatedFiles.push(file);
+                }
+              }
+            }
+            if (associatedFiles.length > 0) {
+              await File.save(associatedFiles);
+            }
+            app.files = associatedFiles;
+          }
+
+          // Windows case
+        } else {
+          for await (let path of recentlyOpenedFiles) {
+            //Special characters are escaped which leads to issues when comparing paths. This function reverts the escaping.
+            path = decodeURIComponent(path.replace(/\\x/g, '%'));
+            const fileName = getFileNameFromPath(path, true);
+            const lowerCaseFileName = fileName.toLowerCase();
+            if (
+              lowerCaseFileName.includes(win.title.toLowerCase()) ||
+              win.title.toLowerCase().includes(lowerCaseFileName)
+            ) {
+              const file = new File();
+              file.path = path;
+              file.name = getFileNameFromPath(path);
+              associatedFiles.push(file);
+            }
+          }
+          if (associatedFiles.length > 0) {
+            await File.save(associatedFiles);
+          }
+          app.files = associatedFiles;
+        }
+      }
+    }
+
+    return openApplications;
+
+  }
+
+  private sortWindowsByType(windows: TaskSnapWindowObject[]): [TaskSnapWindowObject[], TaskSnapWindowObject[], TaskSnapWindowObject[], TaskSnapWindowObject[]] {
+    const browserWindows: TaskSnapWindowObject[] = [];
+    const ideFiles: TaskSnapWindowObject[] = [];
+    const fileExplorer: TaskSnapWindowObject[] = [];
+    const otherWindows: TaskSnapWindowObject[] = [];
+
+    windows.forEach((win) => {
+      const appName = win.application;
+      if ((appName.includes('Google Chrome') || appName.includes('Firefox') || appName.includes('Edge') || appName.includes('Safari')) && this._browserTracker.isActiveBrowserAddon(appName)) {
+        browserWindows.push(win);
+      } else if (
+        appName === 'Code' ||
+        appName === 'Visual Studio Code' ||
+        appName === 'Visual Studio Code.app'
+      ) {
+        ideFiles.push(win);
+      } else if (appName.includes('Finder') || appName.includes('Windows Explorer') || appName.includes('Windows-Explorer')) {
+        fileExplorer.push(win);
+      } else {
+        otherWindows.push(win);
+      }
+    });
+
+    return [browserWindows, ideFiles, fileExplorer, otherWindows];
   }
 }
