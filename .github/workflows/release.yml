@@ -23,12 +23,6 @@ jobs:
         with:
           python-version: '3.9' # Specify the Python version here
 
-      - name: Install dependencies for node-hid and usb
-        run: |
-          brew install libusb
-          brew install libudev-dev
-
-
       - name: Install dependencies
         run: |
           npm install --loglevel verbose
@@ -70,9 +64,6 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.9' # Specify the Python version here
-
-      - name: Install Windows Build Tools
-        run: npm install --global --production windows-build-tools
 
       - name: Install dependencies
         run: |
