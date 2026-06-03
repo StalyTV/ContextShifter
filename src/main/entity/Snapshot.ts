@@ -10,6 +10,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   OneToMany,
+  IsNull,
 } from 'typeorm';
 import Application from './Application';
 import Browser from './Browser';
@@ -46,6 +47,10 @@ export default class Snapshot extends BaseEntity {
 
   @Column({ type: 'tinyint', nullable: false, default: false })
   isReady!: boolean;
+
+  // Phase 2: one-level subtask support. null = top-level task.
+  @Column({ type: 'integer', nullable: true })
+  parentId!: number | null;
 
   @OneToMany(() => Application, (app) => app.snapshot)
   applications!: Application[];
@@ -116,7 +121,7 @@ export default class Snapshot extends BaseEntity {
 
   static async getLatestNSnapshots(n: number): Promise<Snapshot[]> {
     const lastNSnapshots = await this.find({
-      where: { isArchived: false },
+      where: { isArchived: false, parentId: IsNull() },
       order: { lastChange: 'DESC' },
       take: n,
     });
@@ -171,5 +176,12 @@ export default class Snapshot extends BaseEntity {
       .orderBy('snapshot.lastRestore', 'DESC')
       .getOne();
     return lastRestoredSnap;
+  }
+
+  static async getChildrenOf(parentId: number): Promise<Snapshot[]> {
+    return this.find({
+      where: { isArchived: false, parentId },
+      order: { lastChange: 'DESC' },
+    });
   }
 }

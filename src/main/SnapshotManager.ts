@@ -43,6 +43,48 @@ export default class SnapshotManager {
     return await Snapshot.getLatestNSnapshots(n);
   }
 
+  /** Phase 2: list subtasks of a given parent snapshot. */
+  public async getChildren(parentId: number) {
+    return await Snapshot.getChildrenOf(parentId);
+  }
+
+  /** Phase 2: create an empty subtask under `parentId`. */
+  public async createSubtask(parentId: number, name: string) {
+    const parent = await Snapshot.findOneBy({ id: parentId });
+    if (!parent) {
+      throw new Error(`Parent snapshot ${parentId} not found`);
+    }
+    const now = new Date().toISOString();
+    const child = Snapshot.create({
+      name,
+      summary: '',
+      intent: '',
+      created: now,
+      edited: now,
+      lastChange: now,
+      isArchived: false,
+      isReady: true,
+      parentId,
+    });
+    await child.save();
+    parent.lastChange = now;
+    await parent.save();
+    info(
+      `[SnapshotManager] Created subtask "${name}" (id ${child.id}) under ${parentId}`
+    );
+    await TrayManager.updateTray();
+    return child;
+  }
+
+  /** Phase 2: rename a snapshot (used by edit view). */
+  public async renameSnapshot(snapshotId: number, name: string) {
+    await this.updateSnapshotName(snapshotId, name);
+    const snap = await Snapshot.findOneBy({ id: snapshotId });
+    if (snap) {
+      snap.lastChange = new Date().toISOString();
+      await snap.save();
+    }
+  }
 
   public async saveSnapshot(updatedSnapshot: Snapshot) {
     const snapshotInDb = await Snapshot.findOneBy({ id: updatedSnapshot.id });
@@ -104,9 +146,6 @@ export default class SnapshotManager {
 
       await snapshotInDb.save();
       info(`[SnapshotManager] Updated snapshot "${snapshotInDb.name}"`);
-
-      // update snapshot gallery window
-      this.updateSnapshotGalleryWindow();
 
       // update tray
       await TrayManager.updateTray();
@@ -204,12 +243,8 @@ export default class SnapshotManager {
     timeInMin: number,
     origin: UsageDataOrigin
   ) {
-    this._postponeTimeoutRef = setTimeout(async () => {
-      await this.openSnapshotInSnapshotWindow(snapshotId);
-      this.resetTimeout();
-    }, timeInMin * 60 * 1000);
     info(
-      `[SnapshotManager] Postponed snapshot with id ${snapshotId} for ${timeInMin} minutes`
+      `[SnapshotManager] Postpone requested for snapshot ${snapshotId} (${timeInMin} min) — no UI to reopen`
     );
     await UsageData.addEntry(
       'postpone-snapshot',
@@ -337,27 +372,13 @@ export default class SnapshotManager {
     return filteredSnapshots;
   }
 
-  public async openSnapshotInSnapshotWindow(snapshotId: number) {
-    if (!WindowManager.snapshotWindow) {
-      await WindowManager.createSnapshotWindow(() => {
-        const destination = WindowManager.snapshotWindow
-          ?.webContents as TypedWebContents<Events>;
-        destination?.send('snapshot-selected', snapshotId);
-      });
-    } else {
-      WindowManager.snapshotWindow.show();
-      const destination = WindowManager.snapshotWindow
-        .webContents as TypedWebContents<Events>;
-      destination?.send('snapshot-selected', snapshotId);
-    }
+  public async openSnapshotInSnapshotWindow(_snapshotId: number) {
+    // No-op: snapshot edit window has been removed.
+    // Kept as a stub so legacy callers compile; remove once all references are gone.
   }
 
   public updateSnapshotGalleryWindow(): void {
-    if (WindowManager.snapshotGalleryWindow) {
-      const destination = WindowManager.snapshotGalleryWindow
-        .webContents as TypedWebContents<Events>;
-      destination?.send('snapshots-updated');
-    }
+    // No-op: gallery window has been removed.
   }
 
   private resetTimeout(): void {

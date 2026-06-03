@@ -8,7 +8,6 @@ import typedIpcMain from './typedIpcMain';
 import SnapshotManager from '../SnapshotManager';
 import { nativeTheme } from 'electron';
 import { openArtifact } from '../helpers/osCommands';
-import WindowManager from '../WindowManager';
 import SnapshotEntity from '../entity/Snapshot';
 import TaskSnap from '../TaskSnap';
 import UsageData from '../entity/UsageData';
@@ -18,8 +17,6 @@ import Settings from '../entity/Settings';
 import { Database } from '../database';
 import { UsageDataOrigin } from '../../types/UsageDataOrigin';
 import StudyManager from '../StudyManager';
-import QuestionnaireAnswers from '../entity/QuestionnaireAnswers';
-import { info } from 'electron-log';
 
 typedIpcMain.handle('open-artifact', async (e, artifact) => {
   await UsageData.addEntry('open-artifact', false, JSON.stringify(artifact));
@@ -50,7 +47,6 @@ typedIpcMain.handle('delete-snapshot', async (e, snapshotId) => {
     snapshotId,
     UsageDataOrigin.SnapshotWindow
   );
-  WindowManager.snapshotWindow?.close();
 });
 
 typedIpcMain.handle('save-snapshot', async (e, snapshot) => {
@@ -67,7 +63,6 @@ typedIpcMain.handle(
       `id: ${snapshot.id}, origin: ${UsageDataOrigin.SnapshotWindow}`
     );
     await SnapshotManager.getInstance().saveAndCloseApplications(snapshot);
-    WindowManager.snapshotWindow?.close();
   }
 );
 
@@ -78,7 +73,6 @@ typedIpcMain.handle('postpone-snapshot', async (e, snapshot, timeInMin) => {
     timeInMin,
     UsageDataOrigin.SnapshotWindow
   );
-  WindowManager.snapshotWindow?.close();
 });
 
 typedIpcMain.handle('merge-snapshots', async (e, fromId, toId) => {
@@ -94,88 +88,8 @@ typedIpcMain.handle('get-merge-recommendations', async () => {
   return await SnapshotManager.getInstance().getMergeRecommendations();
 });
 
-// instant curation
-typedIpcMain.handle(
-  'instant-curation-curate-now',
-  async (e, snapshotId, name) => {
-    await SnapshotManager.getInstance().updateSnapshotName(snapshotId, name);
-    WindowManager.instantCurationWindow?.close();
-    SnapshotManager.getInstance().openSnapshotInSnapshotWindow(snapshotId);
-  }
-);
-
-typedIpcMain.handle(
-  'instant-curation-postpone',
-  async (e, snapshotId, updatedName, timeInMin) => {
-    await SnapshotManager.getInstance().updateSnapshotName(
-      snapshotId,
-      updatedName
-    );
-    await SnapshotManager.getInstance().postponeSnapshot(
-      snapshotId,
-      timeInMin,
-      UsageDataOrigin.InstantCurationWindow
-    );
-    WindowManager.instantCurationWindow?.close();
-  }
-);
-
-typedIpcMain.handle(
-  'instant-curation-delete-snapshot',
-  async (e, snapshotId) => {
-    await SnapshotManager.getInstance().deleteSnapshot(
-      snapshotId,
-      UsageDataOrigin.InstantCurationWindow
-    );
-    WindowManager.instantCurationWindow?.close();
-  }
-);
-
-typedIpcMain.handle(
-  'instant-curation-close-applications',
-  async (e, snapshotId, updatedName) => {
-    await UsageData.addEntry(
-      'save-snapshot-and-close-applications',
-      false,
-      `id: ${snapshotId}, origin: ${UsageDataOrigin.InstantCurationWindow}`
-    );
-    await SnapshotManager.getInstance().updateSnapshotNameAndCloseApplications(
-      snapshotId,
-      updatedName
-    );
-  }
-);
-
-// snapshot gallery
-typedIpcMain.handle('open-snapshot', async (e, snapshotId) => {
-  await UsageData.addEntry('open-snapshot', false, `id: ${snapshotId}`);
-  SnapshotManager.getInstance().openSnapshotInSnapshotWindow(snapshotId);
-});
-
-typedIpcMain.handle('gallery-delete-snapshot', async (e, snapshotId) => {
-  await SnapshotManager.getInstance().deleteSnapshot(
-    snapshotId,
-    UsageDataOrigin.SnapshotGalleryWindow
-  );
-});
-
-typedIpcMain.handle('restore-snapshot', async (e, snapshotId) => {
-  const snapshot = await SnapshotEntity.getSnapshotById(snapshotId);
-  if (snapshot) {
-    await TaskSnap.getInstance().restoreSnapshot(
-      snapshot,
-      UsageDataOrigin.SnapshotGalleryWindow
-    );
-  }
-});
-
-typedIpcMain.handle('expand-snapshot-preview', async (e, snapshotId) => {
-  await UsageData.addEntry(
-    'expand-snapshot-preview',
-    false,
-    `id: ${snapshotId}`
-  );
-});
+// instant curation, snapshot gallery, end-of-day, task-resumption handlers were
+// removed in the Phase 1 refactor along with their windows.
 
 typedIpcMain.handle('open-browser-tab', async (e, browser, browserTab) => {
   await UsageData.addEntry('open-browser-tab');
@@ -189,6 +103,19 @@ typedIpcMain.handle('open-ide-file', async (e, ide, file) => {
 
 typedIpcMain.handle('get-total-num-snapshots', async () => {
   return SnapshotEntity.getTotalNumSnapshots();
+});
+
+// subtasks (Phase 2)
+typedIpcMain.handle('get-snapshot-children', async (e, parentId) => {
+  return await SnapshotManager.getInstance().getChildren(parentId);
+});
+
+typedIpcMain.handle('create-subtask', async (e, parentId, name) => {
+  return await SnapshotManager.getInstance().createSubtask(parentId, name);
+});
+
+typedIpcMain.handle('rename-snapshot', async (e, snapshotId, name) => {
+  await SnapshotManager.getInstance().renameSnapshot(snapshotId, name);
 });
 
 // settings
@@ -253,43 +180,6 @@ typedIpcMain.handle('update-known-application', async (e, app) => {
 // questionnaires
 typedIpcMain.handle('get-study-phase', () => {
   return StudyManager.getStudyPhase();
-});
-
-typedIpcMain.handle('postpone-end-of-day-questionnaire', (e, minutes) => {
-  return StudyManager.postponeEndOfDayQuestionnaire(minutes);
-});
-
-typedIpcMain.handle(
-  'save-end-of-day-questionnaire',
-  async (e, json: string) => {
-    await QuestionnaireAnswers.insert({
-      ts: new Date().toISOString(),
-      type: 'end-of-day',
-      studyPhase: StudyManager.getStudyPhase(),
-      answers: json
-    });
-    WindowManager.endOfDayWindow?.close();
-    info(`[API] Saved end-of-day questionnaire`);
-  }
-);
-
-typedIpcMain.handle(
-  'save-task-resumption-questionnaire',
-  async (e, json: string, snapshotId: number | null) => {
-    await QuestionnaireAnswers.insert({
-      ts: new Date().toISOString(),
-      type: 'task-resumption',
-      studyPhase: StudyManager.getStudyPhase(),
-      answers: json,
-      additionalInformation: `snapshotId: ${snapshotId}`
-    });
-    WindowManager.taskResumptionWindow?.close();
-    info(`[API] Saved task resumption questionnaire`);
-  }
-);
-
-typedIpcMain.handle('get-last-two-snapshots-of-today', async () => {
-  return await SnapshotEntity.getLastTwoSnapshotsOfToday();
 });
 
 

@@ -28,27 +28,14 @@ type Commands = {
   'merge-snapshots': (fromId: number, toId: number) => void;
   'get-merge-recommendations': () => Promise<Snapshot[]>;
 
-  // instant curation
-  'instant-curation-curate-now': (snapshotId: number, name: string) => void;
-  'instant-curation-postpone': (
-    snapshotId: number,
-    updatedName: string,
-    timeInMin: number
-  ) => void;
-  'instant-curation-close-applications': (
-    snapshotId: number,
-    updatedName: string
-  ) => Promise<void>;
-  'instant-curation-delete-snapshot': (snapshotId: number) => Promise<void>;
-
-  // snapshot gallery
-  'open-snapshot': (snapshotId: number) => void;
-  'gallery-delete-snapshot': (snapshotId: number) => Promise<void>;
-  'restore-snapshot': (snapshotId: number) => void;
-  'expand-snapshot-preview': (snapshotId: number) => void;
   'open-browser-tab': (browser: Browser, tab: BrowserTab) => void;
   'open-ide-file': (ide: IDE, file: IDEFile) => void;
   'get-total-num-snapshots': () => number;
+
+  // subtasks (Phase 2)
+  'get-snapshot-children': (parentId: number) => Promise<Snapshot[]>;
+  'create-subtask': (parentId: number, name: string) => Promise<Snapshot>;
+  'rename-snapshot': (snapshotId: number, name: string) => Promise<void>;
 
   // settings
   'get-extensions-status': () => ExtensionsStatus;
@@ -60,13 +47,6 @@ type Commands = {
 
   // questionnaires
   'get-study-phase': () => StudyPhase;
-  'postpone-end-of-day-questionnaire': (minutes: number) => void;
-  'save-end-of-day-questionnaire': (json: string) => Promise<void>;
-  'save-task-resumption-questionnaire': (
-    json: string,
-    snapshotId: number | null // reference to snapshot should exist, but still save answer if there is an error
-  ) => Promise<void>;
-  'get-last-two-snapshots-of-today': () => Snapshot[];
 };
 
 export default Commands;

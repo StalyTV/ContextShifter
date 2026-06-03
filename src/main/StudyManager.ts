@@ -5,12 +5,10 @@
  */
 
 import { StudyPhase } from '../types/StudyPhase';
-import WindowManager from './WindowManager';
 import { Database } from './database';
 import Log from './entity/Log';
-import Settings from './entity/Settings';
 import UsageData from './entity/UsageData';
-import { info, debug, error } from 'electron-log';
+import { info, error } from 'electron-log';
 import isMac from './helpers/isMac';
 import { app, powerMonitor } from 'electron';
 import path from 'path';
@@ -29,9 +27,7 @@ import AnalysisOpenFileSystemTabs from './entity/AnalysisOpenFileSystemTabs';
 import { hashString } from './helpers/hashString';
 
 export default class StudyManager {
-  private static _currentStudyPhase: StudyPhase = StudyPhase.NoStudy; // default
-  private static _postponeTimeoutRef: NodeJS.Timeout | undefined;
-  private static _checkTimeLoopRef: NodeJS.Timeout | undefined;
+  private static _currentStudyPhase: StudyPhase = StudyPhase.NoStudy;
   private static _openArtifactsLoopRef: NodeJS.Timeout | undefined;
 
   public static async init() {
@@ -80,80 +76,6 @@ export default class StudyManager {
 
   public static getStudyPhase(): StudyPhase {
     return this._currentStudyPhase;
-  }
-
-  public static async postponeEndOfDayQuestionnaire(
-    minutes: number
-  ): Promise<void> {
-    this._postponeTimeoutRef = setTimeout(async () => {
-      await WindowManager.createEndOfDayWindow(() => {});
-      this.resetTimeout();
-    }, minutes * 60 * 1000);
-    WindowManager.endOfDayWindow?.close();
-
-    await UsageData.addEntry(
-      'postpone-end-of-day-questionnaire',
-      false,
-      `minutes: ${minutes}`
-    );
-    info('[StudyManager] Postponed End-Of-Day Questionnaire');
-  }
-
-  private static resetTimeout(): void {
-    if (this._postponeTimeoutRef) {
-      clearTimeout(this._postponeTimeoutRef);
-      this._postponeTimeoutRef = undefined;
-    }
-  }
-
-  public static async startCheckTimeLoop(): Promise<void> {
-    if (this._currentStudyPhase === StudyPhase.NoStudy) {
-      info(`[StudyManager] Not in study mode. Don't start time check loop`);
-      return;
-    }
-    info('[StudyManager] Started check time loop');
-
-    const loop = async () => {
-      debug('[StudyManager] Checked time');
-      const showQuestionnaireOnlyOnWorkdays =
-        await Settings.getShowQuestionnaireOnlyOnWorkdays();
-      const now = new Date();
-
-      // check if it is the weekend
-      if (
-        showQuestionnaireOnlyOnWorkdays &&
-        (now.getDay() === 0 || now.getDay() === 6)
-      ) {
-        debug(
-          '[StudyManager] Weekend. Skip check to show end-of-day questionnaire'
-        );
-        return;
-      }
-
-      const setTime = await Settings.getEndOfDayPopUpTime();
-      if (
-        now.getHours() > setTime.getHours() ||
-        (now.getHours() === setTime.getHours() &&
-          now.getMinutes() >= setTime.getMinutes())
-      ) {
-        const lastPopUp = await Log.getLastEndOfDayPopUp();
-        if (!lastPopUp || lastPopUp.getDate() !== now.getDate()) {
-          await WindowManager.createEndOfDayWindow(() => {});
-          info('[StudyManager] Opened End-Of-Day Pop-Up');
-          Database.manager.save(Log, {
-            key: 'lastEndOfDayPopUp',
-            value: now.toISOString(),
-          });
-        }
-      }
-    };
-
-    await loop();
-    this._checkTimeLoopRef = setInterval(loop, 5 * 60 * 1000);
-  }
-
-  public static async stopCheckTimeLoop() {
-    clearInterval(this._checkTimeLoopRef);
   }
 
   public static async startOpenArtifactsSampling(): Promise<void> {

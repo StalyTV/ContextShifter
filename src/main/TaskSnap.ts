@@ -115,7 +115,6 @@ export default class TaskSnap {
     this._fileSystemWatcher.start();
     ActiveArtifact.startIdleCheck();
     Exporter.startBackupLoop();
-    StudyManager.startCheckTimeLoop();
     StudyManager.startOpenArtifactsSampling();
   }
 
@@ -126,7 +125,6 @@ export default class TaskSnap {
     await ActiveArtifact.storeAll();
     await ActiveArtifact.stopIdleCheck();
     Exporter.stopBackupLoop();
-    StudyManager.stopCheckTimeLoop();
     StudyManager.stopOpenArtifactsSampling();
   }
 
@@ -156,7 +154,6 @@ export default class TaskSnap {
     newSnapshot.name = `Snapshot ${nextId}`;
     await Snapshot.save(newSnapshot);
 
-    await WindowManager.createInstantCurationWindow();
     await UsageData.addEntry(
       'create-snapshot',
       false,
@@ -209,9 +206,6 @@ export default class TaskSnap {
     // notify windows that snapshot is ready
     this.notifyWindows(newSnapshot.id);
 
-    // update snapshot gallery window
-    this._snapshotManager.updateSnapshotGalleryWindow();
-
     // update tray menu
     await TrayManager.updateTray();
   }
@@ -232,40 +226,7 @@ export default class TaskSnap {
       `id: ${snapshot.id}, origin: ${origin}`
     );
 
-    // show questionnaire during study
-    if (
-      StudyManager.getStudyPhase() === StudyPhase.Intervention &&
-      origin === UsageDataOrigin.SnapshotGalleryWindow
-    ) {
-      await WindowManager.createTaskResumptionWindow(() => {
-        const destination = WindowManager.taskResumptionWindow
-          ?.webContents as TypedWebContents<Events>;
-        destination?.send('snapshot-selected', snapshot.id);
-      });
-    }
-
-    // if summary or intent available, create window that visualizes summary and intent of snapshot
-    if (
-      origin !== UsageDataOrigin.SnapshotWindow &&
-      (snapshot.summary || snapshot.intent)
-    ) {
-      if (!WindowManager.mentalContextWindow) {
-        await WindowManager.createMentalContextWindow(() => {
-          const destination = WindowManager.mentalContextWindow
-            ?.webContents as TypedWebContents<Events>;
-          destination?.send('snapshot-selected', snapshot.id);
-          this.restoreWorkingContext(snapshot);
-        });
-      } else {
-        WindowManager.mentalContextWindow.show();
-        const destination = WindowManager.mentalContextWindow
-          .webContents as TypedWebContents<Events>;
-        destination?.send('snapshot-selected', snapshot.id);
-        this.restoreWorkingContext(snapshot);
-      }
-    } else {
-      this.restoreWorkingContext(snapshot);
-    }
+    this.restoreWorkingContext(snapshot);
   }
 
   public async storeBrowserTabsToOpen(
@@ -460,17 +421,9 @@ export default class TaskSnap {
     }
   }
 
-  private notifyWindows(snapshotId: number): void {
-    if (WindowManager.instantCurationWindow) {
-      const destination = WindowManager.instantCurationWindow
-        .webContents as TypedWebContents<Events>;
-      destination?.send('snapshot-ready', snapshotId);
-    }
-    if (WindowManager.snapshotWindow) {
-      const destination = WindowManager.snapshotWindow
-        .webContents as TypedWebContents<Events>;
-      destination?.send('snapshot-ready', snapshotId);
-    }
+  private notifyWindows(_snapshotId: number): void {
+    // No-op: legacy snapshot-ready broadcast removed in Phase 1.
+    // Future task-list refresh will go here once a renderer event is defined.
   }
 
   private restoreWorkingContext(snapshot: Snapshot) {

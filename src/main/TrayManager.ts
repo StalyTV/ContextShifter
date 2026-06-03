@@ -55,12 +55,12 @@ export default class TrayManager {
       },
       { type: 'separator' },
       {
-        label: 'Open Snapshot Gallery',
+        label: 'Open TaskSnap',
         click: async () => {
-          if (WindowManager.snapshotGalleryWindow === null) {
-            await WindowManager.createSnapshotGalleryWindow();
+          if (WindowManager.mainWindow === null) {
+            await WindowManager.createMainWindow();
           } else {
-            WindowManager.snapshotGalleryWindow.show();
+            WindowManager.mainWindow.show();
           }
         },
         visible: areActionsVisible,
@@ -136,7 +136,7 @@ export default class TrayManager {
     }
   }
 
-  // needed for positioning of instantCurationWindow
+  // Returns the tray icon bounds (used for window positioning if needed).
   public static getBounds(): Electron.Rectangle | undefined {
     return this._tray?.getBounds();
   }

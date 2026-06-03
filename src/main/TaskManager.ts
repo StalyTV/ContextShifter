@@ -1,31 +1,45 @@
 import { info, error } from 'electron-log';
+import { In } from 'typeorm';
 import Snapshot from './entity/Snapshot';
-import SnapshotManager from './SnapshotManager';
 import WindowManager from './WindowManager';
-import { UsageDataOrigin } from '../types/UsageDataOrigin';
+
+type SwitcherItem = { id: number | null; name: string };
 
 /**
- * TaskManager - drives the task-switcher carousel with the TimeBuzzer.
+ * TaskManager - drives the two-row task-switcher carousel with the TimeBuzzer.
  *
- * "Tasks" here are the existing Snapshot records (most-recently-changed first).
- * Carousel order (in-memory): [None, ...snapshots]
- * Selection commits to "active" after `COMMIT_DELAY_MS` of no rotation.
+ * Top row: parent tasks (top-level Snapshots, parentId === null), most-recent first.
+ *          Leading "None" entry represents "no active task".
+ * Bottom row: subtasks of the currently highlighted parent.
+ *
+ * Modes:
+ *  - 'parent': rotation cycles parents; subtasks below are dimmed/preview.
+ *  - 'child' : rotation cycles subtasks of the locked-in parent.
+ *
+ * Press semantics (driven by HID -> TimeBuzzerManager):
+ *  - parent mode + parent has children -> enterChildMode()
+ *  - parent mode + parent has no children (or "None") -> commitSelection()
+ *  - child mode -> commitSelection()
+ *  - double-press in child mode -> exitChildMode()
+ *  - double-press in parent mode -> closeSwitcher()
+ *
+ * After rotation idle of COMMIT_DELAY_MS the current selection auto-commits.
  */
 export default class TaskManager {
   private static _instance: TaskManager;
 
   private static readonly COMMIT_DELAY_MS = 5000;
 
-  // Active (committed) snapshot id. null == "None".
   private _activeSnapshotId: number | null = null;
 
-  // Carousel order while switcher is open: array of snapshot ids (null = None).
-  private _carousel: (number | null)[] = [];
-  private _selectedIndex: number = 0;
+  private _parents: (number | null)[] = [];
+  private _parentIndex = 0;
 
-  // True while the overlay is shown and accepting rotation input.
-  private _switcherOpen: boolean = false;
+  private _children: number[] = [];
+  private _childIndex = 0;
 
+  private _mode: 'parent' | 'child' = 'parent';
+  private _switcherOpen = false;
   private _commitTimer: NodeJS.Timeout | null = null;
 
   private constructor() {}
@@ -42,32 +56,40 @@ export default class TaskManager {
     return this._switcherOpen;
   }
 
-  /** Get the currently highlighted snapshot id in the carousel (only while open). */
+  public getMode(): 'parent' | 'child' {
+    return this._mode;
+  }
+
+  /** Currently highlighted id, taking mode into account. */
   public getSelectedSnapshotId(): number | null {
     if (!this._switcherOpen) return this._activeSnapshotId;
-    return this._carousel[this._selectedIndex] ?? null;
+    if (this._mode === 'child') {
+      return this._children[this._childIndex] ?? null;
+    }
+    return this._parents[this._parentIndex] ?? null;
   }
 
   // ---------- Switcher lifecycle ----------
 
-  /** Open the switcher overlay (called when rotation begins). */
   public async openSwitcher(): Promise<void> {
     if (this._switcherOpen) return;
-
     info('[TaskManager] Opening task switcher');
-    await this.rebuildCarousel();
-    this._switcherOpen = true; // set before creating window so cycleNext/Prev don't re-enter
 
-    WindowManager.createTaskSwitcherWindow(); // fire-and-forget
+    await this.rebuildParents();
+    await this.rebuildChildrenForCurrentParent();
+    this._mode = 'parent';
+    this._switcherOpen = true;
+
+    WindowManager.createTaskSwitcherWindow();
     this.scheduleCommit();
     this.broadcastState();
   }
 
-  /** Close the switcher without committing. */
   public closeSwitcher(): void {
     if (!this._switcherOpen) return;
     info('[TaskManager] Closing task switcher (no commit)');
     this._switcherOpen = false;
+    this._mode = 'parent';
     this.clearCommitTimer();
     WindowManager.closeTaskSwitcherWindow();
   }
@@ -76,21 +98,33 @@ export default class TaskManager {
 
   public async cycleNext(): Promise<void> {
     if (!this._switcherOpen) await this.openSwitcher();
-    this._selectedIndex =
-      (this._selectedIndex + 1) % Math.max(1, this._carousel.length);
+    if (this._mode === 'child') {
+      const len = Math.max(1, this._children.length);
+      this._childIndex = (this._childIndex + 1) % len;
+    } else {
+      const len = Math.max(1, this._parents.length);
+      this._parentIndex = (this._parentIndex + 1) % len;
+      await this.rebuildChildrenForCurrentParent();
+    }
     this.scheduleCommit();
     this.broadcastState();
   }
 
   public async cyclePrev(): Promise<void> {
     if (!this._switcherOpen) await this.openSwitcher();
-    const len = Math.max(1, this._carousel.length);
-    this._selectedIndex = (this._selectedIndex - 1 + len) % len;
+    if (this._mode === 'child') {
+      const len = Math.max(1, this._children.length);
+      this._childIndex = (this._childIndex - 1 + len) % len;
+    } else {
+      const len = Math.max(1, this._parents.length);
+      this._parentIndex = (this._parentIndex - 1 + len) % len;
+      await this.rebuildChildrenForCurrentParent();
+    }
     this.scheduleCommit();
     this.broadcastState();
   }
 
-  // ---------- Commit / selection ----------
+  // ---------- Commit / mode transitions ----------
 
   private scheduleCommit(): void {
     this.clearCommitTimer();
@@ -106,84 +140,112 @@ export default class TaskManager {
     }
   }
 
-  /** Commit currently highlighted snapshot as active. */
+  /** Single press semantics. */
+  public async pressSelect(): Promise<void> {
+    if (!this._switcherOpen) return;
+    if (this._mode === 'parent') {
+      const parentId = this._parents[this._parentIndex];
+      if (parentId !== null && this._children.length > 0) {
+        await this.enterChildMode();
+        return;
+      }
+      await this.commitSelection();
+      return;
+    }
+    await this.commitSelection();
+  }
+
+  /** Double-press semantics. */
+  public pressBack(): void {
+    if (!this._switcherOpen) return;
+    if (this._mode === 'child') {
+      this.exitChildMode();
+      return;
+    }
+    this.closeSwitcher();
+  }
+
+  public async enterChildMode(): Promise<void> {
+    if (!this._switcherOpen) return;
+    if (this._children.length === 0) return;
+    info('[TaskManager] Entering child mode');
+    this._mode = 'child';
+    this._childIndex = 0;
+    this.scheduleCommit();
+    this.broadcastState();
+  }
+
+  public exitChildMode(): void {
+    if (!this._switcherOpen) return;
+    if (this._mode !== 'child') return;
+    info('[TaskManager] Exiting child mode');
+    this._mode = 'parent';
+    this.scheduleCommit();
+    this.broadcastState();
+  }
+
+  /** Commit current selection (parent or child) as active. */
   public async commitSelection(): Promise<void> {
     if (!this._switcherOpen) return;
     const newActiveId = this.getSelectedSnapshotId();
     info(`[TaskManager] Committing snapshot selection: ${newActiveId}`);
-
     this._activeSnapshotId = newActiveId;
     this._switcherOpen = false;
+    this._mode = 'parent';
     this.clearCommitTimer();
     WindowManager.closeTaskSwitcherWindow();
   }
 
-  // ---------- Press actions ----------
-
-  /** Single press while switcher is open: open the existing Snapshot edit window. */
-  public async openEditForSelected(): Promise<void> {
-    const id = this.getSelectedSnapshotId();
-    this.closeSwitcher();
-
-    if (id === null) return; // "None" selected — nothing to edit
-
-    await SnapshotManager.getInstance().openSnapshotInSnapshotWindow(id);
-  }
-
-  /** Double-press while switcher is open: delete selected snapshot. */
-  public async deleteSelected(): Promise<void> {
-    const id = this.getSelectedSnapshotId();
-    this.closeSwitcher();
-    if (id === null) return; // can't delete "None"
-
-    info(`[TaskManager] Deleting snapshot ${id}`);
-    try {
-      await SnapshotManager.getInstance().deleteSnapshot(
-        id,
-        UsageDataOrigin.USBDevice
-      );
-    } catch (err) {
-      error('[TaskManager] Failed to delete snapshot', err);
-    }
-    if (this._activeSnapshotId === id) {
-      this._activeSnapshotId = null;
-    }
-  }
-
   // ---------- Carousel construction & broadcast ----------
 
-  private async rebuildCarousel(): Promise<void> {
-    const snapshots = await Snapshot.find({
-      where: { isArchived: false },
-      order: { lastChange: 'DESC' },
-    });
-    // [None, snap1, snap2, ...]
-    this._carousel = [null, ...snapshots.map((s) => s.id)];
-    // Start selection on the currently active snapshot (or None).
-    const activeIdx = this._carousel.findIndex(
+  private async rebuildParents(): Promise<void> {
+    const parents = await Snapshot.getLatestNSnapshots(50);
+    this._parents = [null, ...parents.map((s) => s.id)];
+    const activeIdx = this._parents.findIndex(
       (x) => x === this._activeSnapshotId
     );
-    this._selectedIndex = activeIdx >= 0 ? activeIdx : 0;
+    this._parentIndex = activeIdx >= 0 ? activeIdx : 0;
+  }
+
+  private async rebuildChildrenForCurrentParent(): Promise<void> {
+    const parentId = this._parents[this._parentIndex];
+    if (parentId === null || parentId === undefined) {
+      this._children = [];
+      this._childIndex = 0;
+      return;
+    }
+    const kids = await Snapshot.getChildrenOf(parentId);
+    this._children = kids.map((k) => k.id);
+    this._childIndex = 0;
   }
 
   private async broadcastState(): Promise<void> {
     try {
-      const snapshots = await Snapshot.find({
-        where: { isArchived: false },
-        order: { lastChange: 'DESC' },
-      });
-      const snapMap = new Map(snapshots.map((s) => [s.id, s]));
-      const items = this._carousel.map((id) => {
-        if (id === null) return { id: null, name: 'None' };
-        const s = snapMap.get(id);
-        return { id, name: s ? s.name : `Snapshot ${id}` };
-      });
+      const parentIds = this._parents.filter((x): x is number => x !== null);
+      const allIds = [...parentIds, ...this._children];
+      const snaps = allIds.length
+        ? await Snapshot.find({ where: { id: In(allIds) } })
+        : [];
+      const nameOf = new Map(snaps.map((s) => [s.id, s.name] as const));
+
+      const parents: SwitcherItem[] = this._parents.map((id) =>
+        id === null
+          ? { id: null, name: 'None' }
+          : { id, name: nameOf.get(id) ?? `Task ${id}` }
+      );
+      const children: SwitcherItem[] = this._children.map((id) => ({
+        id,
+        name: nameOf.get(id) ?? `Subtask ${id}`,
+      }));
 
       WindowManager.taskSwitcherWindow?.webContents.send(
         'task-switcher-state',
         {
-          items,
-          selectedIndex: this._selectedIndex,
+          parents,
+          parentIndex: this._parentIndex,
+          children,
+          childIndex: this._childIndex,
+          mode: this._mode,
           activeTaskId: this._activeSnapshotId,
         }
       );

@@ -4,13 +4,15 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
+type SwitcherItem = { id: number | null; name: string };
+
 type Events = {
-  "snapshot-selected": (id: number) => void;
-  "snapshots-updated": () => void;
-  "snapshot-ready": (id: number) => void;
   "task-switcher-state": (state: {
-    items: { id: number | null; name: string }[];
-    selectedIndex: number;
+    parents: SwitcherItem[];
+    parentIndex: number;
+    children: SwitcherItem[];
+    childIndex: number;
+    mode: 'parent' | 'child';
     activeTaskId: number | null;
   }) => void;
 };

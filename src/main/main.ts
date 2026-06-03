@@ -91,8 +91,8 @@ app
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.
-      if (WindowManager.snapshotWindow === null)
-        WindowManager.createSnapshotGalleryWindow();
+      if (WindowManager.mainWindow === null) WindowManager.createMainWindow();
+      else WindowManager.mainWindow.show();
     });
 
     // create connection with database
@@ -114,6 +114,9 @@ app
     });
     const taskSnap = TaskSnap.getInstance();
     taskSnap.start();
+
+    // open the main window on startup
+    await WindowManager.createMainWindow();
 
     // create shortcut
     const keys = await Settings.getSnapshotShortcut();

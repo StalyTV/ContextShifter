@@ -5,25 +5,15 @@ import typedIpcRenderer from './ipc/typedIpcRenderer';
 
 const electronHandler = {
   ipcRenderer: typedIpcRenderer, //TODO [regloff] this is insecure and should be avoided
-  onSnapshotSelected: (
-    callback: (event: IpcRendererEvent, id: number) => void
-  ) => typedIpcRenderer.on('snapshot-selected', callback),
-  removeOnSnapshotSelected: () =>
-    typedIpcRenderer.removeAllListeners('snapshot-selected'),
-  onSnapshotsUpdated: (callback: (event: IpcRendererEvent) => void) =>
-    typedIpcRenderer.on('snapshots-updated', callback),
-  removeOnSnapshotsUpdated: () =>
-    typedIpcRenderer.removeAllListeners('snapshots-updated'),
-  onSnapshotReady: (callback: (event: IpcRendererEvent, id: number) => void) =>
-    typedIpcRenderer.on('snapshot-ready', callback),
-  removeOnSnapshotReady: () =>
-    typedIpcRenderer.removeAllListeners('snapshot-ready'),
   onTaskSwitcherState: (
     callback: (
       event: IpcRendererEvent,
       state: {
-        items: { id: number | null; name: string }[];
-        selectedIndex: number;
+        parents: { id: number | null; name: string }[];
+        parentIndex: number;
+        children: { id: number | null; name: string }[];
+        childIndex: number;
+        mode: 'parent' | 'child';
         activeTaskId: number | null;
       }
     ) => void

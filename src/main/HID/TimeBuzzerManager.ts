@@ -135,8 +135,8 @@ export default class TimeBuzzerManager {
       clearTimeout(this._pendingPressTimer);
       this._pendingPressTimer = null;
       if (isDouble) {
-        info('[TimeBuzzerManager] double-press -> delete selected task');
-        TaskManager.getInstance().deleteSelected();
+        info('[TimeBuzzerManager] double-press -> back / close');
+        TaskManager.getInstance().pressBack();
         return;
       }
     }
@@ -146,8 +146,8 @@ export default class TimeBuzzerManager {
       this._pendingPressTimer = null;
       const tm = TaskManager.getInstance();
       if (tm.isSwitcherOpen()) {
-        info('[TimeBuzzerManager] press -> open edit for selected task');
-        tm.openEditForSelected();
+        info('[TimeBuzzerManager] press -> select / drilldown');
+        tm.pressSelect();
       } else {
         // Switcher closed: press takes a snapshot (with debounce).
         if (this._lastTapAt + TimeBuzzerManager.TAP_DEBOUNCE_MS < Date.now()) {
