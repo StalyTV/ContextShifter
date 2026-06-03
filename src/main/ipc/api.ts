@@ -291,3 +291,5 @@ typedIpcMain.handle(
 typedIpcMain.handle('get-last-two-snapshots-of-today', async () => {
   return await SnapshotEntity.getLastTwoSnapshotsOfToday();
 });
+
+

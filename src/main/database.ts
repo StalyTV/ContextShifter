@@ -28,6 +28,7 @@ import AnalysisOpenApplications from './entity/AnalysisOpenApplications';
 import AnalysisOpenBrowserTabs from './entity/AnalysisOpenBrowserTabs';
 import AnalysisOpenIDEFiles from './entity/AnalysisOpenIDEFiles';
 import AnalysisOpenFileSystemTabs from './entity/AnalysisOpenFileSystemTabs';
+import Task from './entity/Task';
 
 const dbPath = path.join(
   app.getPath('appData'),
@@ -60,6 +61,7 @@ export const Database = new DataSource({
     AnalysisOpenBrowserTabs,
     AnalysisOpenIDEFiles,
     AnalysisOpenFileSystemTabs,
+    Task,
   ],
   synchronize: true,
 });

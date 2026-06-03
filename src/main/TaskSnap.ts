@@ -37,6 +37,7 @@ import getAssetPath from "./helpers/getAssetPath";
 import ExtensionsStatus from "../types/ExtensionsStatus";
 import UsageData from "./entity/UsageData";
 import DeviceManager from "./HID/DeviceManager";
+import TimeBuzzerManager from "./HID/TimeBuzzerManager";
 import KnownApplication from "./entity/KnownApplication";
 import { TypedWebContents } from "./ipc/types/electron-typed-ipc";
 import Events from "../types/Events";
@@ -78,6 +79,7 @@ export default class TaskSnap {
   private _fileSystemWatcher: FileSystemWatcher;
   private _vscodeTracker: VSCodeTracker;
   private _deviceManager: DeviceManager;
+  private _timeBuzzerManager: TimeBuzzerManager;
   private _snapshotManager: SnapshotManager;
   private _cameraShutterSoundPathMp3 = getAssetPath(`sounds/cameraShutter.mp3`);
   private _cameraShutterSoundPathWav = getAssetPath(`sounds/cameraShutter.wav`);
@@ -88,6 +90,7 @@ export default class TaskSnap {
     this._fileSystemWatcher = new FileSystemWatcher();
     this._vscodeTracker = VSCodeTracker.getInstance();
     this._deviceManager = DeviceManager.getInstance();
+    this._timeBuzzerManager = TimeBuzzerManager.getInstance();
     this._snapshotManager = SnapshotManager.getInstance();
   }
 

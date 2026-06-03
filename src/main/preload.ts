@@ -18,6 +18,18 @@ const electronHandler = {
     typedIpcRenderer.on('snapshot-ready', callback),
   removeOnSnapshotReady: () =>
     typedIpcRenderer.removeAllListeners('snapshot-ready'),
+  onTaskSwitcherState: (
+    callback: (
+      event: IpcRendererEvent,
+      state: {
+        items: { id: number | null; name: string }[];
+        selectedIndex: number;
+        activeTaskId: number | null;
+      }
+    ) => void
+  ) => typedIpcRenderer.on('task-switcher-state', callback),
+  removeOnTaskSwitcherState: () =>
+    typedIpcRenderer.removeAllListeners('task-switcher-state'),
 };
 
 contextBridge.exposeInMainWorld('electron', electronHandler);

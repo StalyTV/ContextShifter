@@ -101,7 +101,7 @@ export default function GalleryFeatureSelection(props: Props) {
             onChange={handleCheckboxChange}
           />
           <label htmlFor="summary">
-            Task summary text (⏪ What was I doing?)
+            Task summary text (What was I doing?)
           </label>
         </div>
         <div className={styles.option}>
@@ -112,7 +112,7 @@ export default function GalleryFeatureSelection(props: Props) {
             onChange={handleCheckboxChange}
           />
           <label htmlFor="intent">
-            Task intent text (💭 What was I about to do?)
+            Task intent text (What was I about to do?)
           </label>
         </div>
         <div className={styles.option}>

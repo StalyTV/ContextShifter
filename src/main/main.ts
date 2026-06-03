@@ -19,6 +19,7 @@ import WindowManager from './WindowManager';
 import UsageData from './entity/UsageData';
 import path from 'path';
 import DeviceManager from './HID/DeviceManager';
+import TimeBuzzerManager from './HID/TimeBuzzerManager';
 import AppUpdater from './AppUpdater';
 import Settings from './entity/Settings';
 import { UsageDataOrigin } from '../types/UsageDataOrigin';
@@ -34,9 +35,7 @@ if (process.env.NODE_ENV === 'production') {
 const isDebug =
   process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD === 'true';
 
-if (isDebug) {
-  require('electron-debug')();
-}
+// electron-debug is intentionally not loaded — it auto-opens DevTools on every window
 
 // set log size
 log.transports.file.level = 'info';
@@ -122,7 +121,9 @@ app
       taskSnap.createNewSnapshot(UsageDataOrigin.Shortcut)
     );
 
-    new AppUpdater();
+    if (!isDebug) {
+      new AppUpdater();
+    }
   })
   .catch(console.log);
 
@@ -131,6 +132,7 @@ app.on('before-quit', async (e) => {
   await taskSnap.stop();
   globalShortcut.unregisterAll();
   DeviceManager.getInstance().stopMonitoring();
+  TimeBuzzerManager.getInstance().stopMonitoring();
   await UsageData.addEntry('quit', true);
 });
 

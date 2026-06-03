@@ -100,7 +100,7 @@ export default function SnapshotPreview(props: Props) {
             data-tooltip-id={'task-snap'}
             data-tooltip-content={'What was I doing?'}
           >
-            ⏪
+            Recap
           </span>
           <span>{props.snapshot.summary}</span>
         </div>
@@ -111,7 +111,7 @@ export default function SnapshotPreview(props: Props) {
               data-tooltip-id={'task-snap'}
               data-tooltip-content={'What was I about to do?'}
             >
-              💭
+              Intent
             </span>
             <span>{props.snapshot.intent}</span>
           </div>

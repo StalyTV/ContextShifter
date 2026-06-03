@@ -1,0 +1,182 @@
+import { info, error } from 'electron-log';
+import TaskSnap from '../TaskSnap';
+import TaskManager from '../TaskManager';
+import { UsageDataOrigin } from '../../types/UsageDataOrigin';
+
+const TimeBuzzer = require('./time-buzzer');
+
+/**
+ * TimeBuzzerManager - bridges the physical TimeBuzzer to TaskSnap.
+ *
+ * Event mapping:
+ *  - touch (tap) ........ (unused — kept for future use)
+ *  - position (rotation)  open/cycle the task switcher
+ *  - press .............. single: snapshot (when switcher closed) or edit selected task
+ *                         double: delete selected task
+ */
+export default class TimeBuzzerManager {
+  private static _instance: TimeBuzzerManager;
+
+  // ---- Tunables ----
+  private static readonly TAP_DEBOUNCE_MS = 5000;
+  private static readonly DOUBLE_PRESS_WINDOW_MS = 400;
+
+  private _device: any | undefined;
+  private _active: boolean = false;
+
+  // tap detection state
+  private _touchOnAt: number = 0;
+  private _rotatedDuringTouch: boolean = false;
+  private _pressedDuringTouch: boolean = false;
+  private _lastTapAt: number = 0;
+
+  // rotation state
+  private _lastPosition: number | null = null;
+
+  // double-press state
+  private _pendingPressTimer: NodeJS.Timeout | null = null;
+  private _lastPressAt: number = 0;
+
+  private constructor() {
+    this.connect();
+  }
+
+  public static getInstance() {
+    return this._instance || (this._instance = new this());
+  }
+
+  private connect() {
+    info('[TimeBuzzerManager] Attempting to connect to timeBuzzer...');
+    try {
+      this._device = new TimeBuzzer((event: string, arg: any) => {
+        this.handleEvent(event, arg);
+      });
+      this._active = true;
+      info('[TimeBuzzerManager] timeBuzzer connected');
+    } catch (err) {
+      error('[TimeBuzzerManager] Failed to initialize timeBuzzer', err);
+      this._device = undefined;
+    }
+  }
+
+  private handleEvent(event: string, arg: any): void {
+    switch (event) {
+      case 'error':
+        info(`[TimeBuzzerManager] No timeBuzzer available: ${arg}`);
+        this._device = undefined;
+        this._active = false;
+        break;
+
+      case 'touch':
+        if (arg === true) {
+          this._touchOnAt = Date.now();
+          this._rotatedDuringTouch = false;
+          this._pressedDuringTouch = false;
+        } else {
+          this.maybeFireTap();
+        }
+        break;
+
+      case 'position':
+        this._rotatedDuringTouch = true;
+        this.handleRotation(arg as number);
+        break;
+
+      case 'press':
+        // The device fires press on both depress and release.
+        // We only act on the depress edge (true).
+        if (arg === true) {
+          this._pressedDuringTouch = true;
+          this.handlePress();
+        }
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  // ---------- Tap (no-op — snapshot moved to press) ----------
+
+  private maybeFireTap(): void {
+    // Tap detection kept for future use; snapshot is triggered by press instead.
+  }
+
+  // ---------- Rotation (cycle tasks) ----------
+
+  private handleRotation(position: number): void {
+    if (this._lastPosition === null) {
+      this._lastPosition = position;
+      // First reading after connect — open the switcher anyway.
+      TaskManager.getInstance().openSwitcher();
+      return;
+    }
+    const delta = position - this._lastPosition;
+    this._lastPosition = position;
+    if (delta === 0) return;
+
+    if (delta > 0) {
+      TaskManager.getInstance().cycleNext();
+    } else {
+      TaskManager.getInstance().cyclePrev();
+    }
+  }
+
+  // ---------- Press (edit / delete) ----------
+
+  private handlePress(): void {
+    const now = Date.now();
+    const isDouble =
+      now - this._lastPressAt < TimeBuzzerManager.DOUBLE_PRESS_WINDOW_MS;
+    this._lastPressAt = now;
+
+    // If a single-press is queued and a second press arrives, treat as double.
+    if (this._pendingPressTimer) {
+      clearTimeout(this._pendingPressTimer);
+      this._pendingPressTimer = null;
+      if (isDouble) {
+        info('[TimeBuzzerManager] double-press -> delete selected task');
+        TaskManager.getInstance().deleteSelected();
+        return;
+      }
+    }
+
+    // Schedule single-press action; will fire if no second press arrives.
+    this._pendingPressTimer = setTimeout(() => {
+      this._pendingPressTimer = null;
+      const tm = TaskManager.getInstance();
+      if (tm.isSwitcherOpen()) {
+        info('[TimeBuzzerManager] press -> open edit for selected task');
+        tm.openEditForSelected();
+      } else {
+        // Switcher closed: press takes a snapshot (with debounce).
+        if (this._lastTapAt + TimeBuzzerManager.TAP_DEBOUNCE_MS < Date.now()) {
+          this._lastTapAt = Date.now();
+          info('[TimeBuzzerManager] press -> create snapshot');
+          TaskSnap.getInstance().createNewSnapshot(UsageDataOrigin.USBDevice);
+        }
+      }
+    }, TimeBuzzerManager.DOUBLE_PRESS_WINDOW_MS);
+  }
+
+  public isDeviceConnected(): boolean {
+    return this._device !== undefined && this._active;
+  }
+
+  public stopMonitoring() {
+    if (this._pendingPressTimer) {
+      clearTimeout(this._pendingPressTimer);
+      this._pendingPressTimer = null;
+    }
+    if (this._device) {
+      try {
+        this._device.close();
+      } catch (err) {
+        error('[TimeBuzzerManager] Error closing timeBuzzer', err);
+      }
+      this._device = undefined;
+    }
+    this._active = false;
+    info('[TimeBuzzerManager] Stopped monitoring');
+  }
+}

@@ -18,13 +18,13 @@ export default function PostItSection(props: Props) {
   return (
     <>
       <PostIt
-        title={'⏪ Now what was I doing?'}
+        title={'Now what was I doing?'}
         content={props.summary}
         onTextChange={props.onSummaryChange}
         isEditable={props.isEditable}
       />
       <PostIt
-        title={'💭 What was I about to do?'}
+        title={'What was I about to do?'}
         content={props.intent}
         infoMessage={`Uncommitted TODOs are automatically added to this section`}
         onTextChange={props.onIntentChange}

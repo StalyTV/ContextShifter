@@ -6,39 +6,57 @@
  @import url("https://fonts.googleapis.com/css?family=Montserrat:100,300,500,700");
 
  :root {
+  // Single soft indigo accent — replaces previous cyan/orange duo.
+  // --accent-color-2 retained as alias for legacy call sites; both map to indigo.
   @media (prefers-color-scheme: dark) {
-    --accent-color-1: #08C0DD;
-    --accent-color-2: #DD7A08;
-    --bg-color-1: #3E3E3E;
-    --bg-color-2: #646464;
-    --bg-color-3: #777777;
-    --bg-color-4: #8B8B8B;
-    --bg-color-5: #B1B1B1;
+    --accent: #818CF8;
+    --accent-hover: #A5B4FC;
+    --accent-color-1: #818CF8;
+    --accent-color-2: #818CF8;
+    --bg-color-1: #1E1F24;
+    --bg-color-2: #26282F;
+    --bg-color-3: #2F313A;
+    --bg-color-4: #3A3D47;
+    --bg-color-5: #4A4E5A;
+    --surface: #26282F;
+    --surface-raised: #2F313A;
+    --border-subtle: #34363F;
+    --border-strong: #4A4E5A;
+    --text-primary: #E5E7EB;
+    --text-muted: #9CA3AF;
     --overlay-color: #000000;
-    --border-color: #FFFFFF;
-    --text-color: #FFFFFF;
+    --border-color: #E5E7EB;
+    --text-color: #E5E7EB;
   }
   @media (prefers-color-scheme: light) {
-    --accent-color-1: #08C0DD;
-    --accent-color-2: #DD7A08;
-    --bg-color-1: #fcfcfc;
-    --bg-color-2: #f0f0f0;
-    --bg-color-3: #e0e0e0;
-    --bg-color-4: #c1c1c1;
-    --bg-color-5: #a3a3a3;
+    --accent: #6366F1;
+    --accent-hover: #4F46E5;
+    --accent-color-1: #6366F1;
+    --accent-color-2: #6366F1;
+    --bg-color-1: #FAFAFB;
+    --bg-color-2: #F1F2F4;
+    --bg-color-3: #E5E7EB;
+    --bg-color-4: #CBD0D8;
+    --bg-color-5: #9CA3AF;
+    --surface: #FFFFFF;
+    --surface-raised: #F8F9FB;
+    --border-subtle: #E5E7EB;
+    --border-strong: #CBD0D8;
+    --text-primary: #1F2937;
+    --text-muted: #6B7280;
     --overlay-color: #FFFFFF;
-    --border-color: #3E3E3E;
-    --text-color: #3E3E3E;
+    --border-color: #1F2937;
+    --text-color: #1F2937;
   }
 
-  --postIt-bg-color-1: #FFFF99;
-  --postIt-bg-color-2: #fdfdbc;
-  --postIt-border-color: #3E3E3E;
-  --postIt-text-color: #3E3E3E;
+  --postIt-bg-color-1: #FEF9C3;
+  --postIt-bg-color-2: #FEFCE8;
+  --postIt-border-color: #1F2937;
+  --postIt-text-color: #1F2937;
 
-  --overlay-box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
+  --overlay-box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.08);
 
-  --border-radius: 5px;
+  --border-radius: 8px;
   --font-family: 'Montserrat', sans-serif;
 }
 

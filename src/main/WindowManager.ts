@@ -468,4 +468,77 @@ export default class WindowManager {
     const menuBuilder = new MenuBuilder(this.settingsWindow);
     menuBuilder.buildMenu();
   }
+
+  // -------------------- Task switcher overlay --------------------
+
+  public static taskSwitcherWindow: BrowserWindow | null = null;
+
+  public static async createTaskSwitcherWindow() {
+    if (this.taskSwitcherWindow) {
+      this.taskSwitcherWindow.showInactive();
+      return;
+    }
+
+    const width = 420;
+    const height = 96;
+
+    this.taskSwitcherWindow = new BrowserWindow({
+      show: false,
+      width,
+      height,
+      frame: false,
+      transparent: true,
+      hasShadow: false,
+      resizable: false,
+      movable: false,
+      minimizable: false,
+      maximizable: false,
+      fullscreenable: false,
+      skipTaskbar: true,
+      focusable: false,
+      alwaysOnTop: true,
+      icon: getAssetPath('icon.png'),
+      webPreferences: {
+        preload: app.isPackaged
+          ? path.join(__dirname, 'preload.js')
+          : path.join(__dirname, '../../.erb/dll/preload.js'),
+      },
+    });
+
+    // Position top-right of the primary display.
+    const { screen } = require('electron');
+    const display = screen.getPrimaryDisplay();
+    const { x, y, width: sw } = display.workArea;
+    this.taskSwitcherWindow.setPosition(x + sw - width - 20, y + 20);
+
+    // Show on top of fullscreen apps and on every space (macOS).
+    this.taskSwitcherWindow.setAlwaysOnTop(true, 'screen-saver');
+    this.taskSwitcherWindow.setVisibleOnAllWorkspaces(true, {
+      visibleOnFullScreen: true,
+    });
+
+    this.taskSwitcherWindow.loadURL(
+      resolveHtmlPath('index.html') + `#/taskSwitcher`
+    );
+
+    this.taskSwitcherWindow.once('ready-to-show', () => {
+      this.taskSwitcherWindow?.showInactive();
+    });
+
+    this.taskSwitcherWindow.on('closed', () => {
+      this.taskSwitcherWindow = null;
+    });
+  }
+
+  public static closeTaskSwitcherWindow() {
+    if (this.taskSwitcherWindow) {
+      try {
+        this.taskSwitcherWindow.close();
+      } catch {
+        /* ignore */
+      }
+      this.taskSwitcherWindow = null;
+    }
+  }
+
 }
