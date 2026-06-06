@@ -29,7 +29,7 @@ export default class WindowManager {
       minWidth: 520,
       minHeight: 360,
       icon: getAssetPath('icon.png'),
-      title: 'TaskSnap',
+      title: 'ContextShifter',
       webPreferences: {
         preload: app.isPackaged
           ? path.join(__dirname, 'preload.js')

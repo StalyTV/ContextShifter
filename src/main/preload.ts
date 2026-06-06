@@ -20,6 +20,15 @@ const electronHandler = {
   ) => typedIpcRenderer.on('task-switcher-state', callback),
   removeOnTaskSwitcherState: () =>
     typedIpcRenderer.removeAllListeners('task-switcher-state'),
+  onSnapshotsChanged: (callback: (event: IpcRendererEvent) => void) =>
+    typedIpcRenderer.on('snapshots-changed', callback),
+  removeOnSnapshotsChanged: () =>
+    typedIpcRenderer.removeAllListeners('snapshots-changed'),
+  onOpenNewTaskDialog: (
+    callback: (event: IpcRendererEvent, parentId: number | null) => void
+  ) => typedIpcRenderer.on('open-new-task-dialog', callback),
+  removeOnOpenNewTaskDialog: () =>
+    typedIpcRenderer.removeAllListeners('open-new-task-dialog'),
 };
 
 contextBridge.exposeInMainWorld('electron', electronHandler);

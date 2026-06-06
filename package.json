@@ -1,6 +1,6 @@
 {
-  "name": "tasksnap",
-  "productName": "TaskSnap",
+  "name": "contextshifter",
+  "productName": "ContextShifter",
   "main": "./src/main/main.ts",
   "scripts": {
     "build": "concurrently \"npm run build:main\" \"npm run build:renderer\"",
@@ -76,8 +76,7 @@
     "react-time-picker": "^6.2.0",
     "react-toastify": "^9.1.2",
     "react-toggle": "^4.1.3",
-    "react-tooltip": "^5.11.1",
-    "sound-play": "^1.1.0"
+    "react-tooltip": "^5.11.1"
   },
   "devDependencies": {
     "@electron/notarize": "^1.2.3",
@@ -153,8 +152,8 @@
     "webpack-merge": "^5.8.0"
   },
   "build": {
-    "productName": "TaskSnap",
-    "appId": "ch.ifi.hasel.TaskSnap",
+    "productName": "ContextShifter",
+    "appId": "ch.ifi.hasel.ContextShifter",
     "asar": true,
     "asarUnpack": "**\\*.{node,dll}",
     "files": [
@@ -212,7 +211,7 @@
     "publish": {
       "provider": "github",
       "owner": "HASEL-UZH",
-      "repo": "TaskSnap"
+      "repo": "ContextShifter"
     }
   },
   "devEngines": {

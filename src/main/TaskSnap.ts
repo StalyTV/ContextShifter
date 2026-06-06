@@ -23,8 +23,7 @@ import {
   getOpenFileExplorerPaths,
   getRecentlyOpenedFilePaths,
   openArtifact,
-  openFiles,
-  playWavSoundWindows
+  openFiles
 } from './helpers/osCommands';
 import { getFileNameFromPath } from "./helpers/getFileNameFromPath";
 import isMac from "./helpers/isMac";
@@ -33,7 +32,6 @@ import BrowserTabEntity from "./entity/BrowserTab";
 import { CloseTabClientRequest } from "../types/context-browser-extension-types/types";
 import Browser from "./entity/Browser";
 import VSCodeTracker from "./trackers/VSCodeTracker";
-import getAssetPath from "./helpers/getAssetPath";
 import ExtensionsStatus from "../types/ExtensionsStatus";
 import UsageData from "./entity/UsageData";
 import DeviceManager from "./HID/DeviceManager";
@@ -53,7 +51,6 @@ import { StudyPhase } from "../types/StudyPhase";
 import ArtifactFiles from "../types/ArtifactFiles";
 
 const fileIcon = require('extract-file-icon');
-const soundPlayer = require('sound-play');
 
 interface TaskSnapWindowObject {
   title: string;
@@ -81,8 +78,6 @@ export default class TaskSnap {
   private _deviceManager: DeviceManager;
   private _timeBuzzerManager: TimeBuzzerManager;
   private _snapshotManager: SnapshotManager;
-  private _cameraShutterSoundPathMp3 = getAssetPath(`sounds/cameraShutter.mp3`);
-  private _cameraShutterSoundPathWav = getAssetPath(`sounds/cameraShutter.wav`);
 
   private constructor() {
     this._windowTracker = new WindowTracker();
@@ -135,11 +130,6 @@ export default class TaskSnap {
     }
 
     info('[TaskSnap] New snapshot created');
-    if (isMac) {
-      soundPlayer.play(this._cameraShutterSoundPathMp3);
-    } else {
-      playWavSoundWindows(this._cameraShutterSoundPathWav); // the npm library didn't work on all Windows computers
-    }
     this._deviceManager.showLightPulse();
 
     // store currently open active window to be sure that it is included in snapshot
@@ -285,7 +275,10 @@ export default class TaskSnap {
 
   public async getCurrentlyOpenApplications(): Promise<
     [Browser[], IDE[], Application[]]> {
+    const t0 = Date.now();
+    info('[TaskSnap] getCurrentlyOpenApplications: start');
     const visibleWindows = (await activeWin.getOpenWindows()) || [];
+    info(`[TaskSnap] getCurrentlyOpenApplications: activeWin (${Date.now() - t0}ms, ${visibleWindows.length} windows)`);
 
     let windowsToConsider = this.mapActiveWinToTaskSnapWindows(visibleWindows);
 
@@ -327,7 +320,25 @@ export default class TaskSnap {
     let processInfos: ProcessInfo[] = [];
     let recentlyOpenedFiles: string[] = [];
     if (isMac && pidsOfApplications.length > 0) {
-      processInfos = await lsof(options);
+      // `list-open-files` invokes the system `lsof` command. It can hang for
+      // many seconds (or indefinitely) when one of the pids is in a weird
+      // state — e.g. a process that died moments after we sampled it, or a
+      // sandboxed app. Race it against a timeout so the UI never deadlocks;
+      // we'd rather miss a few file associations than freeze the dialog.
+      const lsofStart = Date.now();
+      info(`[TaskSnap] getCurrentlyOpenApplications: lsof start (${pidsOfApplications.length} pids)`);
+      try {
+        processInfos = await Promise.race([
+          lsof(options),
+          new Promise<ProcessInfo[]>((_resolve, reject) =>
+            setTimeout(() => reject(new Error('lsof timeout')), 8000)
+          ),
+        ]);
+        info(`[TaskSnap] getCurrentlyOpenApplications: lsof done (${Date.now() - lsofStart}ms, ${processInfos.length} infos)`);
+      } catch (err) {
+        info(`[TaskSnap] getCurrentlyOpenApplications: lsof failed/timed out (${Date.now() - lsofStart}ms): ${String(err)}`);
+        processInfos = [];
+      }
     } else {
       const searchStart = new Date(new Date().setHours(0));
       recentlyOpenedFiles = await getRecentlyOpenedFilePaths(searchStart);
@@ -337,12 +348,25 @@ export default class TaskSnap {
 
 
     const openBrowsers: Browser[] = await this.handleBrowsers(browsers);
+    info(`[TaskSnap] getCurrentlyOpenApplications: handled browsers (${openBrowsers.length})`);
     const openIDEs: IDE[] = [] = await this.handleIdes(ides);
+    info(`[TaskSnap] getCurrentlyOpenApplications: handled IDEs (${openIDEs.length})`);
     let openApplications: Application[] = await this.handleFileExplorer(fileExplorers);
     const otherApplications: Application[] = await this.handleRegularApplications(regularApps, processInfos, recentlyOpenedFiles);
     openApplications = openApplications.concat(otherApplications);
+    info(`[TaskSnap] getCurrentlyOpenApplications: handled apps (${openApplications.length})`);
 
-    return [openBrowsers, openIDEs, openApplications];
+    // Filter out applications/IDEs the user marked as "never close" — these
+    // are treated as ignored by the tracker (not included in new tasks).
+    const ignored = await KnownApplication.getAppsThatShouldNeverBeClosed();
+    const ignoredNames = new Set(ignored.map((a) => a.name));
+    const filteredIDEs = openIDEs.filter((i) => !ignoredNames.has(i.name));
+    const filteredApps = openApplications.filter(
+      (a) => !ignoredNames.has(a.name)
+    );
+
+    info(`[TaskSnap] getCurrentlyOpenApplications: done in ${Date.now() - t0}ms`);
+    return [openBrowsers, filteredIDEs, filteredApps];
   }
 
   public getApplicationIcon(path: string): string {

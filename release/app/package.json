@@ -1,6 +1,6 @@
 {
-  "name": "tasksnap",
-  "productName": "TaskSnap",
+  "name": "contextshifter",
+  "productName": "ContextShifter",
   "version": "0.2.3",
   "description": "Tool that supports task resumption",
   "license": "MIT",

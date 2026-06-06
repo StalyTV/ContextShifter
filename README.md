@@ -1,5 +1,7 @@
-# TaskSnap
-TaskSnap is a cross platform application that supports software developers and data scientists in switching and resuming tasks. In TaskSnap, by clicking a physical or virtual button, the user can create a snapshot of the currently active task context. Then, the user can curate it, summarize just finished actions, express intents, and finally clean up no longer needed artifacts (applications, files, folders, and web pages). Later, artifacts captured by a snapshot can automatically be reopened and information is displayed that should help users to restore their mental task context.
+# ContextShifter
+ContextShifter is a cross platform application that supports software developers and data scientists in switching and resuming tasks. In ContextShifter, by clicking a physical or virtual button, the user can create a snapshot of the currently active task context. Then, the user can curate it, summarize just finished actions, express intents, and finally clean up no longer needed artifacts (applications, files, folders, and web pages). Later, artifacts captured by a snapshot can automatically be reopened and information is displayed that should help users to restore their mental task context.
+
+ContextShifter is based on TaskSnap and extends it with new context-switching capabilities.
 
 The application was initially created by [Remy Egloff](https://github.com/regloff) as part of his Master Thesis at the [HASEL Lab](https://hasel.dev/) at the University of Zurich (UZH).
 

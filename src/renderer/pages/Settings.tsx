@@ -13,15 +13,9 @@ import PlusIcon from '../components/Icons/PlusIcon';
 import InfoIcon from '../components/Icons/InfoIcon';
 import UserSettings from 'types/UserSettings';
 import Input from '../components/Input';
-import TimePicker from 'react-time-picker';
-import { Value } from 'react-time-picker/dist/cjs/shared/types';
-import { StudyPhase } from 'types/StudyPhase';
-import 'react-time-picker/dist/TimePicker.css';
-import 'react-clock/dist/Clock.css';
 
 export default function Settings() {
   let loopRef: NodeJS.Timeout | undefined;
-  const [studyPhase, setStudyPhase] = useState<StudyPhase>(StudyPhase.NoStudy);
   const [extensionStatus, setExtensionStatus] = useState<ExtensionsStatus>({
     isVSCodeConnected: false,
     isBrowserConnected: false,
@@ -30,7 +24,11 @@ export default function Settings() {
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [isDataAnonymized, setIsDataAnonymized] = useState<boolean>(false);
   const [snapshotShortcut, setSnapshotShortcut] = useState<string>('');
-  const [endOfDayPopUpTime, setEndOfDayPopUpTime] = useState('16:30');
+  // Persisted but not configurable from this page; round-tripped to keep the
+  // existing UserSettings shape stable for the main process / StudyManager.
+  const [endOfDayPopUpTime, setEndOfDayPopUpTime] = useState<Date>(
+    () => new Date(new Date().setHours(16, 30, 0, 0))
+  );
   const [showQuestionnaireOnlyOnWorkdays, setShowQuestionnaireOnlyOnWorkdays] =
     useState<boolean>(true);
   const [neverCloseApplications, setNeverCloseApplications] = useState<
@@ -48,8 +46,7 @@ export default function Settings() {
       setIsDarkMode(settings.isDarkModeEnabled);
       setIsDataAnonymized(settings.isDataAnonymized);
       setSnapshotShortcut(settings.snapshotShortcut);
-      const timeString = `${settings.endOfDayPopUpTime.getHours()}:${settings.endOfDayPopUpTime.getMinutes()}`;
-      setEndOfDayPopUpTime(timeString);
+      setEndOfDayPopUpTime(settings.endOfDayPopUpTime);
       setShowQuestionnaireOnlyOnWorkdays(
         settings.showQuestionnaireOnlyOnWorkdays
       );
@@ -124,24 +121,12 @@ export default function Settings() {
     await window.electron.ipcRenderer.invoke('update-known-application', app);
   };
 
-  const convertTimeStringToDate = (timeString: string) => {
-    const splittedTime = timeString.split(':');
-    return new Date(
-      new Date().setHours(
-        parseInt(splittedTime[0]),
-        parseInt(splittedTime[1]),
-        0,
-        0
-      )
-    );
-  };
-
   const onToggleColorTheme = async () => {
     const updatedSettings: UserSettings = {
       isDarkModeEnabled: !isDarkMode,
       isDataAnonymized: isDataAnonymized,
       snapshotShortcut: snapshotShortcut,
-      endOfDayPopUpTime: convertTimeStringToDate(endOfDayPopUpTime),
+      endOfDayPopUpTime: endOfDayPopUpTime,
       showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
     };
     setIsDarkMode(!isDarkMode);
@@ -153,7 +138,7 @@ export default function Settings() {
       isDarkModeEnabled: isDarkMode,
       isDataAnonymized: !isDataAnonymized,
       snapshotShortcut: snapshotShortcut,
-      endOfDayPopUpTime: convertTimeStringToDate(endOfDayPopUpTime),
+      endOfDayPopUpTime: endOfDayPopUpTime,
       showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
     };
     setIsDataAnonymized(!isDataAnonymized);
@@ -166,47 +151,14 @@ export default function Settings() {
       isDarkModeEnabled: isDarkMode,
       isDataAnonymized: isDataAnonymized,
       snapshotShortcut: updatedShortcut,
-      endOfDayPopUpTime: convertTimeStringToDate(endOfDayPopUpTime),
+      endOfDayPopUpTime: endOfDayPopUpTime,
       showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
     };
     setSnapshotShortcut(updatedShortcut);
     setSettings(updatedSettings);
   };
 
-  const onChangeEndOfDayPopUpTime = (value: Value) => {
-    if (value) {
-      const updatedTimeString = value.toString();
-      const updatedSettings: UserSettings = {
-        isDarkModeEnabled: isDarkMode,
-        isDataAnonymized: isDataAnonymized,
-        snapshotShortcut: snapshotShortcut,
-        endOfDayPopUpTime: convertTimeStringToDate(updatedTimeString),
-        showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
-      };
-      setEndOfDayPopUpTime(value);
-      setSettings(updatedSettings);
-    }
-  };
-
-  const onToggleOnlyShowOnWorkdays = async () => {
-    const updatedSettings: UserSettings = {
-      isDarkModeEnabled: isDarkMode,
-      isDataAnonymized: isDataAnonymized,
-      snapshotShortcut: snapshotShortcut,
-      endOfDayPopUpTime: convertTimeStringToDate(endOfDayPopUpTime),
-      showQuestionnaireOnlyOnWorkdays: !showQuestionnaireOnlyOnWorkdays,
-    };
-    setShowQuestionnaireOnlyOnWorkdays(!showQuestionnaireOnlyOnWorkdays);
-    setSettings(updatedSettings);
-  };
-
-  const getStudyPhase = async () => {
-    const phase = await window.electron.ipcRenderer.invoke('get-study-phase');
-    setStudyPhase(phase);
-  };
-
   useEffect(() => {
-    getStudyPhase();
     getSettings();
     getKnownApplications();
     getConnectionStatus();
@@ -251,33 +203,6 @@ export default function Settings() {
           <div className={styles.inputContainer}>
             <Input value={snapshotShortcut} onChange={onShortcutChange} />
           </div>
-          {studyPhase !== StudyPhase.NoStudy ? (
-            <>
-              <div className={styles.titleWithInfo}>
-                <h4>End-Of-Day Questionnaire Time</h4>
-                <InfoIcon
-                  className={styles.infoIcon}
-                  data-tooltip-id={'task-snap'}
-                  data-tooltip-html={
-                    'At this time, a short study-related questionnaire will pop up'
-                  }
-                />
-              </div>
-              <TimePicker
-                value={endOfDayPopUpTime}
-                onChange={onChangeEndOfDayPopUpTime}
-                clearIcon={null}
-              />
-              <h4>Show End-Of-Day Questionnaire only on workdays</h4>
-              <TaskSnapToggle
-                defaultChecked={showQuestionnaireOnlyOnWorkdays}
-                leftLabel={'no'}
-                rightLabel={'yes'}
-                icons={false}
-                onChange={onToggleOnlyShowOnWorkdays}
-              />
-            </>
-          ) : null}
         </div>
       )}
 

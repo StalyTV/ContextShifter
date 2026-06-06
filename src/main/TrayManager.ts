@@ -30,7 +30,7 @@ export default class TrayManager {
 
     const menu = await this.createMenu();
     this._tray.setContextMenu(menu);
-    this._tray.setToolTip('TaskSnap');
+    this._tray.setToolTip('ContextShifter');
   }
 
   private static async createMenu(): Promise<Menu> {
@@ -55,7 +55,7 @@ export default class TrayManager {
       },
       { type: 'separator' },
       {
-        label: 'Open TaskSnap',
+        label: 'Open ContextShifter',
         click: async () => {
           if (WindowManager.mainWindow === null) {
             await WindowManager.createMainWindow();

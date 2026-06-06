@@ -4,6 +4,10 @@ import TaskManager from '../TaskManager';
 import { UsageDataOrigin } from '../../types/UsageDataOrigin';
 
 const TimeBuzzer = require('./time-buzzer');
+// libusb-based hotplug events (no polling). The package is shipped via
+// release/app/node_modules/usb and exposes attach/detach events on its
+// default export.
+const { usb } = require('usb');
 
 /**
  * TimeBuzzerManager - bridges the physical TimeBuzzer to TaskSnap.
@@ -20,9 +24,15 @@ export default class TimeBuzzerManager {
   // ---- Tunables ----
   private static readonly TAP_DEBOUNCE_MS = 5000;
   private static readonly DOUBLE_PRESS_WINDOW_MS = 400;
+  // Small delay after USB attach before scanning MIDI ports — the OS needs
+  // a moment to register the device with CoreMIDI / ALSA / WinMM.
+  private static readonly HOTPLUG_SETTLE_MS = 750;
 
   private _device: any | undefined;
   private _active: boolean = false;
+  private _reconnectTimer: NodeJS.Timeout | null = null;
+  private _onUsbAttach: (() => void) | null = null;
+  private _onUsbDetach: (() => void) | null = null;
 
   // tap detection state
   private _touchOnAt: number = 0;
@@ -39,6 +49,34 @@ export default class TimeBuzzerManager {
 
   private constructor() {
     this.connect();
+    this.registerHotplug();
+  }
+
+  private registerHotplug() {
+    try {
+      this._onUsbAttach = () => {
+        if (this.isDeviceConnected()) return;
+        if (this._reconnectTimer) clearTimeout(this._reconnectTimer);
+        this._reconnectTimer = setTimeout(() => {
+          this._reconnectTimer = null;
+          if (!this.isDeviceConnected()) {
+            info('[TimeBuzzerManager] USB attach detected — retrying connect');
+            this.connect();
+          }
+        }, TimeBuzzerManager.HOTPLUG_SETTLE_MS);
+      };
+      this._onUsbDetach = () => {
+        if (!this._device) return;
+        info('[TimeBuzzerManager] USB detach detected — closing device');
+        try { this._device.close(); } catch { /* ignore */ }
+        this._device = undefined;
+        this._active = false;
+      };
+      usb.on('attach', this._onUsbAttach);
+      usb.on('detach', this._onUsbDetach);
+    } catch (err) {
+      error('[TimeBuzzerManager] Failed to register USB hotplug listeners', err);
+    }
   }
 
   public static getInstance() {
@@ -168,6 +206,16 @@ export default class TimeBuzzerManager {
       clearTimeout(this._pendingPressTimer);
       this._pendingPressTimer = null;
     }
+    if (this._reconnectTimer) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+    }
+    try {
+      if (this._onUsbAttach) usb.off('attach', this._onUsbAttach);
+      if (this._onUsbDetach) usb.off('detach', this._onUsbDetach);
+    } catch { /* ignore */ }
+    this._onUsbAttach = null;
+    this._onUsbDetach = null;
     if (this._device) {
       try {
         this._device.close();

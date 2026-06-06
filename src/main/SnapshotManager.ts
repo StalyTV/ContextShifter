@@ -22,7 +22,6 @@ import KnownApplication from './entity/KnownApplication';
 import TrayManager from './TrayManager';
 import { UsageDataOrigin } from '../types/UsageDataOrigin';
 
-
 export default class SnapshotManager {
   private static _instance: SnapshotManager;
   private _postponeTimeoutRef: NodeJS.Timeout | undefined;
@@ -84,6 +83,84 @@ export default class SnapshotManager {
       snap.lastChange = new Date().toISOString();
       await snap.save();
     }
+  }
+
+  /**
+   * Create a new task with the supplied (already-curated) sets of
+   * currently-open browsers / IDEs / applications. Pass `parentId` to
+   * create a subtask under an existing parent; otherwise a top-level task
+   * is created. The renderer obtains the full open set via
+   * `TaskSnap.getCurrentlyOpenApplications()` and filters client-side.
+   */
+  public async createTask(
+    name: string,
+    browsers: BrowserEntity[],
+    ides: IDEEntity[],
+    applications: Application[],
+    parentId: number | null = null
+  ): Promise<Snapshot> {
+    const now = new Date().toISOString();
+    const fallbackName = parentId === null
+      ? `Task ${await Snapshot.getNextId()}`
+      : `Subtask ${await Snapshot.getNextId()}`;
+    const snap = Snapshot.create({
+      name: name?.trim() || fallbackName,
+      summary: '',
+      intent: '',
+      created: now,
+      edited: now,
+      lastChange: now,
+      isArchived: false,
+      isReady: true,
+      parentId,
+    });
+    await snap.save();
+
+    // Persist the chosen artifacts and link them to this snapshot. Mirrors
+    // TaskSnap.createNewSnapshot's persistence pattern (cascade saves nested
+    // BrowserTab / IDEFile rows).
+    if (browsers.length > 0) {
+      browsers.forEach((b) => {
+        b.snapshot = snap;
+      });
+      await BrowserEntity.save(browsers);
+    }
+    if (ides.length > 0) {
+      ides.forEach((i) => {
+        i.snapshot = snap;
+      });
+      await IDEEntity.save(ides);
+    }
+    if (applications.length > 0) {
+      applications.forEach((a) => {
+        a.snapshot = snap;
+      });
+      await Application.save(applications);
+    }
+
+    snap.browsers = browsers;
+    snap.ides = ides;
+    snap.applications = applications;
+    await snap.save();
+
+    if (parentId !== null) {
+      const parent = await Snapshot.findOneBy({ id: parentId });
+      if (parent) {
+        parent.lastChange = now;
+        await parent.save();
+      }
+    }
+
+    await UsageData.addEntry(
+      'create-task',
+      false,
+      `id: ${snap.id}, parent: ${parentId ?? 'null'}, browsers: ${browsers.length}, ides: ${ides.length}, apps: ${applications.length}`
+    );
+    info(
+      `[SnapshotManager] Created ${parentId === null ? 'task' : 'subtask'} "${snap.name}" (id ${snap.id}, parent ${parentId ?? 'none'}) with ${browsers.length} browsers / ${ides.length} ides / ${applications.length} apps`
+    );
+    await TrayManager.updateTray();
+    return snap;
   }
 
   public async saveSnapshot(updatedSnapshot: Snapshot) {

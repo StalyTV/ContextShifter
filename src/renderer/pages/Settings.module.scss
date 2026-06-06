@@ -1,14 +1,11 @@
 .settingsContainer {
-  z-index: 1;
-  position: absolute;
-  right: 1rem;
-  top: 3rem;
-  width: 20rem;
-  height: 45rem;
-  padding: 1rem;
-  background-color: var(--overlay-color);
-  border-radius: var(--border-radius);
-  box-shadow: var(--overlay-box-shadow);
+  // Layout: fills its parent. Used both as a route page (standalone Settings
+  // window) and embedded inside the slide-in drawer in the main app. The
+  // wrapper handles outer chrome (header, drawer animation).
+  width: 100%;
+  padding: 1.25rem 1.5rem 2rem;
+  color: var(--text-primary);
+  box-sizing: border-box;
 
   h3 {
     margin-top: 0;

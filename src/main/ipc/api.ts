@@ -17,6 +17,7 @@ import Settings from '../entity/Settings';
 import { Database } from '../database';
 import { UsageDataOrigin } from '../../types/UsageDataOrigin';
 import StudyManager from '../StudyManager';
+import WindowManager from '../WindowManager';
 
 typedIpcMain.handle('open-artifact', async (e, artifact) => {
   await UsageData.addEntry('open-artifact', false, JSON.stringify(artifact));
@@ -118,6 +119,24 @@ typedIpcMain.handle('rename-snapshot', async (e, snapshotId, name) => {
   await SnapshotManager.getInstance().renameSnapshot(snapshotId, name);
 });
 
+// new top-level task creation from currently-open artifacts
+typedIpcMain.handle('get-currently-open-applications', async () => {
+  return await TaskSnap.getInstance().getCurrentlyOpenApplications();
+});
+
+typedIpcMain.handle(
+  'create-task',
+  async (e, name, browsers, ides, applications, parentId) => {
+    return await SnapshotManager.getInstance().createTask(
+      name,
+      browsers,
+      ides,
+      applications,
+      parentId ?? null
+    );
+  }
+);
+
 // settings
 typedIpcMain.handle('get-settings', async () => {
   const userSettings: UserSettings = {
@@ -175,6 +194,15 @@ typedIpcMain.handle('get-known-applications', async () => {
 
 typedIpcMain.handle('update-known-application', async (e, app) => {
   await TaskSnap.getInstance().updateKnownApplication(app);
+});
+
+typedIpcMain.handle('open-settings-window', async () => {
+  if (WindowManager.settingsWindow === null) {
+    await WindowManager.createSettingsWindow();
+  } else {
+    WindowManager.settingsWindow.show();
+    WindowManager.settingsWindow.focus();
+  }
 });
 
 // questionnaires

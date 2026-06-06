@@ -33,11 +33,11 @@ export default class AppUpdater {
 
       const dialogOpts = {
         type: 'info',
-        buttons: ['Restart TaskSnap', 'Update later'],
-        title: 'TaskSnap Update',
+        buttons: ['Restart ContextShifter', 'Update later'],
+        title: 'ContextShifter Update',
         message: '',
         detail:
-          'A new version of TaskSnap has been downloaded. Restart TaskSnap to apply the updates.',
+          'A new version of ContextShifter has been downloaded. Restart ContextShifter to apply the updates.',
       };
 
       const returnValue = await dialog.showMessageBox(dialogOpts);
@@ -49,16 +49,16 @@ export default class AppUpdater {
     });
 
     autoUpdater.on('update-available', () => {
-      info('[AppUpdater] There is an update for TaskSnap available');
+      info('[AppUpdater] There is an update for ContextShifter available');
     });
 
     autoUpdater.on('update-not-available', () => {
-      info('[AppUpdater] There is no update for TaskSnap available');
+      info('[AppUpdater] There is no update for ContextShifter available');
     });
 
     autoUpdater.on('error', (message) => {
       error(
-        '[AppUpdater] There was a problem updating TaskSnap',
+        '[AppUpdater] There was a problem updating ContextShifter',
         message
       );
     });

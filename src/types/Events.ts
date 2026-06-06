@@ -15,6 +15,8 @@ type Events = {
     mode: 'parent' | 'child';
     activeTaskId: number | null;
   }) => void;
+  "snapshots-changed": () => void;
+  "open-new-task-dialog": (parentId: number | null) => void;
 };
 
 export default Events;

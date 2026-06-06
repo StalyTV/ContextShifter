@@ -5,6 +5,7 @@
  */
 
 import Snapshot from 'main/entity/Snapshot';
+import Application from 'main/entity/Application';
 import Artifact from './Artifact';
 import Browser from '../main/entity/Browser';
 import BrowserTab from '../main/entity/BrowserTab';
@@ -37,11 +38,24 @@ type Commands = {
   'create-subtask': (parentId: number, name: string) => Promise<Snapshot>;
   'rename-snapshot': (snapshotId: number, name: string) => Promise<void>;
 
+  // create new top-level task with selected currently-open artifacts
+  'get-currently-open-applications': () => Promise<
+    [Browser[], IDE[], Application[]]
+  >;
+  'create-task': (
+    name: string,
+    browsers: Browser[],
+    ides: IDE[],
+    applications: Application[],
+    parentId?: number | null
+  ) => Promise<Snapshot>;
+
   // settings
   'get-extensions-status': () => ExtensionsStatus;
   'get-device-status': () => boolean;
   'get-known-applications': () => KnownApplication[];
   'update-known-application': (app: KnownApplication) => void;
+  'open-settings-window': () => void;
   'get-settings': () => Promise<UserSettings>;
   'set-settings': (settings: UserSettings) => void;
 

@@ -167,15 +167,6 @@ async function resolveLink(linkPath: string) {
   }
 }
 
-export function playWavSoundWindows(filePath: string) {
-  try {
-    const command = `(New-Object Media.SoundPlayer ${filePath}).PlaySync()`;
-    exec(command, { shell: 'powershell.exe' });
-  } catch (err) {
-    error(err);
-  }
-}
-
 export async function sampleOpenApplications(): Promise<string[]> {
   if (isMac) {
     const command = `osascript -e 'set apps to {}' -e 'tell application "System Events"' -e 'repeat with theProcess in processes' -e 'if not background only of theProcess then' -e 'tell theProcess' -e 'set processName to name' -e 'set appWindows to windows' -e 'end tell' -e 'if (count of appWindows) > 0 then' -e 'set end of apps to processName' -e 'end if' -e 'end if' -e 'end repeat' -e 'end tell' -e 'return apps'`;
