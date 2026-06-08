@@ -172,6 +172,14 @@ export default class WindowManager {
       visibleOnFullScreen: true,
     });
 
+    // The skipTaskbar + focusable:false + visibleOnFullScreen combo can flip
+    // macOS's activation policy to "accessory", hiding the dock icon. Force
+    // it back on so the user keeps a normal app icon they can click to
+    // restore the main window.
+    if (process.platform === 'darwin' && app.dock) {
+      app.dock.show();
+    }
+
     this.taskSwitcherWindow.loadURL(
       resolveHtmlPath('index.html') + `#/taskSwitcher`
     );

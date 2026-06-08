@@ -85,6 +85,9 @@ app.on('window-all-closed', () => {});
 app
   .whenReady()
   .then(async () => {
+    if (process.platform === 'darwin' && app.dock) {
+      app.dock.show();
+    }
     if (isDebug) {
       await installExtensions();
     }
