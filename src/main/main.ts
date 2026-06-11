@@ -12,7 +12,7 @@ import './ipc/api';
 import { app, globalShortcut, powerMonitor } from 'electron';
 import log from "electron-log";
 import { info } from 'electron-log';
-import TaskSnap from './TaskSnap';
+import ContextShifter from './ContextShifter';
 import { Database } from './database';
 import Log from './entity/Log';
 import WindowManager from './WindowManager';
@@ -113,8 +113,8 @@ app
       key: 'lastStart',
       value: new Date().toISOString(),
     });
-    const taskSnap = TaskSnap.getInstance();
-    taskSnap.start();
+    const contextShifter = ContextShifter.getInstance();
+    contextShifter.start();
 
     // open the main window on startup
     await WindowManager.createMainWindow();
@@ -126,8 +126,8 @@ app
   .catch(console.log);
 
 app.on('before-quit', async (e) => {
-  const taskSnap = TaskSnap.getInstance();
-  await taskSnap.stop();
+  const contextShifter = ContextShifter.getInstance();
+  await contextShifter.stop();
   globalShortcut.unregisterAll();
   DeviceManager.getInstance().stopMonitoring();
   TimeBuzzerManager.getInstance().stopMonitoring();
@@ -136,14 +136,14 @@ app.on('before-quit', async (e) => {
 
 powerMonitor.on('lock-screen', async () => {
   info('[main] lock-screen');
-  const taskSnap = TaskSnap.getInstance();
-  await taskSnap.stopTrackers();
+  const contextShifter = ContextShifter.getInstance();
+  await contextShifter.stopTrackers();
   await UsageData.addEntry('lock-screen', true);
 });
 
 powerMonitor.on('unlock-screen', async () => {
   info('[main] unlock-screen');
-  const taskSnap = TaskSnap.getInstance();
-  taskSnap.startTrackers();
+  const contextShifter = ContextShifter.getInstance();
+  contextShifter.startTrackers();
   await UsageData.addEntry('unlock-screen', true);
 });

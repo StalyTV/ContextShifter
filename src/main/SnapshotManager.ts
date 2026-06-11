@@ -4,7 +4,7 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
-import TaskSnap from './TaskSnap';
+import ContextShifter from './ContextShifter';
 import Snapshot from './entity/Snapshot';
 import Application from './entity/Application';
 import BrowserEntity from './entity/Browser';
@@ -15,6 +15,7 @@ import FileEntity from './entity/File';
 import { info } from 'electron-log';
 import UsageData from './entity/UsageData';
 import TrayManager from './TrayManager';
+import ActiveTaskSession from './ActiveTaskSession';
 
 export default class SnapshotManager {
   private static _instance: SnapshotManager;
@@ -64,6 +65,43 @@ export default class SnapshotManager {
     return child;
   }
 
+  /**
+   * Delete a task/subtask and everything under it. Child subtasks are removed
+   * first; each snapshot's artefacts (browsers/tabs, IDEs/files, apps/files)
+   * cascade-delete via their onDelete: 'CASCADE' foreign keys. If the deleted
+   * task (or one of its subtasks) is currently active, the active-task session
+   * is discarded so the app falls back to "None".
+   */
+  public async deleteSnapshot(id: number): Promise<void> {
+    const snap = await Snapshot.findOneBy({ id });
+    if (!snap) {
+      info(`[SnapshotManager] deleteSnapshot: ${id} not found`);
+      return;
+    }
+
+    const children = await Snapshot.findBy({ parentId: id });
+    for (const child of children) {
+      await Snapshot.delete(child.id);
+    }
+    await Snapshot.delete(id);
+
+    // Deactivate if we just deleted the active task (or its active subtask).
+    const activeId = ActiveTaskSession.getInstance().getActiveTaskId();
+    if (activeId === id || children.some((c) => c.id === activeId)) {
+      ActiveTaskSession.getInstance().discard();
+    }
+
+    await UsageData.addEntry(
+      'delete-snapshot',
+      false,
+      `id: ${id}, children: ${children.length}`
+    );
+    info(
+      `[SnapshotManager] Deleted snapshot ${id} and ${children.length} subtask(s)`
+    );
+    await TrayManager.updateTray();
+  }
+
   /** Phase 2: rename a snapshot (used by edit view). */
   public async renameSnapshot(snapshotId: number, name: string) {
     const snap = await Snapshot.findOneBy({ id: snapshotId });
@@ -79,7 +117,7 @@ export default class SnapshotManager {
    * currently-open browsers / IDEs / applications. Pass `parentId` to
    * create a subtask under an existing parent; otherwise a top-level task
    * is created. The renderer obtains the full open set via
-   * `TaskSnap.getCurrentlyOpenApplications()` and filters client-side.
+   * `ContextShifter.getCurrentlyOpenApplications()` and filters client-side.
    */
   public async createTask(
     name: string,
@@ -106,7 +144,7 @@ export default class SnapshotManager {
     await snap.save();
 
     // Persist the chosen artifacts and link them to this snapshot. Mirrors
-    // TaskSnap.createNewSnapshot's persistence pattern (cascade saves nested
+    // ContextShifter.createNewSnapshot's persistence pattern (cascade saves nested
     // BrowserTab / IDEFile rows).
     if (browsers.length > 0) {
       browsers.forEach((b) => {

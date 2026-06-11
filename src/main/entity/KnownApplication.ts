@@ -23,6 +23,11 @@ export default class KnownApplication extends BaseEntity {
   @Column({ type: 'tinyint', nullable: false, default: false })
   neverClose!: boolean;
 
+  // Transient (not persisted): set at query time to indicate the app currently
+  // has an open window. Lets the Settings UI surface "currently open" apps to
+  // pick from, separate from apps merely seen in the past.
+  isCurrentlyOpen?: boolean;
+
   static async getAppsThatShouldNeverBeClosed(): Promise<KnownApplication[]> {
     const apps = await this.find({
       where: { neverClose: true },

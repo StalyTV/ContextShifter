@@ -7,7 +7,7 @@
 import typedIpcMain from './typedIpcMain';
 import SnapshotManager from '../SnapshotManager';
 import { nativeTheme } from 'electron';
-import TaskSnap from '../TaskSnap';
+import ContextShifter from '../ContextShifter';
 import UsageData from '../entity/UsageData';
 import DeviceManager from '../HID/DeviceManager';
 import UserSettings from 'types/UserSettings';
@@ -16,6 +16,7 @@ import { Database } from '../database';
 import StudyManager from '../StudyManager';
 import WindowManager from '../WindowManager';
 import ActiveTaskSession from '../ActiveTaskSession';
+import TaskRestorer from '../TaskRestorer';
 import BrowserTracker from '../trackers/BrowserTracker';
 import VSCodeTracker from '../trackers/VSCodeTracker';
 import Snapshot from '../entity/Snapshot';
@@ -25,7 +26,9 @@ import IDEEntity from '../entity/IDE';
 import IDEFileEntity from '../entity/IDEFile';
 import ApplicationEntity from '../entity/Application';
 import FileEntity from '../entity/File';
+import NeverCloseBrowserTab from '../entity/NeverCloseBrowserTab';
 import { BrowserType } from 'types/BrowserType';
+import { OpenBrowserTab } from 'types/Commands';
 
 typedIpcMain.handle('get-snapshot-by-id', async (e, id) => {
   return await SnapshotManager.getInstance().getSnapshotById(id);
@@ -48,10 +51,15 @@ typedIpcMain.handle('rename-snapshot', async (e, snapshotId, name) => {
   await SnapshotManager.getInstance().renameSnapshot(snapshotId, name);
 });
 
+typedIpcMain.handle('delete-snapshot', async (e, snapshotId) => {
+  await SnapshotManager.getInstance().deleteSnapshot(snapshotId);
+  WindowManager.mainWindow?.webContents.send('snapshots-changed');
+});
+
 // Legacy: still used by the old create-task-with-picker flow (currently
 // only exercised by the upgrade path / tests).
 typedIpcMain.handle('get-currently-open-applications', async () => {
-  return await TaskSnap.getInstance().getCurrentlyOpenApplications();
+  return await ContextShifter.getInstance().getCurrentlyOpenApplications();
 });
 
 typedIpcMain.handle(
@@ -108,6 +116,9 @@ typedIpcMain.handle('resume-task', async (e, taskId) => {
   snap.lastChange = new Date().toISOString();
   await snap.save();
   WindowManager.mainWindow?.webContents.send('snapshots-changed');
+  // Restore the task's context: open its artefacts and close the rest
+  // (except never-close apps / the file explorer / ContextShifter itself).
+  await TaskRestorer.restore(snap.id);
   return snap;
 });
 
@@ -393,7 +404,7 @@ typedIpcMain.handle('set-settings', async (e, updatedSettings) => {
 });
 
 typedIpcMain.handle('get-extensions-status', async () => {
-  return TaskSnap.getInstance().getExtensionsStatus();
+  return ContextShifter.getInstance().getExtensionsStatus();
 });
 
 typedIpcMain.handle('get-device-status', async () => {
@@ -401,11 +412,61 @@ typedIpcMain.handle('get-device-status', async () => {
 });
 
 typedIpcMain.handle('get-known-applications', async () => {
-  return TaskSnap.getInstance().getKnownApplications();
+  return ContextShifter.getInstance().getKnownApplications();
 });
 
 typedIpcMain.handle('update-known-application', async (e, app) => {
-  await TaskSnap.getInstance().updateKnownApplication(app);
+  await ContextShifter.getInstance().updateKnownApplication(app);
+});
+
+// ---------- never-close browser tabs ----------
+
+typedIpcMain.handle('get-open-browser-tabs', async () => {
+  const live = BrowserTracker.getInstance().getSnapshotInformation();
+  const byUrl = new Map<string, OpenBrowserTab>();
+  live.forEach((windows, type) => {
+    windows.forEach((win) => {
+      (win.browserTabs ?? []).forEach((tab) => {
+        if (tab.url && !byUrl.has(tab.url)) {
+          byUrl.set(tab.url, {
+            url: tab.url,
+            title: tab.title ?? tab.url,
+            favIconUrl: tab.favIconUrl ?? '',
+            browserType: type,
+          });
+        }
+      });
+    });
+  });
+  return Array.from(byUrl.values());
+});
+
+typedIpcMain.handle('get-never-close-tabs', async () => {
+  return await NeverCloseBrowserTab.getAll();
+});
+
+typedIpcMain.handle('add-never-close-tab', async (e, tab) => {
+  const existing = await NeverCloseBrowserTab.findOneBy({ url: tab.url });
+  if (existing) {
+    existing.title = tab.title;
+    existing.favIconUrl = tab.favIconUrl;
+    existing.browserType = tab.browserType;
+    await existing.save();
+    return;
+  }
+  const entity = NeverCloseBrowserTab.create({
+    url: tab.url,
+    title: tab.title,
+    favIconUrl: tab.favIconUrl,
+    browserType: tab.browserType,
+  });
+  await entity.save();
+  await UsageData.addEntry('add-never-close-tab', false, tab.url);
+});
+
+typedIpcMain.handle('remove-never-close-tab', async (e, id) => {
+  const existing = await NeverCloseBrowserTab.findOneBy({ id });
+  if (existing) await existing.remove();
 });
 
 typedIpcMain.handle('open-settings-window', async () => {

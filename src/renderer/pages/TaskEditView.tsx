@@ -10,6 +10,11 @@ import IDEEntity from '../../main/entity/IDE';
 import IDEFileEntity from '../../main/entity/IDEFile';
 import ApplicationEntity from '../../main/entity/Application';
 import FileEntity from '../../main/entity/File';
+import TaskActionButtons from '../components/TaskActionButtons';
+import ConfirmDialog from '../components/ConfirmDialog';
+import CommitTaskDialog from '../components/CommitTaskDialog';
+
+type ActiveTask = { id: number; name: string } | null;
 
 function hostFromUrl(url: string): string {
   try {
@@ -115,6 +120,10 @@ export default function TaskEditView() {
   const [newName, setNewName] = useState('');
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [activeTask, setActiveTask] = useState<ActiveTask>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SnapshotEntity | null>(null);
+  const [showCommitTask, setShowCommitTask] = useState(false);
+  const [pendingResumeId, setPendingResumeId] = useState<number | null>(null);
 
   const isSubtask = useMemo(
     () => snapshot?.parentId != null,
@@ -150,6 +159,70 @@ export default function TaskEditView() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const t = (await window.electron.ipcRenderer.invoke(
+        'get-active-task'
+      )) as ActiveTask;
+      if (alive) setActiveTask(t);
+    })();
+    const handler = (_e: unknown, task: ActiveTask) => setActiveTask(task);
+    (window as any).electron.onActiveTaskChanged(handler);
+    return () => {
+      alive = false;
+      (window as any).electron.removeOnActiveTaskChanged();
+    };
+  }, []);
+
+  // Activate a task/subtask. If another task is active, commit it first.
+  const handleActivate = async (taskId: number) => {
+    if (activeTask?.id === taskId) return;
+    if (activeTask) {
+      setPendingResumeId(taskId);
+      setShowCommitTask(true);
+      return;
+    }
+    try {
+      await window.electron.ipcRenderer.invoke('resume-task', taskId);
+      navigate(`/task/${taskId}`);
+    } catch {
+      /* best-effort */
+    }
+  };
+
+  const finaliseResume = async () => {
+    const taskId = pendingResumeId;
+    setPendingResumeId(null);
+    if (taskId == null) return;
+    try {
+      await window.electron.ipcRenderer.invoke('resume-task', taskId);
+      navigate(`/task/${taskId}`);
+    } catch {
+      /* best-effort */
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const delId = deleteTarget.id;
+    const isCurrent = snapshot != null && delId === snapshot.id;
+    setDeleteTarget(null);
+    try {
+      await window.electron.ipcRenderer.invoke('delete-snapshot', delId);
+    } finally {
+      if (isCurrent) {
+        if (isSubtask && snapshot?.parentId != null) {
+          navigate(`/task/${snapshot.parentId}`);
+        } else {
+          navigate('/');
+        }
+      } else {
+        await load();
+      }
+    }
+  };
 
   async function commitName() {
     if (!snapshot) return;
@@ -232,6 +305,13 @@ export default function TaskEditView() {
           }}
           placeholder="Untitled task"
         />
+        <div style={{ marginLeft: 'auto' }}>
+          <TaskActionButtons
+            isActive={activeTask?.id === snapshot.id}
+            onActivate={() => handleActivate(snapshot.id)}
+            onDelete={() => setDeleteTarget(snapshot)}
+          />
+        </div>
       </div>
 
       {/* Subtasks */}
@@ -289,7 +369,11 @@ export default function TaskEditView() {
                 <span className={styles.subtaskName}>
                   {c.name || `Task ${c.id}`}
                 </span>
-                <span className={styles.subtaskMeta}>open</span>
+                <TaskActionButtons
+                  isActive={activeTask?.id === c.id}
+                  onActivate={() => handleActivate(c.id)}
+                  onDelete={() => setDeleteTarget(c)}
+                />
               </div>
             ))}
           </div>
@@ -435,6 +519,32 @@ export default function TaskEditView() {
           </div>
         )}
       </section>
+
+      {showCommitTask && (
+        <CommitTaskDialog
+          onClose={async () => {
+            setShowCommitTask(false);
+            await finaliseResume();
+          }}
+          onCommitted={async () => {
+            setShowCommitTask(false);
+            await finaliseResume();
+          }}
+        />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Delete task"
+          message={`Delete "${
+            deleteTarget.name || `Task ${deleteTarget.id}`
+          }"? This also removes its subtasks and captured artefacts. This cannot be undone.`}
+          confirmLabel="Delete"
+          danger
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
   );
 }

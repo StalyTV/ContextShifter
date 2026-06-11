@@ -182,9 +182,13 @@ export default class TimeBuzzerManager {
       if (tm.isSwitcherOpen()) {
         info('[TimeBuzzerManager] press -> select / drilldown');
         tm.pressSelect();
+      } else {
+        // Switcher closed: a single press starts a new task — opens the
+        // name dialog and kicks off the usual task-creation flow (committing
+        // the current task first if one is active).
+        info('[TimeBuzzerManager] press -> start new task');
+        tm.startNewTask();
       }
-      // Switcher closed: no-op. The legacy snapshot trigger has been removed;
-      // task creation now goes through the + New task button / dialog.
     }, TimeBuzzerManager.DOUBLE_PRESS_WINDOW_MS);
   }
 

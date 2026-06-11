@@ -68,6 +68,8 @@ export type UsageDataEvent =
   | 'connect-supported-usb-device'
   | 'disconnect-supported-usb-device'
   | 'update-known-application'
+  | 'add-never-close-tab'
+  | 'remove-never-close-tab'
   | 'update-settings'
   | 'merge-snapshots'
   | 'postpone-end-of-day-questionnaire'

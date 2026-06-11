@@ -3,7 +3,7 @@ import './App.scss';
 import Toast from './components/Toast/Toast';
 import TaskList from './pages/TaskList';
 import TaskEditView from './pages/TaskEditView';
-import TaskSnapTooltip from './components/Tooltip/TaskSnapTooltip';
+import ContextShifterTooltip from './components/Tooltip/ContextShifterTooltip';
 import Settings from './pages/Settings';
 import TaskSwitcher from './pages/TaskSwitcher';
 
@@ -19,7 +19,7 @@ export default function App() {
         </Routes>
       </HashRouter>
       <Toast />
-      <TaskSnapTooltip />
+      <ContextShifterTooltip />
     </>
   );
 }

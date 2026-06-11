@@ -70,25 +70,25 @@ export default class BrowserTracker {
 
 
     for (const [windowId, window] of this._openWindows) {
-      const taskSnapBrowserEntity = new Browser();
-      taskSnapBrowserEntity.browserTabs = [];
-      taskSnapBrowserEntity.windowId = windowId;
-      taskSnapBrowserEntity.type = this.getBrowserTypeFromWindowTitle(<string>window.title);
-      taskSnapBrowserEntity.isSelected = window.focused;
+      const browserEntity = new Browser();
+      browserEntity.browserTabs = [];
+      browserEntity.windowId = windowId;
+      browserEntity.type = this.getBrowserTypeFromWindowTitle(<string>window.title);
+      browserEntity.isSelected = window.focused;
 
       if (window.tabs != undefined) {
         for (const tab of window.tabs) {
-          const TaskSnapTabEntity = new BrowserTab();
-          TaskSnapTabEntity.url = <string>tab.url;
-          TaskSnapTabEntity.title = <string>tab.title;
-          TaskSnapTabEntity.favIconUrl = <string>tab.favIconUrl;
-          TaskSnapTabEntity.index = tab.index;
-          TaskSnapTabEntity.isActive = tab.active;
+          const tabEntity = new BrowserTab();
+          tabEntity.url = <string>tab.url;
+          tabEntity.title = <string>tab.title;
+          tabEntity.favIconUrl = <string>tab.favIconUrl;
+          tabEntity.index = tab.index;
+          tabEntity.isActive = tab.active;
 
-          taskSnapBrowserEntity.browserTabs.push(TaskSnapTabEntity);
+          browserEntity.browserTabs.push(tabEntity);
         }
       }
-      browsers.get(taskSnapBrowserEntity.type)!.push(taskSnapBrowserEntity);
+      browsers.get(browserEntity.type)!.push(browserEntity);
     }
     return browsers;
   }

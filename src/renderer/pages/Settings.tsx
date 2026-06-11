@@ -7,11 +7,12 @@
 import { useEffect, useState } from 'react';
 import styles from './Settings.module.scss';
 import ExtensionsStatus from '../../types/ExtensionsStatus';
-import TaskSnapToggle from '../components/Toggle/TaskSnapToggle';
+import ContextShifterToggle from '../components/Toggle/ContextShifterToggle';
 import KnownApplicationEntity from '../../main/entity/KnownApplication';
-import PlusIcon from '../components/Icons/PlusIcon';
+import NeverCloseBrowserTabEntity from '../../main/entity/NeverCloseBrowserTab';
 import InfoIcon from '../components/Icons/InfoIcon';
 import UserSettings from 'types/UserSettings';
+import { OpenBrowserTab } from 'types/Commands';
 
 export default function Settings() {
   let loopRef: NodeJS.Timeout | undefined;
@@ -29,12 +30,22 @@ export default function Settings() {
   );
   const [showQuestionnaireOnlyOnWorkdays, setShowQuestionnaireOnlyOnWorkdays] =
     useState<boolean>(true);
+
+  // never-close applications
   const [neverCloseApplications, setNeverCloseApplications] = useState<
     KnownApplicationEntity[]
   >([]);
-  const [otherApplications, setOtherApplications] = useState<
+  // applications currently open that aren't protected yet (the pick-from list)
+  const [openApplications, setOpenApplications] = useState<
     KnownApplicationEntity[]
   >([]);
+
+  // never-close browser tabs
+  const [neverCloseTabs, setNeverCloseTabs] = useState<
+    NeverCloseBrowserTabEntity[]
+  >([]);
+  const [openBrowserTabs, setOpenBrowserTabs] = useState<OpenBrowserTab[]>([]);
+
   const [isFetchingSettings, setIsFetchingSettings] = useState<boolean>(false);
 
   const getSettings = async () => {
@@ -78,44 +89,67 @@ export default function Settings() {
       const fetchedApplications = await window.electron.ipcRenderer.invoke(
         'get-known-applications'
       );
-
-      const neverCloseApps = fetchedApplications.filter((app) => {
-        return app.neverClose;
-      });
-      setNeverCloseApplications(neverCloseApps);
-      const otherApps = fetchedApplications.filter((app) => {
-        return !app.neverClose;
-      });
-      setOtherApplications(otherApps);
+      setNeverCloseApplications(
+        fetchedApplications.filter((app) => app.neverClose)
+      );
+      // Offer currently-open, not-yet-protected apps to pick from.
+      setOpenApplications(
+        fetchedApplications.filter(
+          (app) => !app.neverClose && app.isCurrentlyOpen
+        )
+      );
     } catch (err) {
       console.error(err);
     }
   };
 
-  const onClickNeverCloseApp = async (app: KnownApplicationEntity) => {
-    app.neverClose = !app.neverClose;
-    const updatedNeverCloseApps = neverCloseApplications.filter((appInList) => {
-      return appInList.id !== app.id;
-    });
-    setNeverCloseApplications(updatedNeverCloseApps);
-    setOtherApplications([...otherApplications, app]);
-
-    await updateKnownApplication(app);
+  const getBrowserTabs = async () => {
+    try {
+      const open = await window.electron.ipcRenderer.invoke(
+        'get-open-browser-tabs'
+      );
+      const never = await window.electron.ipcRenderer.invoke(
+        'get-never-close-tabs'
+      );
+      const protectedUrls = new Set(never.map((t) => t.url));
+      setNeverCloseTabs(never);
+      setOpenBrowserTabs(open.filter((t) => !protectedUrls.has(t.url)));
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const onClickOtherApp = async (app: KnownApplicationEntity) => {
-    app.neverClose = !app.neverClose;
-    const updatedOtherApps = otherApplications.filter((appInList) => {
-      return appInList.id !== app.id;
-    });
-    setOtherApplications(updatedOtherApps);
-    setNeverCloseApplications([...neverCloseApplications, app]);
-
-    await updateKnownApplication(app);
+  const refreshChoosers = async () => {
+    await getKnownApplications();
+    await getBrowserTabs();
   };
 
-  const updateKnownApplication = async (app: KnownApplicationEntity) => {
+  const protectApplication = async (app: KnownApplicationEntity) => {
+    app.neverClose = true;
+    setOpenApplications((prev) => prev.filter((a) => a.id !== app.id));
+    setNeverCloseApplications((prev) => [...prev, app]);
     await window.electron.ipcRenderer.invoke('update-known-application', app);
+  };
+
+  const unprotectApplication = async (app: KnownApplicationEntity) => {
+    app.neverClose = false;
+    setNeverCloseApplications((prev) => prev.filter((a) => a.id !== app.id));
+    if (app.isCurrentlyOpen) {
+      setOpenApplications((prev) => [...prev, app]);
+    }
+    await window.electron.ipcRenderer.invoke('update-known-application', app);
+  };
+
+  const protectTab = async (tab: OpenBrowserTab) => {
+    setOpenBrowserTabs((prev) => prev.filter((t) => t.url !== tab.url));
+    await window.electron.ipcRenderer.invoke('add-never-close-tab', tab);
+    await getBrowserTabs();
+  };
+
+  const unprotectTab = async (tab: NeverCloseBrowserTabEntity) => {
+    setNeverCloseTabs((prev) => prev.filter((t) => t.id !== tab.id));
+    await window.electron.ipcRenderer.invoke('remove-never-close-tab', tab.id);
+    await getBrowserTabs();
   };
 
   const onToggleColorTheme = async () => {
@@ -143,6 +177,7 @@ export default function Settings() {
   useEffect(() => {
     getSettings();
     getKnownApplications();
+    getBrowserTabs();
     getConnectionStatus();
     loopRef = setInterval(() => {
       getConnectionStatus();
@@ -159,7 +194,7 @@ export default function Settings() {
       {isFetchingSettings ? null : (
         <div>
           <h4>Color Theme</h4>
-          <TaskSnapToggle
+          <ContextShifterToggle
             defaultChecked={isDarkMode}
             leftLabel={'light'}
             rightLabel={'dark'}
@@ -167,7 +202,7 @@ export default function Settings() {
             onChange={onToggleColorTheme}
           />
           <h4>Anonymize Data</h4>
-          <TaskSnapToggle
+          <ContextShifterToggle
             defaultChecked={isDataAnonymized}
             leftLabel={'no'}
             rightLabel={'yes'}
@@ -205,45 +240,135 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className={styles.titleWithInfo}>
-        <h4>Apps that should never be closed</h4>
-        <InfoIcon
-          className={styles.infoIcon}
-          data-tooltip-id={'task-snap'}
-          data-tooltip-html={
-            'If an app is not listed, make sure it is in focus and reopen the settings window'
-          }
-        />
+      <div className={styles.sectionHeader}>
+        <div className={styles.titleWithInfo}>
+          <h4>Apps that should never be closed</h4>
+          <InfoIcon
+            className={styles.infoIcon}
+            data-tooltip-id={'task-snap'}
+            data-tooltip-html={
+              'These applications stay open when you switch tasks. Pick from the open apps below to protect one.'
+            }
+          />
+        </div>
+        <button className={styles.refreshBtn} onClick={refreshChoosers}>
+          Refresh
+        </button>
       </div>
-      <div className={styles.neverCloseApplications}>
-        {neverCloseApplications.map((app) => {
-          return (
-            <img
+
+      {neverCloseApplications.length === 0 ? (
+        <p className={styles.emptyHint}>No protected apps yet.</p>
+      ) : (
+        <div className={styles.list}>
+          {neverCloseApplications.map((app) => (
+            <div key={app.id} className={styles.row}>
+              <img className={styles.rowIcon} src={app.icon} alt="" />
+              <span className={styles.rowLabel}>{app.name}</span>
+              <button
+                className={styles.removeBtn}
+                title="Remove from never-close"
+                onClick={() => unprotectApplication(app)}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <h4 className={styles.subHeading}>Currently open applications</h4>
+      {openApplications.length === 0 ? (
+        <p className={styles.emptyHint}>
+          No other open apps detected. Make sure the app has a window in focus,
+          then press Refresh.
+        </p>
+      ) : (
+        <div className={styles.list}>
+          {openApplications.map((app) => (
+            <div
               key={app.id}
-              className={styles.appIcon}
-              src={app.icon}
-              data-tooltip-id={'task-snap'}
-              data-tooltip-content={app.name}
-              onClick={() => onClickNeverCloseApp(app)}
-            />
-          );
-        })}
+              className={`${styles.row} ${styles.rowClickable}`}
+              title="Mark as never-close"
+              onClick={() => protectApplication(app)}
+            >
+              <img className={styles.rowIcon} src={app.icon} alt="" />
+              <span className={styles.rowLabel}>{app.name}</span>
+              <span className={styles.addHint}>+ protect</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className={styles.sectionHeader}>
+        <div className={styles.titleWithInfo}>
+          <h4>Browser tabs that should never close</h4>
+          <InfoIcon
+            className={styles.infoIcon}
+            data-tooltip-id={'task-snap'}
+            data-tooltip-html={
+              'These tabs stay open when you switch tasks. Requires the browser extension to be connected.'
+            }
+          />
+        </div>
       </div>
-      <div className={styles.otherApplications}>
-        <PlusIcon className={styles.plusIcon} />
-        {otherApplications.map((app) => {
-          return (
-            <img
-              key={app.id}
-              className={styles.appIcon}
-              src={app.icon}
-              data-tooltip-id={'task-snap'}
-              data-tooltip-content={app.name}
-              onClick={() => onClickOtherApp(app)}
-            />
-          );
-        })}
-      </div>
+
+      {!extensionStatus.isBrowserConnected ? (
+        <p className={styles.emptyHint}>
+          Connect the browser extension to manage tabs.
+        </p>
+      ) : (
+        <>
+          {neverCloseTabs.length === 0 ? (
+            <p className={styles.emptyHint}>No protected tabs yet.</p>
+          ) : (
+            <div className={styles.list}>
+              {neverCloseTabs.map((tab) => (
+                <div key={tab.id} className={styles.row}>
+                  {tab.favIconUrl ? (
+                    <img className={styles.rowIcon} src={tab.favIconUrl} alt="" />
+                  ) : (
+                    <span className={styles.rowIconFallback} />
+                  )}
+                  <span className={styles.rowLabel}>{tab.title || tab.url}</span>
+                  <button
+                    className={styles.removeBtn}
+                    title="Remove from never-close"
+                    onClick={() => unprotectTab(tab)}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <h4 className={styles.subHeading}>Currently open tabs</h4>
+          {openBrowserTabs.length === 0 ? (
+            <p className={styles.emptyHint}>
+              No open tabs detected. Press Refresh after opening a tab.
+            </p>
+          ) : (
+            <div className={styles.list}>
+              {openBrowserTabs.map((tab) => (
+                <div
+                  key={tab.url}
+                  className={`${styles.row} ${styles.rowClickable}`}
+                  title="Mark as never-close"
+                  onClick={() => protectTab(tab)}
+                >
+                  {tab.favIconUrl ? (
+                    <img className={styles.rowIcon} src={tab.favIconUrl} alt="" />
+                  ) : (
+                    <span className={styles.rowIconFallback} />
+                  )}
+                  <span className={styles.rowLabel}>{tab.title || tab.url}</span>
+                  <span className={styles.addHint}>+ protect</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

@@ -37,7 +37,7 @@ import StudyManager from "./StudyManager";
 
 const fileIcon = require('extract-file-icon');
 
-interface TaskSnapWindowObject {
+interface ContextShifterWindowObject {
   title: string;
   application: string;
   applicationPath: string;
@@ -45,17 +45,17 @@ interface TaskSnapWindowObject {
 }
 
 type SupportedBrowserTypes = {
-  edge: TaskSnapWindowObject[];
-  chrome: TaskSnapWindowObject[];
-  safari: TaskSnapWindowObject[];
-  firefox: TaskSnapWindowObject[];
+  edge: ContextShifterWindowObject[];
+  chrome: ContextShifterWindowObject[];
+  safari: ContextShifterWindowObject[];
+  firefox: ContextShifterWindowObject[];
 };
 
 /**
  * Main class of the application
  */
-export default class TaskSnap {
-  private static _instance: TaskSnap;
+export default class ContextShifter {
+  private static _instance: ContextShifter;
   private _windowTracker: WindowTracker;
   private _browserTracker: BrowserTracker;
   private _fileSystemWatcher: FileSystemWatcher;
@@ -77,18 +77,18 @@ export default class TaskSnap {
   }
 
   public start() {
-    info('[TaskSnap] Started');
+    info('[ContextShifter] Started');
     TrayManager.init(this);
     this.startTrackers();
   }
 
   public async stop() {
-    info('[TaskSnap] Stopped');
+    info('[ContextShifter] Stopped');
     await this.stopTrackers();
   }
 
   public startTrackers() {
-    info('[TaskSnap] Started Trackers');
+    info('[ContextShifter] Started Trackers');
     this._windowTracker.start();
     this._fileSystemWatcher.start();
     ActiveArtifact.startIdleCheck();
@@ -97,7 +97,7 @@ export default class TaskSnap {
   }
 
   public async stopTrackers() {
-    info('[TaskSnap] Stopped Trackers');
+    info('[ContextShifter] Stopped Trackers');
     await this._windowTracker.stop();
     this._fileSystemWatcher.stop();
     await ActiveArtifact.storeAll();
@@ -109,7 +109,7 @@ export default class TaskSnap {
   public async getCurrentlyOpenApplications(): Promise<
     [Browser[], IDE[], Application[]]> {
     const t0 = Date.now();
-    info('[TaskSnap] getCurrentlyOpenApplications: start');
+    info('[ContextShifter] getCurrentlyOpenApplications: start');
     // active-win occasionally hangs or exits non-zero on macOS (Screen
     // Recording permission, sandbox quirks, transient process state).
     // Race it against a timeout and fall back to recently-active windows
@@ -123,16 +123,16 @@ export default class TaskSnap {
         ),
       ]);
       info(
-        `[TaskSnap] getCurrentlyOpenApplications: activeWin (${Date.now() - t0}ms, ${visibleWindows.length} windows)`
+        `[ContextShifter] getCurrentlyOpenApplications: activeWin (${Date.now() - t0}ms, ${visibleWindows.length} windows)`
       );
     } catch (err) {
       info(
-        `[TaskSnap] getCurrentlyOpenApplications: activeWin failed (${Date.now() - t0}ms): ${String(err)}`
+        `[ContextShifter] getCurrentlyOpenApplications: activeWin failed (${Date.now() - t0}ms): ${String(err)}`
       );
       visibleWindows = [];
     }
 
-    let windowsToConsider = this.mapActiveWinToTaskSnapWindows(visibleWindows);
+    let windowsToConsider = this.mapActiveWinToContextShifterWindows(visibleWindows);
 
     // In addition, consider all applications used in the last 12 minutes.
     // Like this, we also get apps that are recently closed, minimized, or in full screen (mac).
@@ -144,10 +144,10 @@ export default class TaskSnap {
     );
 
 
-    const recentlyActiveTaskSnapWindows = this.mapActiveWinToTaskSnapWindows(undefined, recentlyActiveWindows);
+    const recentlyActiveContextShifterWindows = this.mapActiveWinToContextShifterWindows(undefined, recentlyActiveWindows);
 
     //add recently active windows to list
-    recentlyActiveTaskSnapWindows.forEach((win) => {
+    recentlyActiveContextShifterWindows.forEach((win) => {
       const isAlreadyInList = windowsToConsider.some((winInList) => {
         return winInList.application === win.application && winInList.processId === win.processId;
       });
@@ -178,7 +178,7 @@ export default class TaskSnap {
       // sandboxed app. Race it against a timeout so the UI never deadlocks;
       // we'd rather miss a few file associations than freeze the dialog.
       const lsofStart = Date.now();
-      info(`[TaskSnap] getCurrentlyOpenApplications: lsof start (${pidsOfApplications.length} pids)`);
+      info(`[ContextShifter] getCurrentlyOpenApplications: lsof start (${pidsOfApplications.length} pids)`);
       try {
         processInfos = await Promise.race([
           lsof(options),
@@ -186,9 +186,9 @@ export default class TaskSnap {
             setTimeout(() => reject(new Error('lsof timeout')), 8000)
           ),
         ]);
-        info(`[TaskSnap] getCurrentlyOpenApplications: lsof done (${Date.now() - lsofStart}ms, ${processInfos.length} infos)`);
+        info(`[ContextShifter] getCurrentlyOpenApplications: lsof done (${Date.now() - lsofStart}ms, ${processInfos.length} infos)`);
       } catch (err) {
-        info(`[TaskSnap] getCurrentlyOpenApplications: lsof failed/timed out (${Date.now() - lsofStart}ms): ${String(err)}`);
+        info(`[ContextShifter] getCurrentlyOpenApplications: lsof failed/timed out (${Date.now() - lsofStart}ms): ${String(err)}`);
         processInfos = [];
       }
     } else {
@@ -200,13 +200,13 @@ export default class TaskSnap {
 
 
     const openBrowsers: Browser[] = await this.handleBrowsers(browsers);
-    info(`[TaskSnap] getCurrentlyOpenApplications: handled browsers (${openBrowsers.length})`);
+    info(`[ContextShifter] getCurrentlyOpenApplications: handled browsers (${openBrowsers.length})`);
     const openIDEs: IDE[] = [] = await this.handleIdes(ides);
-    info(`[TaskSnap] getCurrentlyOpenApplications: handled IDEs (${openIDEs.length})`);
+    info(`[ContextShifter] getCurrentlyOpenApplications: handled IDEs (${openIDEs.length})`);
     let openApplications: Application[] = await this.handleFileExplorer(fileExplorers);
     const otherApplications: Application[] = await this.handleRegularApplications(regularApps, processInfos, recentlyOpenedFiles);
     openApplications = openApplications.concat(otherApplications);
-    info(`[TaskSnap] getCurrentlyOpenApplications: handled apps (${openApplications.length})`);
+    info(`[ContextShifter] getCurrentlyOpenApplications: handled apps (${openApplications.length})`);
 
     // Filter out applications/IDEs the user marked as "never close" — these
     // are treated as ignored by the tracker (not included in new tasks).
@@ -217,7 +217,7 @@ export default class TaskSnap {
       (a) => !ignoredNames.has(a.name)
     );
 
-    info(`[TaskSnap] getCurrentlyOpenApplications: done in ${Date.now() - t0}ms`);
+    info(`[ContextShifter] getCurrentlyOpenApplications: done in ${Date.now() - t0}ms`);
     return [openBrowsers, filteredIDEs, filteredApps];
   }
 
@@ -237,8 +237,23 @@ export default class TaskSnap {
   }
 
   public async getKnownApplications(): Promise<KnownApplication[]> {
-    // first update list of known applications based on currently open windows
-    const openWindows = await activeWin.getOpenWindows();
+    // first update list of known applications based on currently open windows.
+    // active-win can hang or exit non-zero on macOS (missing Accessibility /
+    // Screen Recording permission). Race it against a timeout and fall back to
+    // the already-known apps from the DB so the Settings page never hangs or
+    // comes up empty.
+    let openWindows: activeWin.Result[] = [];
+    try {
+      openWindows = await Promise.race([
+        activeWin.getOpenWindows().then((w) => w || []),
+        new Promise<activeWin.Result[]>((_resolve, reject) =>
+          setTimeout(() => reject(new Error('active-win timeout')), 5000)
+        ),
+      ]);
+    } catch (err) {
+      info(`[ContextShifter] getKnownApplications: activeWin failed: ${String(err)}`);
+      return await KnownApplication.find();
+    }
 
     const alreadyKnownApplications = await KnownApplication.find();
     const appsToAdd: KnownApplication[] = [];
@@ -280,11 +295,18 @@ export default class TaskSnap {
     }
     await KnownApplication.save(appsToAdd);
 
-    return await KnownApplication.find();
+    // Annotate which known apps currently have an open window so the Settings
+    // UI can offer them as choices (vs apps merely seen in the past).
+    const openPaths = new Set(openWindows.map((w) => w.owner.path));
+    const allKnown = await KnownApplication.find();
+    allKnown.forEach((knownApp) => {
+      knownApp.isCurrentlyOpen = openPaths.has(knownApp.path);
+    });
+    return allKnown;
   }
 
   public async updateKnownApplication(app: KnownApplication): Promise<void> {
-    info(`[TaskSnap] Updated known application with id ${app.id}`);
+    info(`[ContextShifter] Updated known application with id ${app.id}`);
     const knownAppInDb = await KnownApplication.findOneBy({ id: app.id });
     if (knownAppInDb) {
       knownAppInDb.neverClose = app.neverClose;
@@ -297,33 +319,33 @@ export default class TaskSnap {
     }
   }
 
-  private mapActiveWinToTaskSnapWindows(activeWindows?: activeWin.Result[], recentWindows?: ActiveWindow[]) {
-    const taskSnapWindows: TaskSnapWindowObject[] = [];
+  private mapActiveWinToContextShifterWindows(activeWindows?: activeWin.Result[], recentWindows?: ActiveWindow[]) {
+    const contextShifterWindows: ContextShifterWindowObject[] = [];
     if (activeWindows) {
       activeWindows.forEach((win) => {
-        const taskSnapWindowObject: TaskSnapWindowObject = {
+        const contextShifterWindowObject: ContextShifterWindowObject = {
           title: win.title,
           application: win.owner.name,
           applicationPath: win.owner.path,
           processId: win.owner.processId,
         };
-        taskSnapWindows.push(taskSnapWindowObject);
+        contextShifterWindows.push(contextShifterWindowObject);
       });
     } else if (recentWindows) {
       recentWindows.forEach((win) => {
-        const taskSnapWindowObject: TaskSnapWindowObject = {
+        const contextShifterWindowObject: ContextShifterWindowObject = {
           title: win.title,
           application: win.application,
           applicationPath: win.applicationPath,
           processId: win.processId
         };
-        taskSnapWindows.push(taskSnapWindowObject);
+        contextShifterWindows.push(contextShifterWindowObject);
       });
     }
-    return taskSnapWindows;
+    return contextShifterWindows;
   }
 
-  private async handleIdes(windows: TaskSnapWindowObject[]) {
+  private async handleIdes(windows: ContextShifterWindowObject[]) {
     const openIDEs: IDE[] = [];
     for (const win of windows) {
       const ide = new IDE();
@@ -370,7 +392,7 @@ export default class TaskSnap {
     return openIDEs;
   }
 
-  private async handleFileExplorer(windows: TaskSnapWindowObject[]) {
+  private async handleFileExplorer(windows: ContextShifterWindowObject[]) {
     const openApplications: Application[] = [];
 
     for (const win of windows) {
@@ -416,7 +438,7 @@ export default class TaskSnap {
   }
 
 
-  private async handleBrowsers(windows: TaskSnapWindowObject[]) {
+  private async handleBrowsers(windows: ContextShifterWindowObject[]) {
     const browsersTrackerObjects = this._browserTracker.getSnapshotInformation();
 
 
@@ -487,7 +509,7 @@ export default class TaskSnap {
   }
 
 
-  private async handleRegularApplications(windows: TaskSnapWindowObject[], processInfos: ProcessInfo[], recentlyOpenedFiles: string[]) {
+  private async handleRegularApplications(windows: ContextShifterWindowObject[], processInfos: ProcessInfo[], recentlyOpenedFiles: string[]) {
     const openApplications: Application[] = [];
 
     for (const win of windows) {
@@ -590,11 +612,11 @@ export default class TaskSnap {
 
   }
 
-  private sortWindowsByType(windows: TaskSnapWindowObject[]): [TaskSnapWindowObject[], TaskSnapWindowObject[], TaskSnapWindowObject[], TaskSnapWindowObject[]] {
-    const browserWindows: TaskSnapWindowObject[] = [];
-    const ideFiles: TaskSnapWindowObject[] = [];
-    const fileExplorer: TaskSnapWindowObject[] = [];
-    const otherWindows: TaskSnapWindowObject[] = [];
+  private sortWindowsByType(windows: ContextShifterWindowObject[]): [ContextShifterWindowObject[], ContextShifterWindowObject[], ContextShifterWindowObject[], ContextShifterWindowObject[]] {
+    const browserWindows: ContextShifterWindowObject[] = [];
+    const ideFiles: ContextShifterWindowObject[] = [];
+    const fileExplorer: ContextShifterWindowObject[] = [];
+    const otherWindows: ContextShifterWindowObject[] = [];
 
     windows.forEach((win) => {
       const appName = win.application;

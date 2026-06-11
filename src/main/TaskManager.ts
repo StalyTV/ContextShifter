@@ -3,6 +3,7 @@ import { In } from 'typeorm';
 import Snapshot from './entity/Snapshot';
 import WindowManager from './WindowManager';
 import ActiveTaskSession from './ActiveTaskSession';
+import TaskRestorer from './TaskRestorer';
 
 type SwitcherItem = { id: number | null; name: string };
 
@@ -83,6 +84,25 @@ export default class TaskManager {
       return this._children[this._childIndex] ?? null;
     }
     return this._parents[this._parentIndex] ?? null;
+  }
+
+  /**
+   * Begin creating a new top-level task. Mirrors selecting the "New Task"
+   * sentinel in the switcher: if a task is currently active, the user goes
+   * through the commit picker first (so the active task's artefacts are saved)
+   * and then the start dialog; otherwise the start dialog opens directly.
+   *
+   * Used by the TimeBuzzer single-press when the switcher is closed.
+   */
+  public async startNewTask(): Promise<void> {
+    if (this._switcherOpen) this.closeSwitcher();
+    const currentActive = ActiveTaskSession.getInstance().getActiveTaskId();
+    info('[TaskManager] startNewTask (press); active=' + currentActive);
+    if (currentActive !== null) {
+      await this.openCommitDialog({ kind: 'start', parentId: null });
+    } else {
+      await this.openStartTaskDialog(null);
+    }
   }
 
   // ---------- Switcher lifecycle ----------
@@ -284,6 +304,8 @@ export default class TaskManager {
           await snap.save();
           ActiveTaskSession.getInstance().resume(snap.id, snap.name);
           WindowManager.mainWindow?.webContents.send('snapshots-changed');
+          // Restore the task's context (open its artefacts, close the rest).
+          await TaskRestorer.restore(snap.id);
         }
       } catch (err) {
         error('[TaskManager] Failed to bump lastChange on activation', err);

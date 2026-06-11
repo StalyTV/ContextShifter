@@ -6,7 +6,7 @@
 
 import Toggle from 'react-toggle';
 import './Toggle.css';
-import styles from './TaskSnapToggle.module.scss';
+import styles from './ContextShifterToggle.module.scss';
 
 type Props = {
   leftLabel: string;
@@ -16,7 +16,7 @@ type Props = {
   onChange: () => void;
 };
 
-export default function TaskSnapToggle(props: Props) {
+export default function ContextShifterToggle(props: Props) {
   return (
     <div className={styles.toggleContainer}>
       <span className={styles.leftLabel}>{props.leftLabel}</span>

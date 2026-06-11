@@ -8,17 +8,17 @@ import { Menu, Tray, app, shell } from 'electron';
 import isMac from './helpers/isMac';
 import getAssetPath from './helpers/getAssetPath';
 import path from 'path';
-import TaskSnap from './TaskSnap';
+import ContextShifter from './ContextShifter';
 import WindowManager from './WindowManager';
 import StudyManager from './StudyManager';
 import { StudyPhase } from '../types/StudyPhase';
 
 export default class TrayManager {
   private static _tray: Tray | null = null;
-  public static _taskSnapInstance: TaskSnap;
+  public static _contextShifterInstance: ContextShifter;
 
-  public static async init(taskSnap: TaskSnap) {
-    this._taskSnapInstance = taskSnap;
+  public static async init(contextShifter: ContextShifter) {
+    this._contextShifterInstance = contextShifter;
     const platform = isMac ? 'mac' : 'windows';
     const iconPath = getAssetPath(
       `trayIcons/${platform}/CameraIcon${isMac ? 'Template' : ''}.png`

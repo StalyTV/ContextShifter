@@ -8,6 +8,8 @@ import ExtensionsStatus from '../../types/ExtensionsStatus';
 import StartTaskDialog from '../components/StartTaskDialog';
 import CommitTaskDialog from '../components/CommitTaskDialog';
 import SettingsDrawer from '../components/SettingsDrawer';
+import TaskActionButtons from '../components/TaskActionButtons';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 type ActiveTask = { id: number; name: string } | null;
 type PendingAction =
@@ -88,6 +90,7 @@ export default function TaskList() {
   const [activeTask, setActiveTask] = useState<ActiveTask>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState<SnapshotEntity | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -202,6 +205,34 @@ export default function TaskList() {
       return;
     }
     navigate(`/task/${taskId}`);
+  };
+
+  // Explicit "Activate" button: make the task active (restoring its context).
+  // If another task is active, commit it first via the picker.
+  const handleActivate = async (taskId: number) => {
+    if (activeTask?.id === taskId) return;
+    if (activeTask) {
+      setPendingAfterCommit({ kind: 'resume', taskId });
+      setShowCommitTask(true);
+      return;
+    }
+    try {
+      await window.electron.ipcRenderer.invoke('resume-task', taskId);
+      setReloadKey((k) => k + 1);
+    } catch {
+      // best-effort
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const id = deleteTarget.id;
+    setDeleteTarget(null);
+    try {
+      await window.electron.ipcRenderer.invoke('delete-snapshot', id);
+    } finally {
+      setReloadKey((k) => k + 1);
+    }
   };
 
   const finalisePendingAction = async () => {
@@ -324,6 +355,11 @@ export default function TaskList() {
                   {formatTaskDate(s.lastChange ?? s.created)}
                 </span>
               </span>
+              <TaskActionButtons
+                isActive={activeTask?.id === s.id}
+                onActivate={() => handleActivate(s.id)}
+                onDelete={() => setDeleteTarget(s)}
+              />
             </div>
           );
         })}
@@ -379,6 +415,19 @@ export default function TaskList() {
         open={showSettings}
         onClose={() => setShowSettings(false)}
       />
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Delete task"
+          message={`Delete "${
+            deleteTarget.name || `Task ${deleteTarget.id}`
+          }"? This also removes its subtasks and captured artefacts. This cannot be undone.`}
+          confirmLabel="Delete"
+          danger
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
   );
 }

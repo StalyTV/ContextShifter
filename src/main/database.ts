@@ -29,6 +29,7 @@ import AnalysisOpenBrowserTabs from './entity/AnalysisOpenBrowserTabs';
 import AnalysisOpenIDEFiles from './entity/AnalysisOpenIDEFiles';
 import AnalysisOpenFileSystemTabs from './entity/AnalysisOpenFileSystemTabs';
 import Task from './entity/Task';
+import NeverCloseBrowserTab from './entity/NeverCloseBrowserTab';
 
 const dbPath = path.join(
   app.getPath('appData'),
@@ -62,6 +63,7 @@ export const Database = new DataSource({
     AnalysisOpenIDEFiles,
     AnalysisOpenFileSystemTabs,
     Task,
+    NeverCloseBrowserTab,
   ],
   synchronize: true,
 });

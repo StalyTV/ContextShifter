@@ -5,10 +5,10 @@
  */
 
 import 'react-tooltip/dist/react-tooltip.css';
-import styles from './TaskSnapTooltip.module.scss';
+import styles from './ContextShifterTooltip.module.scss';
 import { Tooltip } from 'react-tooltip';
 
-export default function TaskSnapTooltip() {
+export default function ContextShifterTooltip() {
   return (
     <Tooltip
       className={styles.tooltip}

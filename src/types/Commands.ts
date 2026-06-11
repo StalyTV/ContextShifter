@@ -10,8 +10,19 @@ import Browser from '../main/entity/Browser';
 import IDE from '../main/entity/IDE';
 import ExtensionsStatus from './ExtensionsStatus';
 import KnownApplication from 'main/entity/KnownApplication';
+import NeverCloseBrowserTab from 'main/entity/NeverCloseBrowserTab';
 import UserSettings from './UserSettings';
 import { StudyPhase } from './StudyPhase';
+import { BrowserType } from './BrowserType';
+
+// A currently-open browser tab, surfaced to the Settings page so the user can
+// pick tabs to protect from closing.
+export type OpenBrowserTab = {
+  url: string;
+  title: string;
+  favIconUrl: string;
+  browserType: BrowserType;
+};
 
 export type StoppedTaskBundle = {
   taskId: number;
@@ -31,6 +42,7 @@ type Commands = {
   'get-snapshot-children': (parentId: number) => Promise<Snapshot[]>;
   'create-subtask': (parentId: number, name: string) => Promise<Snapshot>;
   'rename-snapshot': (snapshotId: number, name: string) => Promise<void>;
+  'delete-snapshot': (snapshotId: number) => Promise<void>;
 
   // create new top-level task with selected currently-open artifacts (legacy)
   'get-currently-open-applications': () => Promise<
@@ -62,6 +74,12 @@ type Commands = {
   'get-device-status': () => boolean;
   'get-known-applications': () => KnownApplication[];
   'update-known-application': (app: KnownApplication) => void;
+
+  // never-close browser tabs
+  'get-open-browser-tabs': () => Promise<OpenBrowserTab[]>;
+  'get-never-close-tabs': () => Promise<NeverCloseBrowserTab[]>;
+  'add-never-close-tab': (tab: OpenBrowserTab) => Promise<void>;
+  'remove-never-close-tab': (id: number) => Promise<void>;
   'open-settings-window': () => void;
   'get-settings': () => Promise<UserSettings>;
   'set-settings': (settings: UserSettings) => void;
