@@ -12,7 +12,6 @@ import KnownApplicationEntity from '../../main/entity/KnownApplication';
 import PlusIcon from '../components/Icons/PlusIcon';
 import InfoIcon from '../components/Icons/InfoIcon';
 import UserSettings from 'types/UserSettings';
-import Input from '../components/Input';
 
 export default function Settings() {
   let loopRef: NodeJS.Timeout | undefined;
@@ -23,7 +22,6 @@ export default function Settings() {
   const [deviceStatus, setDeviceStatus] = useState<boolean>(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [isDataAnonymized, setIsDataAnonymized] = useState<boolean>(false);
-  const [snapshotShortcut, setSnapshotShortcut] = useState<string>('');
   // Persisted but not configurable from this page; round-tripped to keep the
   // existing UserSettings shape stable for the main process / StudyManager.
   const [endOfDayPopUpTime, setEndOfDayPopUpTime] = useState<Date>(
@@ -45,7 +43,6 @@ export default function Settings() {
       const settings = await window.electron.ipcRenderer.invoke('get-settings');
       setIsDarkMode(settings.isDarkModeEnabled);
       setIsDataAnonymized(settings.isDataAnonymized);
-      setSnapshotShortcut(settings.snapshotShortcut);
       setEndOfDayPopUpTime(settings.endOfDayPopUpTime);
       setShowQuestionnaireOnlyOnWorkdays(
         settings.showQuestionnaireOnlyOnWorkdays
@@ -125,7 +122,6 @@ export default function Settings() {
     const updatedSettings: UserSettings = {
       isDarkModeEnabled: !isDarkMode,
       isDataAnonymized: isDataAnonymized,
-      snapshotShortcut: snapshotShortcut,
       endOfDayPopUpTime: endOfDayPopUpTime,
       showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
     };
@@ -137,24 +133,10 @@ export default function Settings() {
     const updatedSettings: UserSettings = {
       isDarkModeEnabled: isDarkMode,
       isDataAnonymized: !isDataAnonymized,
-      snapshotShortcut: snapshotShortcut,
       endOfDayPopUpTime: endOfDayPopUpTime,
       showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
     };
     setIsDataAnonymized(!isDataAnonymized);
-    setSettings(updatedSettings);
-  };
-
-  const onShortcutChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const updatedShortcut = e.target.value;
-    const updatedSettings: UserSettings = {
-      isDarkModeEnabled: isDarkMode,
-      isDataAnonymized: isDataAnonymized,
-      snapshotShortcut: updatedShortcut,
-      endOfDayPopUpTime: endOfDayPopUpTime,
-      showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
-    };
-    setSnapshotShortcut(updatedShortcut);
     setSettings(updatedSettings);
   };
 
@@ -192,17 +174,6 @@ export default function Settings() {
             icons={false}
             onChange={onToggleDataAnonymization}
           />
-          <div className={styles.titleWithInfo}>
-            <h4>Snapshot Shortcut</h4>
-            <InfoIcon
-              className={styles.infoIcon}
-              data-tooltip-id={'task-snap'}
-              data-tooltip-html={'Restart required'}
-            />
-          </div>
-          <div className={styles.inputContainer}>
-            <Input value={snapshotShortcut} onChange={onShortcutChange} />
-          </div>
         </div>
       )}
 

@@ -12,14 +12,9 @@ import {
   VSCodeSnapshot,
   WindowUnfocusMessage,
 } from 'types/VSCodeSnapshot';
-import Snapshot from '../entity/Snapshot';
-import IDEFile from '../entity/IDEFile';
-import { getFileNameFromPath } from '../helpers/getFileNameFromPath';
-import StaticSettings from '../StaticSettings';
 import IDEFileEvent from '../entity/IDEFileEvent';
 import ActiveArtifact from './ActiveArtifact';
 import { ActiveFile } from '../../types/ActiveFile';
-import FDACalculator from '../FDACalculator';
 import { hashString } from '../helpers/hashString';
 
 export default class VSCodeTracker {
@@ -29,6 +24,7 @@ export default class VSCodeTracker {
   private _lastUsedSocket: WebSocket | undefined;
   private _connectionListeners: Array<() => void> = [];
   private _openFiles: OpenVSCodeFile[] = [];
+  private _pendingSnapshotResolvers: Array<(snap: VSCodeSnapshot | null) => void> = [];
 
   private constructor() {
     this._server = new WebSocketServer({ port: this._port });
@@ -89,12 +85,38 @@ export default class VSCodeTracker {
     });
   }
 
-  public sendGetVSCodeSnapshotRequest() {
-    if (this._lastUsedSocket) {
-      return this._lastUsedSocket.send(
-        JSON.stringify({ endpoint: 'get-vscode-snapshot' })
-      );
+  /**
+   * Request the connected VS Code extension's current snapshot (open files,
+   * workspace, branch, last commit). Resolves with the payload, or `null`
+   * if no extension is connected or the request times out.
+   */
+  public requestVSCodeSnapshot(
+    timeoutMs = 1500
+  ): Promise<VSCodeSnapshot | null> {
+    if (
+      !this._lastUsedSocket ||
+      this._lastUsedSocket.readyState !== WebSocket.OPEN
+    ) {
+      return Promise.resolve(null);
     }
+    return new Promise<VSCodeSnapshot | null>((resolve) => {
+      const resolver = (snap: VSCodeSnapshot | null) => {
+        const idx = this._pendingSnapshotResolvers.indexOf(resolver);
+        if (idx >= 0) this._pendingSnapshotResolvers.splice(idx, 1);
+        resolve(snap);
+      };
+      this._pendingSnapshotResolvers.push(resolver);
+      try {
+        this._lastUsedSocket!.send(
+          JSON.stringify({ endpoint: 'get-vscode-snapshot' })
+        );
+      } catch (err) {
+        info(`[VSCodeTracker] requestVSCodeSnapshot send failed: ${String(err)}`);
+        resolver(null);
+        return;
+      }
+      setTimeout(() => resolver(null), timeoutMs);
+    });
   }
 
   public sendOpenFilesRequest(files: string[]) {
@@ -113,103 +135,13 @@ export default class VSCodeTracker {
     }
   }
 
-  private async handleVSCodeSnapshotEvent(data: VSCodeSnapshot) {
-    const latestSnapshot = await Snapshot.getLatestSnapshot();
-    if (!latestSnapshot) return;
-
-    const ide = latestSnapshot.ides[0]; // TODO: Improve this
-
-    // might be the case if IDE is hidden
-    if (!ide) return;
-
-    if (data.branch) {
-      ide.branch = data.branch;
-    }
-    if (data.lastCommit) {
-      ide.lastCommitMessage = data.lastCommit.message;
-    }
-    if (data.workspaceName) {
-      ide.workspaceName = data.workspaceName;
-    }
-    if (data.workspacePath) {
-      ide.workspacePath = data.workspacePath;
-    }
-    ide.save();
-
-    for await (const openFile of data.openFiles) {
-      const ideFile = new IDEFile();
-      ideFile.name = openFile.name;
-      ideFile.path = openFile.path;
-      ideFile.isActive = openFile.isActive;
-      ideFile.ide = ide;
-      ideFile.save();
-    }
-
-    // if no tabs are open, deselect IDE by default
-    if (data.openFiles.length === 0) {
-      ide.isSelected = false;
-      ide.save();
-    }
+  private handleVSCodeSnapshotEvent(data: VSCodeSnapshot) {
+    // Fan out the payload to whoever is waiting on requestVSCodeSnapshot().
+    const resolvers = this._pendingSnapshotResolvers.splice(0);
+    for (const r of resolvers) r(data);
     info(
-      `[VSCodeTracker] received ${data.openFiles.length} files and attached them to snapshot with id ${latestSnapshot.id}`
+      `[VSCodeTracker] received vscode snapshot (${data.openFiles?.length ?? 0} files, workspace=${data.workspaceName ?? '?'})`
     );
-
-    // create snapshot summary
-    let summaryString = '';
-
-    const lastEdit = data.lastEdit;
-    if (lastEdit) {
-      // check if last change was outside considered time window
-      const changeTime = new Date(lastEdit.timestamp).getTime();
-      if (changeTime > Date.now() - StaticSettings.IDE_TIME_WINDOW) {
-        const lineRange = lastEdit.lineRange as any; // vscode.Range somehow does not get serialized as expected
-        const startLine = lineRange[0].line + 1; // vscode starts indexing lines at 0
-        const endLine = lineRange[1].line + 1;
-        const lineInfo =
-          startLine === endLine
-            ? `${startLine} "${lastEdit.code}"`
-            : `${startLine}-${endLine}`;
-
-        const fileName = getFileNameFromPath(lastEdit.filePath);
-        const functionAndFileName = lastEdit.functionName
-          ? `${lastEdit.functionName} - ${fileName}`
-          : fileName;
-
-        summaryString += `Just edited line ${lineInfo} in [${functionAndFileName}].\n`;
-      }
-    }
-
-    const lastCommit = data.lastCommit;
-    if (lastCommit && lastCommit.commitDate) {
-      const commitTime = new Date(lastCommit.commitDate).getTime();
-      if (commitTime > Date.now() - StaticSettings.IDE_TIME_WINDOW) {
-        summaryString += `Recently committed "${lastCommit.message}".\n`;
-      }
-    }
-
-    if (data.hasUncommittedChanges) {
-      summaryString += 'Uncommitted changes.\n';
-    }
-
-    // check if summary already exists (see SummaryProvider.ts). If exists, prepend.
-    if (latestSnapshot.summary !== '') {
-      latestSnapshot.summary = `${summaryString}\n${latestSnapshot.summary}`;
-    } else {
-      latestSnapshot.summary = summaryString;
-    }
-
-    // convert TODOs to intent string
-    let intent: string = '';
-    data.toDos.forEach((toDo) => {
-      const fileName = getFileNameFromPath(toDo.filePath);
-      intent += `[${fileName}] ${toDo.text}\n\n`;
-    });
-    latestSnapshot.intent = intent;
-
-    await latestSnapshot.save();
-
-    // now that all data is added to the snapshot, calculate relevance
-    FDACalculator.addRelevanceToSnapshotArtifacts(latestSnapshot.id);
   }
 
   public handleActiveFileEvent(activeFileMessage: ActiveFileMessage): void {

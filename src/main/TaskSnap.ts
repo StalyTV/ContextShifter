@@ -4,51 +4,36 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
-import { app, dialog } from "electron";
+import { app } from "electron";
 import { info } from "electron-log";
 import WindowTracker from "./trackers/WindowTracker";
 import FileSystemWatcher from "./trackers/FileSystemWatcher";
 import TrayManager from "./TrayManager";
 import activeWin from "active-win";
-import Snapshot from "./entity/Snapshot";
 import Application from "./entity/Application";
 import File from "./entity/File";
 import IDE from "./entity/IDE";
 import IDEFileEntity from "./entity/IDEFile";
-import WindowManager from "./WindowManager";
-import SnapshotManager from "./SnapshotManager";
+import UsageData from "./entity/UsageData";
 import { lsof, Options, ProcessInfo } from "list-open-files";
-import Artifact from "types/Artifact";
 import {
   getOpenFileExplorerPaths,
   getRecentlyOpenedFilePaths,
-  openArtifact,
-  openFiles
 } from './helpers/osCommands';
 import { getFileNameFromPath } from "./helpers/getFileNameFromPath";
 import isMac from "./helpers/isMac";
 import BrowserTracker from "./trackers/BrowserTracker";
-import BrowserTabEntity from "./entity/BrowserTab";
-import { CloseTabClientRequest } from "../types/context-browser-extension-types/types";
 import Browser from "./entity/Browser";
 import VSCodeTracker from "./trackers/VSCodeTracker";
 import ExtensionsStatus from "../types/ExtensionsStatus";
-import UsageData from "./entity/UsageData";
 import DeviceManager from "./HID/DeviceManager";
 import TimeBuzzerManager from "./HID/TimeBuzzerManager";
 import KnownApplication from "./entity/KnownApplication";
-import { TypedWebContents } from "./ipc/types/electron-typed-ipc";
-import Events from "../types/Events";
-import { UsageDataOrigin } from "../types/UsageDataOrigin";
-import Exporter from "./Exporter";
-import FDACalculator from "./FDACalculator";
-import SummaryProvider from "./SummaryProvider";
 import StaticSettings from "./StaticSettings";
 import ActiveWindow from "./entity/ActiveWindow";
 import ActiveArtifact from "./trackers/ActiveArtifact";
+import Exporter from "./Exporter";
 import StudyManager from "./StudyManager";
-import { StudyPhase } from "../types/StudyPhase";
-import ArtifactFiles from "../types/ArtifactFiles";
 
 const fileIcon = require('extract-file-icon');
 
@@ -77,7 +62,6 @@ export default class TaskSnap {
   private _vscodeTracker: VSCodeTracker;
   private _deviceManager: DeviceManager;
   private _timeBuzzerManager: TimeBuzzerManager;
-  private _snapshotManager: SnapshotManager;
 
   private constructor() {
     this._windowTracker = new WindowTracker();
@@ -86,7 +70,6 @@ export default class TaskSnap {
     this._vscodeTracker = VSCodeTracker.getInstance();
     this._deviceManager = DeviceManager.getInstance();
     this._timeBuzzerManager = TimeBuzzerManager.getInstance();
-    this._snapshotManager = SnapshotManager.getInstance();
   }
 
   public static getInstance() {
@@ -123,162 +106,31 @@ export default class TaskSnap {
     StudyManager.stopOpenArtifactsSampling();
   }
 
-  public async createNewSnapshot(origin: UsageDataOrigin) {
-    // disable the creation of snapshots during baseline phase
-    if (StudyManager.getStudyPhase() === StudyPhase.Baseline) {
-      return;
-    }
-
-    info('[TaskSnap] New snapshot created');
-    this._deviceManager.showLightPulse();
-
-    // store currently open active window to be sure that it is included in snapshot
-    await ActiveArtifact.storeCurrentWindow();
-
-    // immediately create snapshot and open instant curation view, later add open applications and files to snapshot.
-    const timestamp = new Date().toISOString();
-    const nextId = await Snapshot.getNextId();
-    const newSnapshot = new Snapshot();
-    newSnapshot.created = timestamp;
-    newSnapshot.lastChange = timestamp;
-    newSnapshot.name = `Snapshot ${nextId}`;
-    await Snapshot.save(newSnapshot);
-
-    await UsageData.addEntry(
-      'create-snapshot',
-      false,
-      `id: ${newSnapshot.id}, origin: ${origin}`
-    );
-
-    const res = await this.getCurrentlyOpenApplications();
-    const openBrowsers = res[0];
-    const openIDEs = res[1];
-    const openApplications = res[2];
-
-    // when no artifacts to attach, show error message
-    if (
-      openBrowsers.length === 0 &&
-      openIDEs.length === 0 &&
-      openApplications.length === 0
-    ) {
-      dialog.showMessageBox({
-        message: 'No open windows to attach to a snapshot',
-        type: 'error'
-      });
-      newSnapshot.isReady = true;
-      await newSnapshot.save();
-      return;
-    }
-
-    await Browser.save(openBrowsers);
-    await IDE.save(openIDEs);
-    await Application.save(openApplications);
-
-    const summary = await SummaryProvider.createTaskSummary();
-
-    newSnapshot.browsers = openBrowsers;
-    newSnapshot.ides = openIDEs;
-    newSnapshot.applications = openApplications;
-    newSnapshot.summary = summary;
-    newSnapshot.isReady = true;
-    await newSnapshot.save();
-
-    // save latest tabs to db vscode
-    if (openIDEs.length > 0) {
-      this._vscodeTracker.sendGetVSCodeSnapshotRequest();
-
-      // if no IDE is connected, we can do the relevance calculation at this point.
-      // otherwise it is done after the data of the IDE is received
-    } else {
-      FDACalculator.addRelevanceToSnapshotArtifacts(newSnapshot.id);
-    }
-
-    // notify windows that snapshot is ready
-    this.notifyWindows(newSnapshot.id);
-
-    // update tray menu
-    await TrayManager.updateTray();
-  }
-
-  public async restoreSnapshot(snapshot: Snapshot, origin: UsageDataOrigin) {
-    info(`[TaskSnap] Restore snapshot "${snapshot.name}"`);
-    // the snapshot given as parameter might not be from the db, but coming from the renderer process
-    // therefore, quickly load it here to update the timestamp
-    const dbEntry = await this._snapshotManager.getSnapshotById(snapshot.id);
-    if (dbEntry) {
-      dbEntry.lastRestore = new Date().toISOString();
-      await dbEntry.save();
-    }
-
-    await UsageData.addEntry(
-      'restore-snapshot',
-      false,
-      `id: ${snapshot.id}, origin: ${origin}`
-    );
-
-    this.restoreWorkingContext(snapshot);
-  }
-
-  public async storeBrowserTabsToOpen(
-    browser: Browser,
-    urlsToOpen: string[],
-    label?: string
-  ) {
-
-    this._browserTracker.subscribeToConnection(browser.type, () => {
-      this._browserTracker.tabOpeningRequest(
-        urlsToOpen,
-        browser.type,
-        browser.windowId,
-        label
-      );
-    });
-  }
-
-  public openIDEFiles(ide: IDE, filePaths: string[]) {
-    // open ide. If workspace is defined, open workspace
-    const artifact: Artifact = {
-      artifact: ide.workspacePath ? ide.workspacePath : ide.path
-    };
-    openArtifact(artifact);
-
-
-    // if websocket is not open, wait until ide is ready (sends any kind of message)
-    if (this._vscodeTracker.isSocketOpen()) {
-      this._vscodeTracker.sendOpenFilesRequest(filePaths);
-    } else {
-      this._vscodeTracker.subscribeToConnection(() => {
-        this._vscodeTracker.sendOpenFilesRequest(filePaths);
-      });
-    }
-  }
-
-  public closeBrowserTabs(
-    browser: Browser,
-    tabsToClose: BrowserTabEntity[]
-  ): void {
-    const closeRequest: CloseTabClientRequest[] = tabsToClose.map((tab) => {
-      return {
-        url: tab.url,
-        windowId: browser.windowId
-      };
-    });
-    this._browserTracker.sendTabClosingRequest(browser.type, closeRequest);
-  }
-
-  public closeIDEFiles(filesToClose: IDEFileEntity[]): void {
-    const filePaths: string[] = filesToClose.map((file) => {
-      return file.path;
-    });
-    this._vscodeTracker.sendFileClosingRequest(filePaths);
-  }
-
   public async getCurrentlyOpenApplications(): Promise<
     [Browser[], IDE[], Application[]]> {
     const t0 = Date.now();
     info('[TaskSnap] getCurrentlyOpenApplications: start');
-    const visibleWindows = (await activeWin.getOpenWindows()) || [];
-    info(`[TaskSnap] getCurrentlyOpenApplications: activeWin (${Date.now() - t0}ms, ${visibleWindows.length} windows)`);
+    // active-win occasionally hangs or exits non-zero on macOS (Screen
+    // Recording permission, sandbox quirks, transient process state).
+    // Race it against a timeout and fall back to recently-active windows
+    // from the DB so the dialog is never blocked.
+    let visibleWindows: activeWin.Result[] = [];
+    try {
+      visibleWindows = await Promise.race([
+        activeWin.getOpenWindows().then((w) => w || []),
+        new Promise<activeWin.Result[]>((_resolve, reject) =>
+          setTimeout(() => reject(new Error('active-win timeout')), 5000)
+        ),
+      ]);
+      info(
+        `[TaskSnap] getCurrentlyOpenApplications: activeWin (${Date.now() - t0}ms, ${visibleWindows.length} windows)`
+      );
+    } catch (err) {
+      info(
+        `[TaskSnap] getCurrentlyOpenApplications: activeWin failed (${Date.now() - t0}ms): ${String(err)}`
+      );
+      visibleWindows = [];
+    }
 
     let windowsToConsider = this.mapActiveWinToTaskSnapWindows(visibleWindows);
 
@@ -445,85 +297,6 @@ export default class TaskSnap {
     }
   }
 
-  private notifyWindows(_snapshotId: number): void {
-    // No-op: legacy snapshot-ready broadcast removed in Phase 1.
-    // Future task-list refresh will go here once a renderer event is defined.
-  }
-
-  private restoreWorkingContext(snapshot: Snapshot) {
-    this.restoreBrowserWindows(snapshot);
-    this.restoreIdeFiles(snapshot);
-    this.restoreApplications(snapshot);
-  }
-
-  private restoreApplications(snapshot: Snapshot) {
-    for (const app of snapshot.applications) {
-      if (!app.isSelected) continue;
-
-      // If selected files are present, don't open application but files associated with application
-      const selectedFiles = app.files.filter((file) => file.isSelected);
-      let artifact: ArtifactFiles = {
-        artifact: [],
-        application: app.path
-      };
-      for (const file of selectedFiles) {
-        artifact.artifact.push(file.path);
-      }
-      openFiles(artifact);
-
-    }
-  }
-
-  private restoreIdeFiles(snapshot: Snapshot) {
-    for (const ide of snapshot.ides) {
-      if (!ide.isSelected) continue;
-
-      const filesToOpen: string[] = [];
-      ide.ideFiles.forEach((file) => {
-        if (file.isSelected) {
-          filesToOpen.push(file.path);
-        }
-      });
-      this.openIDEFiles(ide, filesToOpen);
-    }
-  }
-
-  private restoreBrowserWindows(snapshot: Snapshot) {
-    const browserWindowsToClean: Browser[] = [];
-    for (const browser of snapshot.browsers) {
-      if (!browser.isSelected) continue;
-
-      const urlsToOpen: string[] = [];
-      browser.browserTabs.forEach((tab) => {
-        if (tab.isSelected) {
-          urlsToOpen.push(tab.url);
-        }
-      });
-      const artifact: Artifact = {
-        artifact: browser.path
-      };
-
-      openArtifact(artifact);
-      this.storeBrowserTabsToOpen(browser, urlsToOpen, snapshot.name);
-      browserWindowsToClean.push(browser)
-    }
-    //It's important to do this in a second step to avoid bugs due to latency (especially problematic on windows)
-    browserWindowsToClean.forEach((browser) => {
-      this.cleanBrowserWindows(browser);
-    })
-  }
-
-  /*Empty tabs will be opened when resuming a snapshot. This can lead to unnecessary clutter. Therefore, this function makes sure to close tabs which are opened by the system.*/
-  private cleanBrowserWindows(browser: Browser){
-    this._browserTracker.subscribeToConnection(browser.type, () => {
-      this._browserTracker.sendTabClosingRequest(
-        browser.type,
-        [{url: ""}, {url: "chrome://newtab/"}, {url: "edge://newtab/"}]
-      );
-    });
-  }
-
-
   private mapActiveWinToTaskSnapWindows(activeWindows?: activeWin.Result[], recentWindows?: ActiveWindow[]) {
     const taskSnapWindows: TaskSnapWindowObject[] = [];
     if (activeWindows) {
@@ -552,18 +325,49 @@ export default class TaskSnap {
 
   private async handleIdes(windows: TaskSnapWindowObject[]) {
     const openIDEs: IDE[] = [];
-    windows.forEach((win) => {
+    for (const win of windows) {
       const ide = new IDE();
       ide.name = win.application;
       ide.path = win.applicationPath;
       ide.icon = this.getApplicationIcon(ide.path);
       ide.title = win.title;
-      ide.save();
-
+      // Persist the IDE shell so it has an id; the snapshot link and any
+      // ideFiles are added later by SnapshotManager.createTask once the
+      // user has chosen which to include.
+      await ide.save();
+      ide.ideFiles = [];
       openIDEs.push(ide);
-    });
-    return openIDEs;
+    }
 
+    // If we have a VS Code window and a live extension connection, fetch the
+    // current workspace + open files now so the picker can show them. The
+    // call resolves to null on timeout or when no extension is attached.
+    const vscodeIde = openIDEs.find((i) =>
+      i.name.toLowerCase().includes('code')
+    );
+    if (vscodeIde) {
+      const snap = await this._vscodeTracker.requestVSCodeSnapshot();
+      if (snap) {
+        if (snap.branch) vscodeIde.branch = snap.branch;
+        if (snap.lastCommit?.message)
+          vscodeIde.lastCommitMessage = snap.lastCommit.message;
+        if (snap.workspaceName) vscodeIde.workspaceName = snap.workspaceName;
+        if (snap.workspacePath) vscodeIde.workspacePath = snap.workspacePath;
+        await vscodeIde.save();
+
+        // Materialise IDEFile entities in-memory (not yet linked to a
+        // snapshot — that happens in SnapshotManager.createTask).
+        vscodeIde.ideFiles = (snap.openFiles ?? []).map((f) => {
+          const file = new IDEFileEntity();
+          file.name = f.name;
+          file.path = f.path;
+          file.isActive = !!f.isActive;
+          return file;
+        });
+      }
+    }
+
+    return openIDEs;
   }
 
   private async handleFileExplorer(windows: TaskSnapWindowObject[]) {

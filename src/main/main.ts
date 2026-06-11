@@ -21,8 +21,6 @@ import path from 'path';
 import DeviceManager from './HID/DeviceManager';
 import TimeBuzzerManager from './HID/TimeBuzzerManager';
 import AppUpdater from './AppUpdater';
-import Settings from './entity/Settings';
-import { UsageDataOrigin } from '../types/UsageDataOrigin';
 import fs from 'fs';
 import Exporter from './Exporter';
 import StudyManager from './StudyManager';
@@ -120,12 +118,6 @@ app
 
     // open the main window on startup
     await WindowManager.createMainWindow();
-
-    // create shortcut
-    const keys = await Settings.getSnapshotShortcut();
-    globalShortcut.register(keys, () =>
-      taskSnap.createNewSnapshot(UsageDataOrigin.Shortcut)
-    );
 
     if (!isDebug) {
       new AppUpdater();

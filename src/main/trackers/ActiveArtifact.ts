@@ -15,6 +15,7 @@ import ActiveBrowserTab from '../entity/ActiveBrowserTab';
 import ActiveFileDb from '../entity/ActiveFile';
 import { ActiveFile } from 'types/ActiveFile';
 import StaticSettings from '../StaticSettings';
+import ActiveTaskSession from '../ActiveTaskSession';
 
 // the purpose of this class is to provide references to the currently open artifact and to store it to db
 export default class ActiveArtifact {
@@ -27,6 +28,7 @@ export default class ActiveArtifact {
   public static async setCurrentWindow(activeWindow: ActiveWindow) {
     await this.storeCurrentWindow();
     this._currentWindow = activeWindow;
+    ActiveTaskSession.getInstance().onWindow(activeWindow);
   }
 
   public static async storeCurrentWindow() {
@@ -84,6 +86,7 @@ export default class ActiveArtifact {
       await this.storeCurrentFile();
       this._currentFile = activeFile;
     }
+    ActiveTaskSession.getInstance().onFile(activeFile);
   }
 
   public static async storeCurrentFile() {

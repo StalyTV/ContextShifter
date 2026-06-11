@@ -1,7 +1,5 @@
 import { info, error } from 'electron-log';
-import TaskSnap from '../TaskSnap';
 import TaskManager from '../TaskManager';
-import { UsageDataOrigin } from '../../types/UsageDataOrigin';
 
 const TimeBuzzer = require('./time-buzzer');
 // libusb-based hotplug events (no polling). The package is shipped via
@@ -10,21 +8,20 @@ const TimeBuzzer = require('./time-buzzer');
 const { usb } = require('usb');
 
 /**
- * TimeBuzzerManager - bridges the physical TimeBuzzer to TaskSnap.
+ * TimeBuzzerManager - bridges the physical TimeBuzzer to TaskManager.
  *
  * Event mapping:
- *  - touch (tap) ........ (unused — kept for future use)
+ *  - touch (tap) ........ (unused - kept for future use)
  *  - position (rotation)  open/cycle the task switcher
- *  - press .............. single: snapshot (when switcher closed) or edit selected task
- *                         double: delete selected task
+ *  - press .............. single: select / drilldown when switcher is open
+ *                         double: back / close
  */
 export default class TimeBuzzerManager {
   private static _instance: TimeBuzzerManager;
 
   // ---- Tunables ----
-  private static readonly TAP_DEBOUNCE_MS = 5000;
   private static readonly DOUBLE_PRESS_WINDOW_MS = 400;
-  // Small delay after USB attach before scanning MIDI ports — the OS needs
+  // Small delay after USB attach before scanning MIDI ports - the OS needs
   // a moment to register the device with CoreMIDI / ALSA / WinMM.
   private static readonly HOTPLUG_SETTLE_MS = 750;
 
@@ -38,7 +35,6 @@ export default class TimeBuzzerManager {
   private _touchOnAt: number = 0;
   private _rotatedDuringTouch: boolean = false;
   private _pressedDuringTouch: boolean = false;
-  private _lastTapAt: number = 0;
 
   // rotation state
   private _lastPosition: number | null = null;
@@ -186,14 +182,9 @@ export default class TimeBuzzerManager {
       if (tm.isSwitcherOpen()) {
         info('[TimeBuzzerManager] press -> select / drilldown');
         tm.pressSelect();
-      } else {
-        // Switcher closed: press takes a snapshot (with debounce).
-        if (this._lastTapAt + TimeBuzzerManager.TAP_DEBOUNCE_MS < Date.now()) {
-          this._lastTapAt = Date.now();
-          info('[TimeBuzzerManager] press -> create snapshot');
-          TaskSnap.getInstance().createNewSnapshot(UsageDataOrigin.USBDevice);
-        }
       }
+      // Switcher closed: no-op. The legacy snapshot trigger has been removed;
+      // task creation now goes through the + New task button / dialog.
     }, TimeBuzzerManager.DOUBLE_PRESS_WINDOW_MS);
   }
 

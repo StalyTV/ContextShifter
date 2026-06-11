@@ -10,8 +10,6 @@ import HID from 'node-hid';
 import { usb } from 'usb';
 import StaticSettings from '../StaticSettings';
 import RGB from '../../types/RGB';
-import TaskSnap from '../TaskSnap';
-import { UsageDataOrigin } from '../../types/UsageDataOrigin';
 
 const supportedDevice: {
   name: string;
@@ -131,10 +129,10 @@ export default class DeviceManager {
   }
 
   private onClickButton() {
-    // after a click, wait 5 seconds before the next click has an effect. This should avoid accidental multiple clicks.
+    // Throttled HID press: legacy snapshot trigger has been removed; the
+    // button currently does nothing until a new action is wired up.
     if (this._lastButtonClick + 5 * 1000 < Date.now()) {
       this._lastButtonClick = Date.now();
-      TaskSnap.getInstance().createNewSnapshot(UsageDataOrigin.USBDevice);
     }
   }
 

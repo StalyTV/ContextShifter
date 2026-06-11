@@ -7,24 +7,17 @@
 import TaskSnap from './TaskSnap';
 import Snapshot from './entity/Snapshot';
 import Application from './entity/Application';
-import File from './entity/File';
 import BrowserEntity from './entity/Browser';
 import BrowserTabEntity from './entity/BrowserTab';
 import IDEEntity from './entity/IDE';
 import IDEFileEntity from './entity/IDEFile';
+import FileEntity from './entity/File';
 import { info } from 'electron-log';
-import { closeApplication, closeFileExplorerPath } from './helpers/osCommands';
-import WindowManager from './WindowManager';
-import { TypedWebContents } from './ipc/types/electron-typed-ipc';
-import Events from 'types/Events';
 import UsageData from './entity/UsageData';
-import KnownApplication from './entity/KnownApplication';
 import TrayManager from './TrayManager';
-import { UsageDataOrigin } from '../types/UsageDataOrigin';
 
 export default class SnapshotManager {
   private static _instance: SnapshotManager;
-  private _postponeTimeoutRef: NodeJS.Timeout | undefined;
 
   public static getInstance() {
     return this._instance || (this._instance = new this());
@@ -32,10 +25,6 @@ export default class SnapshotManager {
 
   public async getSnapshotById(id: number) {
     return await Snapshot.getSnapshotById(id);
-  }
-
-  public async getLatestSnapshot() {
-    return await Snapshot.getLatestSnapshot();
   }
 
   public async getLatestNSnapshots(n: number) {
@@ -77,12 +66,12 @@ export default class SnapshotManager {
 
   /** Phase 2: rename a snapshot (used by edit view). */
   public async renameSnapshot(snapshotId: number, name: string) {
-    await this.updateSnapshotName(snapshotId, name);
     const snap = await Snapshot.findOneBy({ id: snapshotId });
-    if (snap) {
-      snap.lastChange = new Date().toISOString();
-      await snap.save();
-    }
+    if (!snap) return;
+    snap.name = name;
+    snap.lastChange = new Date().toISOString();
+    await snap.save();
+    await TrayManager.updateTray();
   }
 
   /**
@@ -126,10 +115,21 @@ export default class SnapshotManager {
       await BrowserEntity.save(browsers);
     }
     if (ides.length > 0) {
-      ides.forEach((i) => {
-        i.snapshot = snap;
-      });
-      await IDEEntity.save(ides);
+      for (const ide of ides) {
+        ide.snapshot = snap;
+        await IDEEntity.save(ide);
+
+        // Persist any in-memory IDEFile entities provided by the renderer
+        // (e.g. files reported by the VS Code extension during the picker).
+        const files = ide.ideFiles ?? [];
+        if (files.length > 0) {
+          for (const file of files) {
+            file.ide = ide;
+            if (file.isSelected === undefined) file.isSelected = true;
+          }
+          await IDEFileEntity.save(files);
+        }
+      }
     }
     if (applications.length > 0) {
       applications.forEach((a) => {
@@ -163,305 +163,177 @@ export default class SnapshotManager {
     return snap;
   }
 
-  public async saveSnapshot(updatedSnapshot: Snapshot) {
-    const snapshotInDb = await Snapshot.findOneBy({ id: updatedSnapshot.id });
-    if (snapshotInDb) {
-      const timestamp = new Date().toISOString();
-      snapshotInDb.name = updatedSnapshot.name;
-      snapshotInDb.summary = updatedSnapshot.summary;
-      snapshotInDb.intent = updatedSnapshot.intent;
-      snapshotInDb.edited = timestamp;
-      snapshotInDb.lastChange = timestamp;
-
-      for (const browser of updatedSnapshot.browsers) {
-        const browserInDb = await BrowserEntity.findOneBy({ id: browser.id });
-        if (browserInDb && browserInDb.isSelected !== browser.isSelected) {
-          browserInDb.isSelected = browser.isSelected;
-          await browserInDb.save();
-        }
-
-        for (const tab of browser.browserTabs) {
-          const tabInDb = await BrowserTabEntity.findOneBy({ id: tab.id });
-          if (tabInDb && tabInDb.isSelected !== tab.isSelected) {
-            tabInDb.isSelected = tab.isSelected;
-            await tabInDb.save();
-          }
-        }
-      }
-
-      for (const ide of updatedSnapshot.ides) {
-        const ideInDb = await IDEEntity.findOneBy({ id: ide.id });
-        if (ideInDb && ideInDb.isSelected !== ide.isSelected) {
-          ideInDb.isSelected = ide.isSelected;
-          await ideInDb.save();
-        }
-
-        for (const file of ide.ideFiles) {
-          const fileInDb = await IDEFileEntity.findOneBy({ id: file.id });
-          if (fileInDb && fileInDb.isSelected !== file.isSelected) {
-            fileInDb.isSelected = file.isSelected;
-            fileInDb.save();
-          }
-        }
-      }
-
-      for (const app of updatedSnapshot.applications) {
-        const appInDb = await Application.findOneBy({ id: app.id });
-        if (appInDb && appInDb.isSelected !== app.isSelected) {
-          appInDb.isSelected = app.isSelected;
-          appInDb.save();
-        }
-
-        for (const file of app.files) {
-          const fileInDb = await File.findOneBy({ id: file.id });
-          if (fileInDb && fileInDb.isSelected !== file.isSelected) {
-            fileInDb.isSelected = file.isSelected;
-            fileInDb.save();
-          }
-        }
-      }
-
-      await snapshotInDb.save();
-      info(`[SnapshotManager] Updated snapshot "${snapshotInDb.name}"`);
-
-      // update tray
-      await TrayManager.updateTray();
-    }
-  }
-
-  public async saveAndCloseApplications(updatedSnapshot: Snapshot) {
-    await this.saveSnapshot(updatedSnapshot);
-    await this.closeApplications(updatedSnapshot);
-  }
-
-  public async updateSnapshotNameAndCloseApplications(
-    snapshotId: number,
-    updatedName: string
-  ) {
-    await this.updateSnapshotName(snapshotId, updatedName);
-    const snapshot = await this.getSnapshotById(snapshotId);
-    if (snapshot) {
-      await this.closeApplications(snapshot);
-    }
-  }
-
-  public async closeApplications(snapshot: Snapshot) {
-    const appsThatShouldNeverBeClosed = await KnownApplication.getAppsThatShouldNeverBeClosed();
-
-
-    for (const browser of snapshot.browsers) {
-      const tabsToClose: BrowserTabEntity[] = browser.browserTabs.filter((tab) => tab.isSelected);
-      TaskSnap.getInstance().closeBrowserTabs(browser, tabsToClose);
-
-    }
-
-    for (const ide of snapshot.ides) {
-      const ideFilesToClose: IDEFileEntity[] = ide.ideFiles.filter((file) => file.isSelected);
-      TaskSnap.getInstance().closeIDEFiles(ideFilesToClose);
-
-      // If all files were closed, quit the IDE
-      if (ide.ideFiles.length === ideFilesToClose.length) {
-        const doNotCloseThisApp = appsThatShouldNeverBeClosed.some((notCloseApp) => notCloseApp.name === ide.name);
-
-        if (ide.isSelected && !doNotCloseThisApp) {
-          closeApplication(ide);
-        }
+  /**
+   * Create an empty task (or subtask) with no artefacts attached. Used by
+   * the "Start new task" flow where artefact selection is deferred until
+   * the user stops or switches tasks.
+   */
+  public async startEmptyTask(
+    name: string,
+    parentId: number | null = null
+  ): Promise<Snapshot> {
+    const now = new Date().toISOString();
+    const fallbackName =
+      parentId === null
+        ? `Task ${await Snapshot.getNextId()}`
+        : `Subtask ${await Snapshot.getNextId()}`;
+    const snap = Snapshot.create({
+      name: name?.trim() || fallbackName,
+      summary: '',
+      intent: '',
+      created: now,
+      edited: now,
+      lastChange: now,
+      isArchived: false,
+      isReady: true,
+      parentId,
+    });
+    await snap.save();
+    if (parentId !== null) {
+      const parent = await Snapshot.findOneBy({ id: parentId });
+      if (parent) {
+        parent.lastChange = now;
+        await parent.save();
       }
     }
-
-    for (const app of snapshot.applications) {
-      const filesToClose: File[] = app.files.filter((file) => file.isSelected);
-
-      // We can only close specific windows/tabs of the Finder/Explorer
-      if (app.name.includes('Finder') || app.name.includes('Windows Explorer') || app.name.includes('Windows-Explorer')) {
-        for await (const folder of filesToClose) {
-          await closeFileExplorerPath(folder.path);
-        }
-      } else {
-        // Finder and Explorer should NEVER be closed entirely (leads to issues)
-        const doNotCloseThisApp = appsThatShouldNeverBeClosed.some((notCloseApp) => notCloseApp.name === app.name);
-
-        if (app.isSelected && filesToClose.length === app.files.length && !doNotCloseThisApp) {
-          closeApplication(app);
-        }
-      }
-    }
-  }
-
-  public async updateSnapshotName(snapshotId: number, name: string) {
-    const snapshotInDb = await Snapshot.findOneBy({ id: snapshotId });
-    if (snapshotInDb) {
-      snapshotInDb.name = name;
-      await snapshotInDb.save();
-
-      // update tray
-      await TrayManager.updateTray();
-    }
-  }
-
-  public async deleteSnapshot(snapshotId: number, origin: UsageDataOrigin) {
     await UsageData.addEntry(
-      'delete-snapshot',
+      'start-task',
       false,
-      `id: ${snapshotId}, origin: ${origin}`
+      `id: ${snap.id}, parent: ${parentId ?? 'null'}`
     );
-    const snapshotInDb = await Snapshot.findOneBy({ id: snapshotId });
-    if (snapshotInDb) {
-      await snapshotInDb.remove();
-      info(`[SnapshotManager] Deleted snapshot "${snapshotInDb.name}"`);
-
-      // update tray
-      await TrayManager.updateTray();
-    }
-  }
-
-  public async postponeSnapshot(
-    snapshotId: number,
-    timeInMin: number,
-    origin: UsageDataOrigin
-  ) {
     info(
-      `[SnapshotManager] Postpone requested for snapshot ${snapshotId} (${timeInMin} min) — no UI to reopen`
+      `[SnapshotManager] Started empty ${parentId === null ? 'task' : 'subtask'} "${snap.name}" (id ${snap.id})`
     );
+    await TrayManager.updateTray();
+    return snap;
+  }
+
+  /**
+   * Replace the artefacts linked to an existing task with the supplied set.
+   * Used by the stop / commit flow. Children of existing rows cascade-delete
+   * (see entity onDelete: CASCADE), so we can drop then re-insert without
+   * leaving orphans.
+   */
+  public async commitTaskArtefacts(
+    taskId: number,
+    browsers: BrowserEntity[],
+    ides: IDEEntity[],
+    applications: Application[]
+  ): Promise<void> {
+    const snap = await Snapshot.findOneBy({ id: taskId });
+    if (!snap) {
+      throw new Error(`Task ${taskId} not found`);
+    }
+
+    // Drop existing rows. Cascade onDelete handles BrowserTab / IDEFile / File children.
+    await BrowserEntity.createQueryBuilder()
+      .delete()
+      .where('snapshotId = :id', { id: taskId })
+      .execute();
+    await IDEEntity.createQueryBuilder()
+      .delete()
+      .where('snapshotId = :id', { id: taskId })
+      .execute();
+    await Application.createQueryBuilder()
+      .delete()
+      .where('snapshotId = :id', { id: taskId })
+      .execute();
+
+    // Insert new rows. Strip ids so TypeORM treats them as new entities.
+    if (browsers.length > 0) {
+      const fresh = browsers.map((b) => {
+        const e = BrowserEntity.create({
+          windowId: b.windowId,
+          name: b.name,
+          type: b.type,
+          path: b.path,
+          icon: b.icon,
+          title: b.title,
+          isSelected: b.isSelected ?? true,
+          relevance: b.relevance ?? 0,
+        });
+        e.snapshot = snap;
+        e.browserTabs = (b.browserTabs ?? []).map((t) =>
+          BrowserTabEntity.create({
+            url: t.url,
+            title: t.title,
+            favIconUrl: t.favIconUrl,
+            index: t.index ?? 0,
+            isActive: t.isActive ?? false,
+            isSelected: t.isSelected ?? true,
+            relevance: t.relevance ?? 0,
+          })
+        );
+        return e;
+      });
+      await BrowserEntity.save(fresh);
+    }
+    if (ides.length > 0) {
+      for (const i of ides) {
+        const e = IDEEntity.create({
+          name: i.name,
+          path: i.path,
+          icon: i.icon,
+          title: i.title,
+          branch: i.branch,
+          lastCommitMessage: i.lastCommitMessage,
+          workspaceName: i.workspaceName,
+          workspacePath: i.workspacePath,
+          isSelected: i.isSelected ?? true,
+          relevance: i.relevance ?? 0,
+        });
+        e.snapshot = snap;
+        await IDEEntity.save(e);
+        const files = (i.ideFiles ?? []).map((f) => {
+          const fe = IDEFileEntity.create({
+            name: f.name,
+            path: f.path,
+            isActive: f.isActive ?? false,
+            isSelected: f.isSelected ?? true,
+            relevance: f.relevance ?? 0,
+          });
+          fe.ide = e;
+          return fe;
+        });
+        if (files.length > 0) await IDEFileEntity.save(files);
+      }
+    }
+    if (applications.length > 0) {
+      for (const a of applications) {
+        const e = Application.create({
+          name: a.name,
+          path: a.path,
+          icon: a.icon,
+          title: a.title,
+          isSelected: a.isSelected ?? true,
+          relevance: a.relevance ?? 0,
+        });
+        e.snapshot = snap;
+        await Application.save(e);
+        const files = (a.files ?? []).map((f) => {
+          const fe = FileEntity.create({
+            name: f.name,
+            path: f.path,
+            isSelected: f.isSelected ?? true,
+          });
+          fe.application = e;
+          return fe;
+        });
+        if (files.length > 0) await FileEntity.save(files);
+      }
+    }
+
+    snap.lastChange = new Date().toISOString();
+    await snap.save();
     await UsageData.addEntry(
-      'postpone-snapshot',
+      'commit-task-artefacts',
       false,
-      `id: ${snapshotId}, time: ${timeInMin}, origin: ${origin}`
+      `id: ${taskId}, browsers: ${browsers.length}, ides: ${ides.length}, apps: ${applications.length}`
     );
-  }
-
-  public async mergeSnapshots(fromSnap: Snapshot, toSnap: Snapshot) {
-    if (fromSnap.summary) {
-      toSnap.summary =
-        fromSnap.summary + (toSnap.summary ? '\n\n' + toSnap.summary : ''); // new summary should be before old summary
-    }
-    if (fromSnap.intent) {
-      toSnap.intent =
-        fromSnap.intent + (toSnap.intent ? '\n\n' + toSnap.intent : '');
-    }
-    for await (const fromBrowser of fromSnap.browsers) {
-      const toBrowser = toSnap.browsers.find(
-        (toBrowser) => fromBrowser.type == toBrowser.type
-      );
-      if (toBrowser) {
-        for await (const fromTab of fromBrowser.browserTabs) {
-          const toTab = toBrowser.browserTabs.find(
-            (toTab) => fromTab.url == toTab.url
-          );
-          if (toTab) {
-            toTab.isActive = fromTab.isActive;
-            toTab.isSelected = fromTab.isSelected;
-            await toTab.save();
-          } else {
-            fromTab.browser = toBrowser;
-            toBrowser.browserTabs.push(fromTab);
-            await toBrowser.save();
-          }
-        }
-      } else {
-        fromBrowser.snapshot = toSnap;
-        toSnap.browsers.push(fromBrowser);
-        await toSnap.save();
-      }
-    }
-
-    for await (const fromIDE of fromSnap.ides) {
-      const toIDE = toSnap.ides.find((toIDE) => fromIDE.path == toIDE.path);
-      if (toIDE) {
-        for await (const fromFile of fromIDE.ideFiles) {
-          const toFile = toIDE.ideFiles.find(
-            (toFile) => fromFile.path == toFile.path
-          );
-          if (toFile) {
-            toFile.isActive = fromFile.isActive;
-            toFile.isSelected = fromFile.isSelected;
-            await toFile.save();
-          } else {
-            fromFile.ide = toIDE;
-            toIDE.ideFiles.push(fromFile);
-            await toIDE.save();
-          }
-        }
-      } else {
-        fromIDE.snapshot = toSnap;
-        toSnap.ides.push(fromIDE);
-        await toSnap.save();
-      }
-    }
-
-    for await (const fromApp of fromSnap.applications) {
-      const toApp = toSnap.applications.find(
-        (toApp) => fromApp.path == toApp.path
-      );
-      if (toApp) {
-        for await (const fromFile of fromApp.files) {
-          const toFile = toApp.files.find(
-            (toFile) => fromFile.path == toFile.path
-          );
-          if (toFile) {
-            toFile.isSelected = fromFile.isSelected;
-            await toFile.save();
-          } else {
-            fromFile.application = toApp;
-            toApp.files.push(fromFile);
-            await toApp.save();
-          }
-        }
-      } else {
-        fromApp.snapshot = toSnap;
-        toSnap.applications.push(fromApp);
-        await toSnap.save();
-      }
-    }
-
-    const timestamp = new Date().toISOString();
-    fromSnap.isArchived = true;
-    fromSnap.edited = timestamp;
-    fromSnap.lastChange = timestamp;
-    fromSnap.save();
-
-    toSnap.edited = timestamp;
-    toSnap.lastChange = timestamp;
-    toSnap.save();
-
-    await UsageData.addEntry(
-      'merge-snapshots',
-      false,
-      `fromId: ${fromSnap.id}, toId: ${toSnap.id}`
+    info(
+      `[SnapshotManager] Committed artefacts to task ${taskId} (${browsers.length} browsers / ${ides.length} ides / ${applications.length} apps)`
     );
-  }
-
-  public async getMergeRecommendations(): Promise<Snapshot[]> {
-    // merge recommendations are the last restored snapshot and a list of the last 10 snapshots
-    const lastRestored = await Snapshot.getLastRestoredSnapshot();
-    const latestNSnapshots = await Snapshot.getLatestNSnapshots(10);
-
-    if (!lastRestored) {
-      return latestNSnapshots;
-    }
-
-    // filter out lastRestored from list of last 10 snapshots
-    const filteredSnapshots = latestNSnapshots.filter(
-      (snap) => snap.id !== lastRestored.id
-    );
-
-    filteredSnapshots.unshift(lastRestored);
-    return filteredSnapshots;
-  }
-
-  public async openSnapshotInSnapshotWindow(_snapshotId: number) {
-    // No-op: snapshot edit window has been removed.
-    // Kept as a stub so legacy callers compile; remove once all references are gone.
-  }
-
-  public updateSnapshotGalleryWindow(): void {
-    // No-op: gallery window has been removed.
-  }
-
-  private resetTimeout(): void {
-    if (this._postponeTimeoutRef) {
-      clearTimeout(this._postponeTimeoutRef);
-      this._postponeTimeoutRef = undefined;
-    }
+    await TrayManager.updateTray();
   }
 }
+

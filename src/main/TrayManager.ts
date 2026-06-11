@@ -4,15 +4,12 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
-import { Menu, MenuItemConstructorOptions, Tray, app, shell } from 'electron';
+import { Menu, Tray, app, shell } from 'electron';
 import isMac from './helpers/isMac';
 import getAssetPath from './helpers/getAssetPath';
 import path from 'path';
 import TaskSnap from './TaskSnap';
 import WindowManager from './WindowManager';
-import Snapshot from './entity/Snapshot';
-import Settings from './entity/Settings';
-import { UsageDataOrigin } from '../types/UsageDataOrigin';
 import StudyManager from './StudyManager';
 import { StudyPhase } from '../types/StudyPhase';
 
@@ -40,20 +37,6 @@ export default class TrayManager {
       StudyManager.getStudyPhase() !== StudyPhase.Baseline;
 
     const menu = Menu.buildFromTemplate([
-      {
-        label: 'New Snapshot',
-        click: async () => {
-          await this._taskSnapInstance.createNewSnapshot(UsageDataOrigin.Tray);
-        },
-        accelerator: await Settings.getSnapshotShortcut(),
-        visible: areActionsVisible,
-      },
-      {
-        label: 'Restore Recent Snapshot',
-        submenu: await this.createRestoreSubmenu(),
-        visible: areActionsVisible,
-      },
-      { type: 'separator' },
       {
         label: 'Open ContextShifter',
         click: async () => {
@@ -106,27 +89,6 @@ export default class TrayManager {
       { role: 'quit' },
     ]);
     return menu;
-  }
-
-  private static async createRestoreSubmenu(): Promise<
-    MenuItemConstructorOptions[]
-  > {
-    const lastFiveSnapshots = await Snapshot.getLatestNSnapshots(5);
-    const menuEntries: MenuItemConstructorOptions[] = lastFiveSnapshots.map(
-      (snap) => {
-        const entry: MenuItemConstructorOptions = {
-          label: snap.name,
-          click: async () => {
-            await TaskSnap.getInstance().restoreSnapshot(
-              snap,
-              UsageDataOrigin.Tray
-            );
-          },
-        };
-        return entry;
-      }
-    );
-    return menuEntries;
   }
 
   public static async updateTray(): Promise<void> {

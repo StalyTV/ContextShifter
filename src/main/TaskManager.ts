@@ -2,6 +2,7 @@ import { info, error } from 'electron-log';
 import { In } from 'typeorm';
 import Snapshot from './entity/Snapshot';
 import WindowManager from './WindowManager';
+import ActiveTaskSession from './ActiveTaskSession';
 
 type SwitcherItem = { id: number | null; name: string };
 
@@ -45,8 +46,6 @@ export default class TaskManager {
 
   private static readonly COMMIT_DELAY_MS = 5000;
 
-  private _activeSnapshotId: number | null = null;
-
   private _parents: (number | null)[] = [];
   private _parentIndex = 0;
 
@@ -64,7 +63,9 @@ export default class TaskManager {
   }
 
   public getActiveSnapshotId(): number | null {
-    return this._activeSnapshotId;
+    // ActiveTaskSession is the source of truth for the active task; the
+    // local copy is kept in sync for parent-carousel positioning.
+    return ActiveTaskSession.getInstance().getActiveTaskId();
   }
 
   public isSwitcherOpen(): boolean {
@@ -77,7 +78,7 @@ export default class TaskManager {
 
   /** Currently highlighted id, taking mode into account. */
   public getSelectedSnapshotId(): number | null {
-    if (!this._switcherOpen) return this._activeSnapshotId;
+    if (!this._switcherOpen) return this.getActiveSnapshotId();
     if (this._mode === 'child') {
       return this._children[this._childIndex] ?? null;
     }
@@ -222,23 +223,54 @@ export default class TaskManager {
   public async commitSelection(): Promise<void> {
     if (!this._switcherOpen) return;
     const newActiveId = this.getSelectedSnapshotId();
-    // Auto-commit landed on a synthetic "new" entry: hand off to the main
-    // window dialog instead of activating a snapshot.
+    const currentActive = ActiveTaskSession.getInstance().getActiveTaskId();
+
+    // Sentinels: route to start dialog. If a task is currently active, the
+    // sentinel means "stop" first; the post-commit action then starts the
+    // new task.
     if (newActiveId === NEW_TASK_ID) {
-      await this.openNewTaskDialog(null);
+      if (currentActive !== null) {
+        await this.openCommitDialog({ kind: 'start', parentId: null });
+      } else {
+        await this.openStartTaskDialog(null);
+      }
       return;
     }
     if (newActiveId === NEW_SUBTASK_ID) {
       const parentId = this._parents[this._parentIndex];
       if (typeof parentId === 'number' && parentId !== NEW_TASK_ID) {
-        await this.openNewTaskDialog(parentId);
+        if (currentActive !== null) {
+          await this.openCommitDialog({ kind: 'start', parentId });
+        } else {
+          await this.openStartTaskDialog(parentId);
+        }
       } else {
         this.closeSwitcher();
       }
       return;
     }
+
+    // Switching away from an active task -> open commit picker. If the user
+    // picked a real task, also resume it after commit. "None" just commits
+    // and stops with no follow-up.
+    if (currentActive !== null && currentActive !== newActiveId) {
+      info(
+        `[TaskManager] Switching from active task ${currentActive} -> ${newActiveId}; opening commit picker`
+      );
+      this._switcherOpen = false;
+      this._mode = 'parent';
+      this.clearCommitTimer();
+      WindowManager.closeTaskSwitcherWindow();
+      if (typeof newActiveId === 'number') {
+        await this.openCommitDialog({ kind: 'resume', taskId: newActiveId });
+      } else {
+        await this.openCommitDialog({ kind: 'none' });
+      }
+      return;
+    }
+
+    // No active task -> activate the selected one (or "None") directly.
     info(`[TaskManager] Committing snapshot selection: ${newActiveId}`);
-    this._activeSnapshotId = newActiveId;
     this._switcherOpen = false;
     this._mode = 'parent';
     this.clearCommitTimer();
@@ -250,22 +282,22 @@ export default class TaskManager {
         if (snap) {
           snap.lastChange = new Date().toISOString();
           await snap.save();
+          ActiveTaskSession.getInstance().resume(snap.id, snap.name);
           WindowManager.mainWindow?.webContents.send('snapshots-changed');
         }
       } catch (err) {
         error('[TaskManager] Failed to bump lastChange on activation', err);
       }
     }
+    // Selected "None" with no active task is a no-op.
   }
 
   /**
-   * Hand off task/subtask creation to the main window dialog. We close the
-   * switcher, raise the main window, and emit an event the renderer listens
-   * to in TaskList. `parentId === null` means "new top-level task";
-   * otherwise the dialog opens scoped to that parent and creates a subtask.
+   * Hand off start-task to the main window's StartTaskDialog. parentId !== null
+   * scopes the new task as a subtask under that parent.
    */
-  private async openNewTaskDialog(parentId: number | null): Promise<void> {
-    info(`[TaskManager] Handing off to NewTaskDialog (parentId=${parentId})`);
+  private async openStartTaskDialog(parentId: number | null): Promise<void> {
+    info(`[TaskManager] Handing off to StartTaskDialog (parentId=${parentId})`);
     this._switcherOpen = false;
     this._mode = 'parent';
     this.clearCommitTimer();
@@ -278,12 +310,48 @@ export default class TaskManager {
         WindowManager.mainWindow.focus();
       }
       WindowManager.mainWindow?.webContents.send(
-        'open-new-task-dialog',
+        'open-start-task-dialog',
         parentId
       );
     } catch (err) {
-      error('[TaskManager] Failed to open new-task dialog', err);
+      error('[TaskManager] Failed to open start-task dialog', err);
     }
+  }
+
+  /**
+   * Hand off commit-task to the main window's CommitTaskDialog. The renderer
+   * is responsible for calling stop-task to fetch the bundle.
+   */
+  private async openCommitDialog(
+    action:
+      | { kind: 'none' }
+      | { kind: 'start'; parentId: number | null }
+      | { kind: 'resume'; taskId: number }
+  ): Promise<void> {
+    info(`[TaskManager] Handing off to CommitTaskDialog (action=${action.kind})`);
+    try {
+      if (WindowManager.mainWindow === null) {
+        await WindowManager.createMainWindow();
+      } else {
+        WindowManager.mainWindow.show();
+        WindowManager.mainWindow.focus();
+      }
+      WindowManager.mainWindow?.webContents.send(
+        'open-commit-task-dialog',
+        action
+      );
+    } catch (err) {
+      error('[TaskManager] Failed to open commit-task dialog', err);
+    }
+  }
+
+  /**
+   * Legacy hand-off retained for any callers still pointing at the
+   * pre-active-task picker; routes to the start dialog so the user gets the
+   * new flow regardless.
+   */
+  private async openNewTaskDialog(parentId: number | null): Promise<void> {
+    await this.openStartTaskDialog(parentId);
   }
 
   // ---------- Carousel construction & broadcast ----------
@@ -292,9 +360,8 @@ export default class TaskManager {
     const parents = await Snapshot.getLatestNSnapshots(50);
     // Layout: "None" → existing tasks → "New Task" sentinel at the end.
     this._parents = [null, ...parents.map((s) => s.id), NEW_TASK_ID];
-    const activeIdx = this._parents.findIndex(
-      (x) => x === this._activeSnapshotId
-    );
+    const activeId = this.getActiveSnapshotId();
+    const activeIdx = this._parents.findIndex((x) => x === activeId);
     this._parentIndex = activeIdx >= 0 ? activeIdx : 0;
   }
 
@@ -332,12 +399,19 @@ export default class TaskManager {
 
       const parents: SwitcherItem[] = this._parents.map((id) => {
         if (id === null) return { id: null, name: 'None' };
-        if (id === NEW_TASK_ID) return { id: NEW_TASK_ID, name: '+ New Task' };
+        if (id === NEW_TASK_ID) {
+          const hasActive =
+            ActiveTaskSession.getInstance().getActiveTaskId() !== null;
+          return {
+            id: NEW_TASK_ID,
+            name: hasActive ? 'Stop current task' : 'Start new task',
+          };
+        }
         return { id, name: nameOf.get(id) ?? `Task ${id}` };
       });
       const children: SwitcherItem[] = this._children.map((id) => {
         if (id === NEW_SUBTASK_ID) {
-          return { id: NEW_SUBTASK_ID, name: '+ New Subtask' };
+          return { id: NEW_SUBTASK_ID, name: 'Start new subtask' };
         }
         return { id, name: nameOf.get(id) ?? `Subtask ${id}` };
       });
@@ -350,7 +424,7 @@ export default class TaskManager {
           children,
           childIndex: this._childIndex,
           mode: this._mode,
-          activeTaskId: this._activeSnapshotId,
+          activeTaskId: this.getActiveSnapshotId(),
         }
       );
     } catch (err) {

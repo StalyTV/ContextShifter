@@ -4,6 +4,104 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import styles from './TaskEditView.module.scss';
 import SnapshotEntity from '../../main/entity/Snapshot';
+import BrowserEntity from '../../main/entity/Browser';
+import BrowserTabEntity from '../../main/entity/BrowserTab';
+import IDEEntity from '../../main/entity/IDE';
+import IDEFileEntity from '../../main/entity/IDEFile';
+import ApplicationEntity from '../../main/entity/Application';
+import FileEntity from '../../main/entity/File';
+
+function hostFromUrl(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
+function faviconFor(tab: BrowserTabEntity): string | null {
+  if (tab.favIconUrl && /^https?:\/\//.test(tab.favIconUrl)) {
+    return tab.favIconUrl;
+  }
+  if (tab.url && /^https?:\/\//.test(tab.url)) {
+    const host = hostFromUrl(tab.url);
+    if (host) {
+      return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(
+        host
+      )}&sz=32`;
+    }
+  }
+  return null;
+}
+
+function ArtifactIcon({
+  src,
+  letter,
+}: {
+  src?: string | null;
+  letter: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (src && !failed) {
+    return (
+      <img
+        className={styles.artifactIcon}
+        src={src}
+        alt=""
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  return (
+    <span className={styles.artifactIconFallback}>
+      {(letter || '?').slice(0, 1).toUpperCase()}
+    </span>
+  );
+}
+
+type RowProps = {
+  icon: React.ReactNode;
+  name: string;
+  sub?: string | null;
+  childCount?: number;
+  isOpen?: boolean;
+  onToggle?: () => void;
+  isChild?: boolean;
+};
+
+function ArtifactRow({
+  icon,
+  name,
+  sub,
+  childCount,
+  isOpen,
+  onToggle,
+  isChild,
+}: RowProps) {
+  return (
+    <div
+      className={`${styles.artifactRow} ${isChild ? styles.artifactChild : ''}`}
+    >
+      {icon}
+      <div className={styles.artifactBody}>
+        <div className={styles.artifactName}>{name}</div>
+        {sub ? <div className={styles.artifactSub}>{sub}</div> : null}
+      </div>
+      {childCount && childCount > 0 && onToggle ? (
+        <button
+          type="button"
+          className={`${styles.artifactExpand} ${
+            isOpen ? styles.artifactExpandOpen : ''
+          }`}
+          onClick={onToggle}
+          aria-label={isOpen ? 'Hide children' : 'Show children'}
+        >
+          ▸
+        </button>
+      ) : null}
+    </div>
+  );
+}
 
 export default function TaskEditView() {
   const params = useParams<{ id: string }>();
@@ -16,11 +114,21 @@ export default function TaskEditView() {
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const isSubtask = useMemo(
     () => snapshot?.parentId != null,
     [snapshot]
   );
+
+  const toggleExpanded = (k: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  };
 
   async function load() {
     const snap: SnapshotEntity | null = await window.electron.ipcRenderer
@@ -91,6 +199,12 @@ export default function TaskEditView() {
       </div>
     );
   }
+
+  const browsers = (snapshot.browsers ?? []) as BrowserEntity[];
+  const ides = (snapshot.ides ?? []) as IDEEntity[];
+  const apps = (snapshot.applications ?? []) as ApplicationEntity[];
+  const hasAnyArtifact =
+    browsers.length + ides.length + apps.length > 0;
 
   return (
     <div className={styles.page}>
@@ -188,53 +302,138 @@ export default function TaskEditView() {
           <span className={styles.sectionTitle}>Artifacts</span>
         </div>
 
-        {(snapshot.applications ?? []).length === 0 &&
-          (snapshot.browsers ?? []).length === 0 &&
-          (snapshot.ides ?? []).length === 0 && (
-            <div className={styles.empty}>No artifacts captured.</div>
-          )}
+        {!hasAnyArtifact && (
+          <div className={styles.empty}>No artifacts captured.</div>
+        )}
 
-        {(snapshot.applications ?? []).map((app) => (
-          <div key={`app-${app.id}`} className={styles.artifactGroup}>
-            <div className={styles.groupName}>
-              {app.icon && (
-                <img className={styles.groupIcon} src={app.icon} alt="" />
-              )}
-              {app.title || app.name}
-            </div>
-            {(app.files ?? []).map((f) => (
-              <div key={`file-${f.id}`} className={styles.artifactItem}>
-                <span>{f.name || f.path}</span>
-              </div>
-            ))}
+        {browsers.length > 0 && (
+          <div className={styles.artifactGroup}>
+            <div className={styles.groupName}>Browsers</div>
+            {browsers.map((b) => {
+              const tabs = (b.browserTabs ?? []) as BrowserTabEntity[];
+              const k = `browser-${b.id}`;
+              const isOpen = expanded.has(k);
+              return (
+                <div key={k}>
+                  <ArtifactRow
+                    icon={
+                      <ArtifactIcon
+                        src={(b as any).icon || null}
+                        letter={String(b.type ?? 'B')}
+                      />
+                    }
+                    name={(b as any).name || String(b.type) || 'Browser'}
+                    sub={`${tabs.length} tab${tabs.length === 1 ? '' : 's'}`}
+                    childCount={tabs.length}
+                    isOpen={isOpen}
+                    onToggle={() => toggleExpanded(k)}
+                  />
+                  {isOpen &&
+                    tabs.map((t) => (
+                      <ArtifactRow
+                        key={`tab-${t.id}`}
+                        isChild
+                        icon={
+                          <ArtifactIcon
+                            src={faviconFor(t)}
+                            letter={hostFromUrl(t.url || t.title || '?')}
+                          />
+                        }
+                        name={t.title || hostFromUrl(t.url)}
+                        sub={hostFromUrl(t.url)}
+                      />
+                    ))}
+                </div>
+              );
+            })}
           </div>
-        ))}
+        )}
 
-        {(snapshot.browsers ?? []).map((b) => (
-          <div key={`browser-${b.id}`} className={styles.artifactGroup}>
-            <div className={styles.groupName}>
-              {(b as unknown as { name?: string }).name ?? 'Browser'}
-            </div>
-            {(b.browserTabs ?? []).map((t) => (
-              <div key={`tab-${t.id}`} className={styles.artifactItem}>
-                <span>{t.title || t.url}</span>
-              </div>
-            ))}
+        {ides.length > 0 && (
+          <div className={styles.artifactGroup}>
+            <div className={styles.groupName}>IDEs</div>
+            {ides.map((ide) => {
+              const files = (ide.ideFiles ?? []) as IDEFileEntity[];
+              const k = `ide-${ide.id}`;
+              const isOpen = expanded.has(k);
+              return (
+                <div key={k}>
+                  <ArtifactRow
+                    icon={
+                      <ArtifactIcon
+                        src={(ide as any).icon || null}
+                        letter={ide.name || 'IDE'}
+                      />
+                    }
+                    name={ide.workspaceName || ide.name || 'IDE'}
+                    sub={ide.workspacePath || ide.path}
+                    childCount={files.length}
+                    isOpen={isOpen}
+                    onToggle={() => toggleExpanded(k)}
+                  />
+                  {isOpen &&
+                    files.map((f) => {
+                      const display =
+                        f.name || (f.path || '').split('/').pop() || f.path;
+                      return (
+                        <ArtifactRow
+                          key={`idefile-${f.id}`}
+                          isChild
+                          icon={
+                            <span className={styles.artifactFileGlyph}>📄</span>
+                          }
+                          name={display}
+                          sub={f.path}
+                        />
+                      );
+                    })}
+                </div>
+              );
+            })}
           </div>
-        ))}
+        )}
 
-        {(snapshot.ides ?? []).map((ide) => (
-          <div key={`ide-${ide.id}`} className={styles.artifactGroup}>
-            <div className={styles.groupName}>
-              {(ide as unknown as { name?: string }).name ?? 'IDE'}
-            </div>
-            {(ide.ideFiles ?? []).map((f) => (
-              <div key={`idefile-${f.id}`} className={styles.artifactItem}>
-                <span>{f.name || f.path}</span>
-              </div>
-            ))}
+        {apps.length > 0 && (
+          <div className={styles.artifactGroup}>
+            <div className={styles.groupName}>Applications</div>
+            {apps.map((app) => {
+              const files = (app.files ?? []) as FileEntity[];
+              const k = `app-${app.id}`;
+              const isOpen = expanded.has(k);
+              return (
+                <div key={k}>
+                  <ArtifactRow
+                    icon={
+                      <ArtifactIcon
+                        src={(app as any).icon || null}
+                        letter={app.name || 'A'}
+                      />
+                    }
+                    name={app.name || app.title || 'Application'}
+                    sub={
+                      app.title && app.title !== app.name ? app.title : null
+                    }
+                    childCount={files.length}
+                    isOpen={isOpen}
+                    onToggle={() => toggleExpanded(k)}
+                  />
+                  {isOpen &&
+                    files.map((f) => (
+                      <ArtifactRow
+                        key={`file-${f.id}`}
+                        isChild
+                        icon={
+                          <span className={styles.artifactFileGlyph}>📄</span>
+                        }
+                        name={f.name || f.path}
+                        sub={f.path}
+                      />
+                    ))}
+                </div>
+              );
+            })}
           </div>
-        ))}
+        )}
       </section>
     </div>
   );

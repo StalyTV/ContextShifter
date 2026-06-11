@@ -1,0 +1,547 @@
+import { useEffect, useMemo, useState } from 'react';
+import BrowserEntity from '../../main/entity/Browser';
+import BrowserTabEntity from '../../main/entity/BrowserTab';
+import IDEEntity from '../../main/entity/IDE';
+import IDEFileEntity from '../../main/entity/IDEFile';
+import ApplicationEntity from '../../main/entity/Application';
+import FileEntity from '../../main/entity/File';
+import { StoppedTaskBundle } from '../../types/Commands';
+import styles from './NewTaskDialog.module.scss';
+
+type Props = {
+  /**
+   * Pre-fetched bundle from the main process. If undefined, the dialog
+   * will invoke 'stop-task' itself on mount (used when the renderer opens
+   * the dialog directly, e.g. via the active-task "Stop" button).
+   */
+  bundle?: StoppedTaskBundle | null;
+  /** What to do once the user commits or cancels. */
+  onClose: () => void;
+  onCommitted: () => void;
+  /**
+   * Called when the user cancels. If true, the active-task buffer is
+   * discarded server-side (we never commit anything). When false the
+   * caller is responsible for any cleanup.
+   */
+  discardOnCancel?: boolean;
+};
+
+type Key = string;
+
+const keyBrowser = (b: BrowserEntity) => `browser:${b.type}`;
+const keyTab = (b: BrowserEntity, t: BrowserTabEntity) =>
+  `tab:${b.type}|${t.url}`;
+const keyIde = (i: IDEEntity) => `ide:${i.workspacePath || i.path}`;
+const keyIdeFile = (i: IDEEntity, f: IDEFileEntity) =>
+  `idef:${i.workspacePath || i.path}|${f.path}`;
+const keyApp = (a: ApplicationEntity) => `app:${a.path}`;
+const keyFile = (a: ApplicationEntity, f: FileEntity) =>
+  `file:${a.path}|${f.path}`;
+
+function hostFromUrl(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
+function faviconFor(tab: BrowserTabEntity): string | null {
+  if (tab.favIconUrl && /^https?:\/\//.test(tab.favIconUrl)) {
+    return tab.favIconUrl;
+  }
+  if (tab.url && /^https?:\/\//.test(tab.url)) {
+    const host = hostFromUrl(tab.url);
+    if (host) {
+      return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(
+        host
+      )}&sz=32`;
+    }
+  }
+  return null;
+}
+
+function Icon({
+  src,
+  letter,
+  className,
+}: {
+  src?: string | null;
+  letter: string;
+  className?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (src && !failed) {
+    return (
+      <img
+        className={`${styles.icon} ${className ?? ''}`}
+        src={src}
+        alt=""
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  return (
+    <span className={`${styles.iconFallback} ${className ?? ''}`}>
+      {(letter || '?').slice(0, 1).toUpperCase()}
+    </span>
+  );
+}
+
+export default function CommitTaskDialog({
+  bundle: initialBundle,
+  onClose,
+  onCommitted,
+  discardOnCancel = true,
+}: Props) {
+  const [bundle, setBundle] = useState<StoppedTaskBundle | null>(
+    initialBundle ?? null
+  );
+  const [loading, setLoading] = useState(initialBundle === undefined);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<Key>>(new Set());
+  const [expanded, setExpanded] = useState<Set<Key>>(new Set());
+  const [committed, setCommitted] = useState(false);
+
+  useEffect(() => {
+    if (initialBundle !== undefined) {
+      if (initialBundle) primeSelection(initialBundle);
+      return () => undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = (await window.electron.ipcRenderer.invoke(
+          'stop-task'
+        )) as StoppedTaskBundle | null;
+        if (cancelled) return;
+        setBundle(result);
+        if (result) primeSelection(result);
+      } catch (err) {
+        if (!cancelled) setError(String(err));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const primeSelection = (b: StoppedTaskBundle) => {
+    // Pre-check: previously-committed keys ∪ freshly-tracked keys.
+    const sel = new Set<Key>([...b.previousKeys, ...b.trackedKeys]);
+    setSelected(sel);
+    // Expand any parent that has selected children so the user sees them.
+    const exp = new Set<Key>();
+    b.browsers.forEach((br) => {
+      if ((br.browserTabs ?? []).some((t) => sel.has(keyTab(br, t)))) {
+        exp.add(keyBrowser(br));
+      }
+    });
+    b.ides.forEach((i) => {
+      if ((i.ideFiles ?? []).some((f) => sel.has(keyIdeFile(i, f)))) {
+        exp.add(keyIde(i));
+      }
+    });
+    b.applications.forEach((a) => {
+      if ((a.files ?? []).some((f) => sel.has(keyFile(a, f)))) {
+        exp.add(keyApp(a));
+      }
+    });
+    setExpanded(exp);
+  };
+
+  const toggle = (k: Key) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  };
+
+  const toggleExpanded = (k: Key) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  };
+
+  const totals = useMemo(() => {
+    if (!bundle) return { parents: 0, parentsSelected: 0 };
+    let parents = 0;
+    let parentsSelected = 0;
+    bundle.browsers.forEach((b) => {
+      parents += 1;
+      if (selected.has(keyBrowser(b))) parentsSelected += 1;
+    });
+    bundle.ides.forEach((i) => {
+      parents += 1;
+      if (selected.has(keyIde(i))) parentsSelected += 1;
+    });
+    bundle.applications.forEach((a) => {
+      parents += 1;
+      if (selected.has(keyApp(a))) parentsSelected += 1;
+    });
+    return { parents, parentsSelected };
+  }, [bundle, selected]);
+
+  const handleCommit = async () => {
+    if (!bundle || saving) return;
+    setSaving(true);
+    try {
+      const browsers = bundle.browsers
+        .filter((b) => selected.has(keyBrowser(b)))
+        .map((b) => {
+          const tabs = (b.browserTabs ?? []).filter((t) =>
+            selected.has(keyTab(b, t))
+          );
+          return { ...b, browserTabs: tabs } as BrowserEntity;
+        });
+      const ides = bundle.ides
+        .filter((i) => selected.has(keyIde(i)))
+        .map((i) => {
+          const files = (i.ideFiles ?? []).filter((f) =>
+            selected.has(keyIdeFile(i, f))
+          );
+          return { ...i, ideFiles: files } as IDEEntity;
+        });
+      const applications = bundle.applications
+        .filter((a) => selected.has(keyApp(a)))
+        .map((a) => {
+          const files = (a.files ?? []).filter((f) =>
+            selected.has(keyFile(a, f))
+          );
+          return { ...a, files } as ApplicationEntity;
+        });
+      await window.electron.ipcRenderer.invoke(
+        'commit-task-artefacts',
+        bundle.taskId,
+        browsers,
+        ides,
+        applications
+      );
+      setCommitted(true);
+      onCommitted();
+    } catch (err) {
+      setError(String(err));
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (saving) return;
+    if (discardOnCancel && bundle && !committed) {
+      try {
+        await window.electron.ipcRenderer.invoke('discard-active-task');
+      } catch {
+        // best-effort
+      }
+    }
+    onClose();
+  };
+
+  return (
+    <div
+      className={styles.backdrop}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleCancel();
+      }}
+    >
+      <div className={styles.dialog} role="dialog" aria-modal="true">
+        <div className={styles.header}>
+          <h2 className={styles.title}>
+            {bundle
+              ? `Save artefacts for "${bundle.taskName}"`
+              : 'Save artefacts'}
+          </h2>
+          <button
+            type="button"
+            className={styles.close}
+            onClick={handleCancel}
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className={styles.sectionHeader}>
+          <span className={styles.label}>
+            Tracked while the task was active
+          </span>
+          <span className={styles.counter}>
+            {loading
+              ? '...'
+              : `${totals.parentsSelected} / ${totals.parents}`}
+          </span>
+        </div>
+
+        <div className={styles.list}>
+          {loading && (
+            <div className={styles.muted}>Reading tracked artefacts...</div>
+          )}
+          {!loading && bundle && totals.parents === 0 && (
+            <div className={styles.muted}>
+              No artefacts were tracked. Switch focus to apps, tabs, or files
+              while a task is active and they will show up here next time.
+            </div>
+          )}
+
+          {bundle && bundle.browsers.length > 0 && (
+            <div className={styles.group}>
+              <div className={styles.groupTitle}>Browsers</div>
+              {bundle.browsers.map((b) => {
+                const k = keyBrowser(b);
+                const tabs = b.browserTabs ?? [];
+                const isOpen = expanded.has(k);
+                const parentChecked = selected.has(k);
+                return (
+                  <div key={k} className={styles.entry}>
+                    <div
+                      className={`${styles.row} ${
+                        parentChecked ? '' : styles.rowOff
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={parentChecked}
+                        onChange={() => toggle(k)}
+                      />
+                      <Icon
+                        src={b.icon || null}
+                        letter={String(b.type ?? 'B')}
+                      />
+                      <div className={styles.body}>
+                        <div className={styles.name}>{b.type}</div>
+                        <div className={styles.sub}>
+                          {tabs.length} tab{tabs.length === 1 ? '' : 's'}
+                        </div>
+                      </div>
+                      {tabs.length > 0 && (
+                        <button
+                          type="button"
+                          className={`${styles.expand} ${
+                            isOpen ? styles.expandOpen : ''
+                          }`}
+                          onClick={() => toggleExpanded(k)}
+                          aria-label={isOpen ? 'Hide tabs' : 'Show tabs'}
+                        >
+                          ▸
+                        </button>
+                      )}
+                    </div>
+                    {isOpen &&
+                      tabs.map((t) => {
+                        const tk = keyTab(b, t);
+                        const checked = selected.has(tk);
+                        const fav = faviconFor(t);
+                        return (
+                          <div
+                            key={tk}
+                            className={`${styles.row} ${styles.child} ${
+                              parentChecked ? '' : styles.rowOff
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={!parentChecked}
+                              onChange={() => toggle(tk)}
+                            />
+                            <Icon
+                              src={fav}
+                              letter={hostFromUrl(t.url || t.title || '?')}
+                            />
+                            <div className={styles.body}>
+                              <div className={styles.name}>
+                                {t.title || hostFromUrl(t.url)}
+                              </div>
+                              <div className={styles.sub}>
+                                {hostFromUrl(t.url)}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {bundle && bundle.ides.length > 0 && (
+            <div className={styles.group}>
+              <div className={styles.groupTitle}>IDEs</div>
+              {bundle.ides.map((i) => {
+                const k = keyIde(i);
+                const files = i.ideFiles ?? [];
+                const isOpen = expanded.has(k);
+                const parentChecked = selected.has(k);
+                return (
+                  <div key={k} className={styles.entry}>
+                    <div
+                      className={`${styles.row} ${
+                        parentChecked ? '' : styles.rowOff
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={parentChecked}
+                        onChange={() => toggle(k)}
+                      />
+                      <Icon src={i.icon || null} letter={i.name} />
+                      <div className={styles.body}>
+                        <div className={styles.name}>
+                          {i.workspaceName || i.name}
+                        </div>
+                        <div className={styles.sub}>
+                          {i.workspacePath || i.path}
+                        </div>
+                      </div>
+                      {files.length > 0 && (
+                        <button
+                          type="button"
+                          className={`${styles.expand} ${
+                            isOpen ? styles.expandOpen : ''
+                          }`}
+                          onClick={() => toggleExpanded(k)}
+                          aria-label={isOpen ? 'Hide files' : 'Show files'}
+                        >
+                          ▸
+                        </button>
+                      )}
+                    </div>
+                    {isOpen &&
+                      files.map((f) => {
+                        const fk = keyIdeFile(i, f);
+                        const checked = selected.has(fk);
+                        const display =
+                          (f as any).name ?? (f.path || '').split('/').pop();
+                        return (
+                          <div
+                            key={fk}
+                            className={`${styles.row} ${styles.child} ${
+                              parentChecked ? '' : styles.rowOff
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={!parentChecked}
+                              onChange={() => toggle(fk)}
+                            />
+                            <span className={styles.fileGlyph}>📄</span>
+                            <div className={styles.body}>
+                              <div className={styles.name}>{display}</div>
+                              <div className={styles.sub}>{f.path}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {bundle && bundle.applications.length > 0 && (
+            <div className={styles.group}>
+              <div className={styles.groupTitle}>Applications</div>
+              {bundle.applications.map((a) => {
+                const k = keyApp(a);
+                const files = a.files ?? [];
+                const isOpen = expanded.has(k);
+                const parentChecked = selected.has(k);
+                return (
+                  <div key={k} className={styles.entry}>
+                    <div
+                      className={`${styles.row} ${
+                        parentChecked ? '' : styles.rowOff
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={parentChecked}
+                        onChange={() => toggle(k)}
+                      />
+                      <Icon src={a.icon || null} letter={a.name} />
+                      <div className={styles.body}>
+                        <div className={styles.name}>{a.name}</div>
+                        {a.title && a.title !== a.name && (
+                          <div className={styles.sub}>{a.title}</div>
+                        )}
+                      </div>
+                      {files.length > 0 && (
+                        <button
+                          type="button"
+                          className={`${styles.expand} ${
+                            isOpen ? styles.expandOpen : ''
+                          }`}
+                          onClick={() => toggleExpanded(k)}
+                          aria-label={isOpen ? 'Hide files' : 'Show files'}
+                        >
+                          ▸
+                        </button>
+                      )}
+                    </div>
+                    {isOpen &&
+                      files.map((f) => {
+                        const fk = keyFile(a, f);
+                        const checked = selected.has(fk);
+                        return (
+                          <div
+                            key={fk}
+                            className={`${styles.row} ${styles.child} ${
+                              parentChecked ? '' : styles.rowOff
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={!parentChecked}
+                              onChange={() => toggle(fk)}
+                            />
+                            <span className={styles.fileGlyph}>📄</span>
+                            <div className={styles.body}>
+                              <div className={styles.name}>{f.name}</div>
+                              <div className={styles.sub}>{f.path}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {error && <div className={styles.error}>{error}</div>}
+
+        <div className={styles.footer}>
+          <button
+            type="button"
+            className={styles.secondary}
+            onClick={handleCancel}
+            disabled={saving}
+          >
+            {discardOnCancel ? 'Discard' : 'Cancel'}
+          </button>
+          <button
+            type="button"
+            className={styles.primary}
+            onClick={handleCommit}
+            disabled={saving || loading || !bundle}
+          >
+            {saving ? 'Saving...' : 'Save artefacts'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

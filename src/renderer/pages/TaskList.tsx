@@ -5,8 +5,15 @@ import { useNavigate } from 'react-router-dom';
 import styles from './TaskList.module.scss';
 import SnapshotEntity from '../../main/entity/Snapshot';
 import ExtensionsStatus from '../../types/ExtensionsStatus';
-import NewTaskDialog from '../components/NewTaskDialog';
+import StartTaskDialog from '../components/StartTaskDialog';
+import CommitTaskDialog from '../components/CommitTaskDialog';
 import SettingsDrawer from '../components/SettingsDrawer';
+
+type ActiveTask = { id: number; name: string } | null;
+type PendingAction =
+  | { kind: 'none' }
+  | { kind: 'start'; parentId: number | null }
+  | { kind: 'resume'; taskId: number };
 
 const MAX_ICONS = 6;
 
@@ -68,8 +75,17 @@ export default function TaskList() {
   const [snapshots, setSnapshots] = useState<SnapshotEntity[]>([]);
   const [loading, setLoading] = useState(true);
   const [extStatus, setExtStatus] = useState<ExtensionsStatus | null>(null);
-  const [showNewTask, setShowNewTask] = useState(false);
-  const [newTaskParentId, setNewTaskParentId] = useState<number | null>(null);
+  const [showStartTask, setShowStartTask] = useState(false);
+  const [startTaskParentId, setStartTaskParentId] = useState<number | null>(
+    null
+  );
+  const [showCommitTask, setShowCommitTask] = useState(false);
+  // After the user commits artefacts for the previous task, this captures
+  // what should happen next (start a new task, resume another, or nothing).
+  const [pendingAfterCommit, setPendingAfterCommit] = useState<PendingAction>({
+    kind: 'none',
+  });
+  const [activeTask, setActiveTask] = useState<ActiveTask>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const navigate = useNavigate();
@@ -118,14 +134,97 @@ export default function TaskList() {
     return () => (window as any).electron.removeOnSnapshotsChanged();
   }, []);
 
+  // Backward-compat: widget still emits 'open-new-task-dialog' on the
+  // legacy code path; route it through the new start flow.
   useEffect(() => {
     const onOpen = (_e: unknown, parentId: number | null) => {
-      setNewTaskParentId(parentId ?? null);
-      setShowNewTask(true);
+      setStartTaskParentId(parentId ?? null);
+      setShowStartTask(true);
     };
     (window as any).electron.onOpenNewTaskDialog(onOpen);
     return () => (window as any).electron.removeOnOpenNewTaskDialog();
   }, []);
+
+  useEffect(() => {
+    const onOpen = (_e: unknown, parentId: number | null) => {
+      setStartTaskParentId(parentId ?? null);
+      setPendingAfterCommit({ kind: 'none' });
+      setShowStartTask(true);
+    };
+    (window as any).electron.onOpenStartTaskDialog(onOpen);
+    return () => (window as any).electron.removeOnOpenStartTaskDialog();
+  }, []);
+
+  useEffect(() => {
+    const onOpen = (_e: unknown, action: PendingAction) => {
+      setPendingAfterCommit(action ?? { kind: 'none' });
+      setShowCommitTask(true);
+    };
+    (window as any).electron.onOpenCommitTaskDialog(onOpen);
+    return () => (window as any).electron.removeOnOpenCommitTaskDialog();
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const t = (await window.electron.ipcRenderer.invoke(
+        'get-active-task'
+      )) as ActiveTask;
+      if (alive) setActiveTask(t);
+    })();
+    const handler = (_e: unknown, task: ActiveTask) => {
+      setActiveTask(task);
+    };
+    (window as any).electron.onActiveTaskChanged(handler);
+    return () => {
+      alive = false;
+      (window as any).electron.removeOnActiveTaskChanged();
+    };
+  }, []);
+
+  const handleStartButton = () => {
+    if (activeTask) {
+      // Stopping the current task -> commit picker, no follow-up start.
+      setPendingAfterCommit({ kind: 'none' });
+      setShowCommitTask(true);
+    } else {
+      setStartTaskParentId(null);
+      setPendingAfterCommit({ kind: 'none' });
+      setShowStartTask(true);
+    }
+  };
+
+  const handleTaskRowClick = (taskId: number) => {
+    if (activeTask && activeTask.id !== taskId) {
+      // Switching -> commit current task first, then resume the chosen task.
+      setPendingAfterCommit({ kind: 'resume', taskId });
+      setShowCommitTask(true);
+      return;
+    }
+    navigate(`/task/${taskId}`);
+  };
+
+  const finalisePendingAction = async () => {
+    const action = pendingAfterCommit;
+    setPendingAfterCommit({ kind: 'none' });
+    if (action.kind === 'start') {
+      setStartTaskParentId(action.parentId);
+      setShowStartTask(true);
+    } else if (action.kind === 'resume') {
+      try {
+        const snap = await window.electron.ipcRenderer.invoke(
+          'resume-task',
+          action.taskId
+        );
+        // Open the task detail view of the resumed task.
+        if (snap && typeof (snap as any).id === 'number') {
+          navigate(`/task/${(snap as any).id}`);
+        }
+      } catch {
+        // best-effort
+      }
+    }
+  };
 
   return (
     <div className={styles.page}>
@@ -138,12 +237,9 @@ export default function TaskList() {
           <button
             type="button"
             className={styles.newButton}
-            onClick={() => {
-              setNewTaskParentId(null);
-              setShowNewTask(true);
-            }}
+            onClick={handleStartButton}
           >
-            + New task
+            {activeTask ? `Stop "${activeTask.name}"` : 'Start new task'}
           </button>
           <button
             type="button"
@@ -182,11 +278,18 @@ export default function TaskList() {
           return (
             <div
               key={s.id}
-              className={styles.row}
-              onClick={() => navigate(`/task/${s.id}`)}
+              className={`${styles.row} ${
+                activeTask?.id === s.id ? styles.rowActive : ''
+              }`}
+              onClick={() => handleTaskRowClick(s.id)}
             >
               <div className={styles.body}>
-                <div className={styles.name}>{s.name || `Task ${s.id}`}</div>
+                <div className={styles.name}>
+                  {activeTask?.id === s.id && (
+                    <span className={styles.activeBadge}>Active</span>
+                  )}
+                  {s.name || `Task ${s.id}`}
+                </div>
                 {visible.length > 0 && (
                   <ul className={styles.artifactList}>
                     {visible.map((ic) => (
@@ -241,19 +344,34 @@ export default function TaskList() {
         </span>
       </div>
 
-      {showNewTask && (
-        <NewTaskDialog
-          onClose={() => setShowNewTask(false)}
-          onCreated={() => {
-            setShowNewTask(false);
+      {showStartTask && (
+        <StartTaskDialog
+          onClose={() => setShowStartTask(false)}
+          onStarted={() => {
+            setShowStartTask(false);
             setReloadKey((k) => k + 1);
           }}
-          parentId={newTaskParentId}
+          parentId={startTaskParentId}
           parentName={
-            newTaskParentId !== null
-              ? snapshots.find((s) => s.id === newTaskParentId)?.name ?? null
+            startTaskParentId !== null
+              ? snapshots.find((s) => s.id === startTaskParentId)?.name ?? null
               : null
           }
+        />
+      )}
+
+      {showCommitTask && (
+        <CommitTaskDialog
+          onClose={async () => {
+            setShowCommitTask(false);
+            await finalisePendingAction();
+            setReloadKey((k) => k + 1);
+          }}
+          onCommitted={async () => {
+            setShowCommitTask(false);
+            await finalisePendingAction();
+            setReloadKey((k) => k + 1);
+          }}
         />
       )}
 
