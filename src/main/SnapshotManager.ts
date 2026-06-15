@@ -317,6 +317,7 @@ export default class SnapshotManager {
           lastCommitMessage: i.lastCommitMessage,
           workspaceName: i.workspaceName,
           workspacePath: i.workspacePath,
+          workspaceSelected: i.workspaceSelected ?? true,
           isSelected: i.isSelected ?? true,
           relevance: i.relevance ?? 0,
         });

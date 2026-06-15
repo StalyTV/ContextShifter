@@ -128,14 +128,52 @@ export default class WindowManager {
 
   public static taskSwitcherWindow: BrowserWindow | null = null;
 
+  // Width/height of the switcher overlay; shared by create + reposition.
+  private static readonly SWITCHER_WIDTH = 420;
+  private static readonly SWITCHER_HEIGHT = 152;
+
+  /**
+   * Float the overlay above everything, make it appear on whatever Desktop/
+   * Space is active (incl. other apps' full-screen Spaces), and park it in the
+   * top-right of the display the cursor is on. macOS quietly drops these
+   * collection-behavior settings, so we re-assert them on every show.
+   *
+   * NOTE: re-running setVisibleOnAllWorkspaces re-runs a process-type transform,
+   * which is the documented price of cross-Space visibility here. It can briefly
+   * drop the Dock icon. We accept that trade-off (per user preference) because
+   * showing on the active Desktop matters more. We deliberately do NOT call
+   * app.dock.show() in this hot path — doing so spawned duplicate Dock tiles.
+   */
+  private static applySwitcherOverlayBehavior() {
+    const win = this.taskSwitcherWindow;
+    if (!win) return;
+    const { screen } = require('electron');
+    win.setAlwaysOnTop(true, 'screen-saver');
+    win.setVisibleOnAllWorkspaces(true, {
+      visibleOnFullScreen: true,
+    });
+    try {
+      const point = screen.getCursorScreenPoint();
+      const display = screen.getDisplayNearestPoint(point);
+      const { x, y, width: sw } = display.workArea;
+      win.setPosition(x + sw - this.SWITCHER_WIDTH - 20, y + 20);
+    } catch {
+      /* best-effort positioning */
+    }
+  }
+
   public static async createTaskSwitcherWindow() {
     if (this.taskSwitcherWindow) {
+      // Reuse: re-assert all-Spaces behavior + reposition onto the active
+      // display, then show.
+      this.applySwitcherOverlayBehavior();
       this.taskSwitcherWindow.showInactive();
+      setTimeout(() => this.applySwitcherOverlayBehavior(), 50);
       return;
     }
 
-    const width = 420;
-    const height = 152;
+    const width = this.SWITCHER_WIDTH;
+    const height = this.SWITCHER_HEIGHT;
 
     this.taskSwitcherWindow = new BrowserWindow({
       show: false,
@@ -160,22 +198,10 @@ export default class WindowManager {
       },
     });
 
-    // Position top-right of the primary display.
-    const { screen } = require('electron');
-    const display = screen.getPrimaryDisplay();
-    const { x, y, width: sw } = display.workArea;
-    this.taskSwitcherWindow.setPosition(x + sw - width - 20, y + 20);
+    // Float over fullscreen apps, show on every Space, position on active display.
+    this.applySwitcherOverlayBehavior();
 
-    // Show on top of fullscreen apps and on every space (macOS).
-    this.taskSwitcherWindow.setAlwaysOnTop(true, 'screen-saver');
-    this.taskSwitcherWindow.setVisibleOnAllWorkspaces(true, {
-      visibleOnFullScreen: true,
-    });
-
-    // The skipTaskbar + focusable:false + visibleOnFullScreen combo can flip
-    // macOS's activation policy to "accessory", hiding the dock icon. Force
-    // it back on so the user keeps a normal app icon they can click to
-    // restore the main window.
+    // Force the dock icon back on once at creation (the transform can hide it).
     if (process.platform === 'darwin' && app.dock) {
       app.dock.show();
     }
@@ -185,7 +211,9 @@ export default class WindowManager {
     );
 
     this.taskSwitcherWindow.once('ready-to-show', () => {
+      this.applySwitcherOverlayBehavior();
       this.taskSwitcherWindow?.showInactive();
+      setTimeout(() => this.applySwitcherOverlayBehavior(), 50);
     });
 
     this.taskSwitcherWindow.on('closed', () => {

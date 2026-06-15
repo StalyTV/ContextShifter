@@ -45,7 +45,7 @@ const NEW_SUBTASK_ID = -2;
 export default class TaskManager {
   private static _instance: TaskManager;
 
-  private static readonly COMMIT_DELAY_MS = 5000;
+  private static readonly COMMIT_DELAY_MS = 3000;
 
   private _parents: (number | null)[] = [];
   private _parentIndex = 0;
@@ -250,7 +250,9 @@ export default class TaskManager {
     // new task.
     if (newActiveId === NEW_TASK_ID) {
       if (currentActive !== null) {
-        await this.openCommitDialog({ kind: 'start', parentId: null });
+        // "Stop current task": commit the active task's artefacts and drop to
+        // None. Do NOT start another task; just close the widget.
+        await this.openCommitDialog({ kind: 'none' });
       } else {
         await this.openStartTaskDialog(null);
       }
@@ -351,6 +353,12 @@ export default class TaskManager {
       | { kind: 'resume'; taskId: number }
   ): Promise<void> {
     info(`[TaskManager] Handing off to CommitTaskDialog (action=${action.kind})`);
+    // Always tear down the switcher widget when handing off to the commit
+    // dialog, so it never lingers behind the dialog.
+    this._switcherOpen = false;
+    this._mode = 'parent';
+    this.clearCommitTimer();
+    WindowManager.closeTaskSwitcherWindow();
     try {
       if (WindowManager.mainWindow === null) {
         await WindowManager.createMainWindow();

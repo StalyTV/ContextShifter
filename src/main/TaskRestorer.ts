@@ -31,6 +31,7 @@ import Snapshot from './entity/Snapshot';
 import KnownApplication from './entity/KnownApplication';
 import NeverCloseBrowserTab from './entity/NeverCloseBrowserTab';
 import BrowserTracker from './trackers/BrowserTracker';
+import VSCodeTracker from './trackers/VSCodeTracker';
 import UsageData from './entity/UsageData';
 import ApplicationEntity from './entity/Application';
 import IDEEntity from './entity/IDE';
@@ -41,9 +42,14 @@ import {
   openArtifact,
   openFiles,
   closeApplication,
+  getRunningApplications,
   getOpenFileExplorerPaths,
   closeFileExplorerPath,
 } from './helpers/osCommands';
+
+function isVSCodeIde(i: { name?: string; path?: string }): boolean {
+  return /code/i.test(i.name ?? '') || /code/i.test(i.path ?? '');
+}
 
 function browserTypeFromName(name: string | undefined): BrowserType | null {
   if (!name) return null;
@@ -111,7 +117,14 @@ export default class TaskRestorer {
       // 1) OPEN the task's artefacts.
       await this.openArtefacts(taskApps, taskIdes, taskBrowsers);
 
-      // 2) CLOSE the rest.
+      // 2) CLOSE the rest. Order matters: the extension-driven closes (browser
+      // tabs, VS Code files) are reliable and need no OS permission, so run
+      // them first. The osascript-driven closes (Finder windows, quitting apps)
+      // can be blocked by macOS Automation prompts, so run them last and
+      // timeout-guarded — a hang there must not prevent the others.
+      await this.closeOtherBrowserTabs(taskBrowsers);
+      await this.closeOtherVSCodeFiles(taskIdes);
+      await this.closeOtherFileExplorerWindows(taskApps);
       await this.closeOtherApplications(
         keepPaths,
         keepNames,
@@ -119,8 +132,6 @@ export default class TaskRestorer {
         neverClosePaths,
         neverCloseNames
       );
-      await this.closeOtherBrowserTabs(taskBrowsers);
-      await this.closeOtherFileExplorerWindows(taskApps);
 
       snap.lastRestore = new Date().toISOString();
       await snap.save();
@@ -159,16 +170,21 @@ export default class TaskRestorer {
       }
     }
 
-    // IDEs: open the workspace folder (if known) and any saved files; otherwise
-    // just launch the IDE.
+    // IDEs: open the project folder (if it's part of the task) plus the saved
+    // files, so the project comes back up the way it was — not just loose files.
     for (const i of taskIdes) {
       try {
         const targets: string[] = [];
-        if (i.workspacePath) targets.push(i.workspacePath);
-        (i.ideFiles ?? []).forEach((f) => {
-          if (f.path) targets.push(f.path);
-        });
+        // The "Project Folder" sub-artefact: only reopen it if selected.
+        if (i.workspacePath && i.workspaceSelected !== false) {
+          targets.push(i.workspacePath);
+        }
+        (i.ideFiles ?? [])
+          .filter((f) => f.isSelected !== false && !!f.path)
+          .forEach((f) => targets.push(f.path));
         if (targets.length > 0) {
+          // `open -a <IDE> <folder> <files...>` opens the folder as a workspace
+          // window and the files within it.
           await openFiles({ application: i.path, artifact: targets });
         } else if (i.path) {
           await openArtifact({ artifact: i.path });
@@ -207,34 +223,51 @@ export default class TaskRestorer {
     neverClosePaths: Set<string>,
     neverCloseNames: Set<string>
   ): Promise<void> {
-    let openWindows: activeWin.Result[] = [];
+    // Enumerate running apps via System Events (reliable; only needs the
+    // Automation permission). Fall back to active-win if that yields nothing
+    // (e.g. on a platform/permission where System Events is unavailable).
+    let openApps: { name: string; path: string }[] = [];
     try {
-      // active-win can hang/exit non-zero on macOS (Screen Recording perms).
-      // Race against a timeout so a stuck call never blocks task switching.
-      openWindows = await Promise.race([
-        activeWin.getOpenWindows().then((w) => w || []),
-        new Promise<activeWin.Result[]>((_resolve, reject) =>
-          setTimeout(() => reject(new Error('active-win timeout')), 5000)
-        ),
-      ]);
+      openApps = await getRunningApplications();
     } catch (err) {
-      info(`[TaskRestorer] Could not enumerate open windows: ${String(err)}`);
-      return;
+      info(`[TaskRestorer] getRunningApplications failed: ${String(err)}`);
+    }
+    if (openApps.length === 0) {
+      try {
+        const windows = await Promise.race([
+          activeWin.getOpenWindows().then((w) => w || []),
+          new Promise<activeWin.Result[]>((_resolve, reject) =>
+            setTimeout(() => reject(new Error('active-win timeout')), 5000)
+          ),
+        ]);
+        openApps = windows.map((w) => ({
+          name: w.owner?.name ?? '',
+          path: w.owner?.path ?? '',
+        }));
+      } catch (err) {
+        info(`[TaskRestorer] Could not enumerate open apps: ${String(err)}`);
+        return;
+      }
     }
 
     const selfName = app.getName().toLowerCase();
-    // De-dupe by owner path so we issue at most one quit per application.
+    // De-dupe by path so we issue at most one quit per application.
     const seen = new Set<string>();
-    for (const win of openWindows) {
-      const name = win.owner?.name ?? '';
-      const path = win.owner?.path ?? '';
+    for (const a of openApps) {
+      const name = a.name ?? '';
+      const path = a.path ?? '';
       const lowerName = name.toLowerCase();
       const dedupeKey = path || lowerName;
       if (!dedupeKey || seen.has(dedupeKey)) continue;
       seen.add(dedupeKey);
 
       // Protected: ourselves, the file explorer app, never-close list.
-      if (lowerName === 'electron' || lowerName === selfName) continue;
+      if (
+        lowerName === 'electron' ||
+        lowerName === selfName ||
+        lowerName === 'contextshifter'
+      )
+        continue;
       if (isFileExplorerName(name)) continue;
       if (neverClosePaths.has(path) || neverCloseNames.has(lowerName)) continue;
 
@@ -245,15 +278,46 @@ export default class TaskRestorer {
       const bt = browserTypeFromName(name);
       if (bt && keepBrowserTypes.has(bt)) continue;
 
-      // Need a path to close reliably.
       if (!path) continue;
 
       try {
         info(`[TaskRestorer] Closing application "${name}"`);
-        closeApplication({ path } as ApplicationEntity);
+        closeApplication({ name, path } as ApplicationEntity);
       } catch (err) {
         error(`[TaskRestorer] Failed to close application "${name}"`, err);
       }
+    }
+  }
+
+  /**
+   * Close VS Code editor tabs that aren't part of the task. Uses the VS Code
+   * extension's close-files endpoint (no OS permission needed). Files belonging
+   * to the task are kept; everything else currently open is closed.
+   */
+  private static async closeOtherVSCodeFiles(
+    taskIdes: IDEEntity[]
+  ): Promise<void> {
+    const vsIdes = taskIdes.filter(isVSCodeIde);
+    // Files the task wants to keep open.
+    const keepFiles = new Set<string>();
+    vsIdes.forEach((i) =>
+      (i.ideFiles ?? []).forEach((f) => {
+        if (f.isSelected !== false && f.path) keepFiles.add(f.path);
+      })
+    );
+
+    try {
+      const snap = await VSCodeTracker.getInstance().requestVSCodeSnapshot();
+      if (!snap) return;
+      const toClose = (snap.openFiles ?? [])
+        .map((f) => f.path)
+        .filter((p) => p && !keepFiles.has(p));
+      if (toClose.length > 0) {
+        info(`[TaskRestorer] Closing ${toClose.length} VS Code file(s)`);
+        await VSCodeTracker.getInstance().sendFileClosingRequest(toClose);
+      }
+    } catch (err) {
+      error('[TaskRestorer] Failed to close VS Code files', err);
     }
   }
 
@@ -325,7 +389,12 @@ export default class TaskRestorer {
 
     let openPaths: string[] = [];
     try {
-      openPaths = await getOpenFileExplorerPaths();
+      openPaths = await Promise.race([
+        getOpenFileExplorerPaths(),
+        new Promise<string[]>((_resolve, reject) =>
+          setTimeout(() => reject(new Error('explorer enum timeout')), 5000)
+        ),
+      ]);
     } catch (err) {
       info(`[TaskRestorer] Could not enumerate explorer windows: ${String(err)}`);
       return;

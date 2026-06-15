@@ -69,6 +69,76 @@ export function closeApplication(app: Application | IDE | Browser) {
   }
 }
 
+/**
+ * List the currently running foreground (GUI) applications with their bundle
+ * paths. Used to decide which apps to close on a task switch.
+ *
+ * On macOS this uses System Events, which only needs the Automation
+ * permission — NOT Screen Recording / Accessibility (which `active-win`
+ * requires and which is flaky for unsigned dev builds). That makes the
+ * close-the-rest behaviour work reliably.
+ */
+export async function getRunningApplications(): Promise<
+  { name: string; path: string }[]
+> {
+  try {
+    if (isMac) {
+      // `timeout` kills the child if it blocks — e.g. the first call triggers
+      // the macOS "control System Events" Automation prompt, and osascript
+      // hangs until it's answered. Without this, a task switch would freeze.
+      const res = await asyncExec(
+        `osascript ` +
+          `-e 'set out to ""' ` +
+          `-e 'tell application "System Events"' ` +
+          `-e 'repeat with p in (every process whose background only is false)' ` +
+          `-e 'try' ` +
+          `-e 'set out to out & (name of p) & tab & (POSIX path of (application file of p)) & linefeed' ` +
+          `-e 'end try' ` +
+          `-e 'end repeat' ` +
+          `-e 'end tell' ` +
+          `-e 'return out'`,
+        { timeout: 6000 }
+      );
+      return res.stdout
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const tab = line.indexOf('\t');
+          if (tab === -1) return { name: line, path: '' };
+          return {
+            name: line.slice(0, tab).trim(),
+            path: line.slice(tab + 1).trim(),
+          };
+        })
+        .filter((a) => a.path);
+    }
+    // Windows: processes that own a visible main window.
+    const command =
+      `Get-Process | Where-Object { $_.MainWindowTitle -ne '' -and $_.Path } | ` +
+      `ForEach-Object { "$($_.Name)` +
+      "`t" +
+      `$($_.Path)" }`;
+    const res = await asyncExec(`powershell.exe -NoProfile -Command "${command}"`, {
+      shell: 'powershell.exe',
+      timeout: 6000,
+    });
+    return res.stdout
+      .split('\r\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const tab = line.indexOf('\t');
+        if (tab === -1) return { name: line, path: '' };
+        return { name: line.slice(0, tab).trim(), path: line.slice(tab + 1).trim() };
+      })
+      .filter((a) => a.path);
+  } catch (err) {
+    error(`[osCommands] getRunningApplications failed: ${String(err)}`);
+    return [];
+  }
+}
+
 export async function getOpenFileExplorerPaths(): Promise<string[]> {
   if (isMac) {
     const res = await asyncExec(

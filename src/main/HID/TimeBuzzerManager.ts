@@ -24,10 +24,15 @@ export default class TimeBuzzerManager {
   // Small delay after USB attach before scanning MIDI ports - the OS needs
   // a moment to register the device with CoreMIDI / ALSA / WinMM.
   private static readonly HOTPLUG_SETTLE_MS = 750;
+  // How often to retry connecting while no device is present. USB attach
+  // events aren't reliable for this MIDI-class device, so we also poll so the
+  // dial is picked up whenever it's plugged in — even long after startup.
+  private static readonly RECONNECT_POLL_MS = 3000;
 
   private _device: any | undefined;
   private _active: boolean = false;
   private _reconnectTimer: NodeJS.Timeout | null = null;
+  private _pollTimer: NodeJS.Timeout | null = null;
   private _onUsbAttach: (() => void) | null = null;
   private _onUsbDetach: (() => void) | null = null;
 
@@ -46,6 +51,21 @@ export default class TimeBuzzerManager {
   private constructor() {
     this.connect();
     this.registerHotplug();
+    this.startReconnectPoll();
+  }
+
+  /**
+   * Periodically attempt to connect while no device is present. This is the
+   * reliable path for recognising the dial when it's plugged in after the app
+   * has already started (USB hotplug events are unreliable for this device).
+   */
+  private startReconnectPoll() {
+    if (this._pollTimer) return;
+    this._pollTimer = setInterval(() => {
+      if (!this.isDeviceConnected()) {
+        this.connect(false);
+      }
+    }, TimeBuzzerManager.RECONNECT_POLL_MS);
   }
 
   private registerHotplug() {
@@ -79,17 +99,39 @@ export default class TimeBuzzerManager {
     return this._instance || (this._instance = new this());
   }
 
-  private connect() {
-    info('[TimeBuzzerManager] Attempting to connect to timeBuzzer...');
+  private connect(verbose: boolean = true) {
+    if (this.isDeviceConnected()) return;
+    if (verbose) {
+      info('[TimeBuzzerManager] Attempting to connect to timeBuzzer...');
+    }
+    // The driver invokes the callback with 'error' SYNCHRONOUSLY during
+    // construction when no timeBuzzer MIDI port is found. Capture that so we
+    // don't mistake a missing device for a connected one (which previously left
+    // _active=true, blocked reconnects, and made detection a false positive).
+    let errored = false;
     try {
-      this._device = new TimeBuzzer((event: string, arg: any) => {
+      const device = new TimeBuzzer((event: string, arg: any) => {
+        if (event === 'error') {
+          errored = true;
+          return;
+        }
         this.handleEvent(event, arg);
       });
+      if (errored) {
+        this._device = undefined;
+        this._active = false;
+        if (verbose) info('[TimeBuzzerManager] No timeBuzzer found');
+        return;
+      }
+      this._device = device;
       this._active = true;
       info('[TimeBuzzerManager] timeBuzzer connected');
     } catch (err) {
-      error('[TimeBuzzerManager] Failed to initialize timeBuzzer', err);
+      if (verbose) {
+        error('[TimeBuzzerManager] Failed to initialize timeBuzzer', err);
+      }
       this._device = undefined;
+      this._active = false;
     }
   }
 
@@ -204,6 +246,10 @@ export default class TimeBuzzerManager {
     if (this._reconnectTimer) {
       clearTimeout(this._reconnectTimer);
       this._reconnectTimer = null;
+    }
+    if (this._pollTimer) {
+      clearInterval(this._pollTimer);
+      this._pollTimer = null;
     }
     try {
       if (this._onUsbAttach) usb.off('attach', this._onUsbAttach);

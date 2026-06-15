@@ -32,6 +32,7 @@ const keyBrowser = (b: BrowserEntity) => `browser:${b.type}`;
 const keyTab = (b: BrowserEntity, t: BrowserTabEntity) =>
   `tab:${b.type}|${t.url}`;
 const keyIde = (i: IDEEntity) => `ide:${i.workspacePath || i.path}`;
+const keyWorkspace = (i: IDEEntity) => `workspace:${i.workspacePath || i.path}`;
 const keyIdeFile = (i: IDEEntity, f: IDEFileEntity) =>
   `idef:${i.workspacePath || i.path}|${f.path}`;
 const keyApp = (a: ApplicationEntity) => `app:${a.path}`;
@@ -133,7 +134,6 @@ export default function CommitTaskDialog({
   const primeSelection = (b: StoppedTaskBundle) => {
     // Pre-check: previously-committed keys ∪ freshly-tracked keys.
     const sel = new Set<Key>([...b.previousKeys, ...b.trackedKeys]);
-    setSelected(sel);
     // Expand any parent that has selected children so the user sees them.
     const exp = new Set<Key>();
     b.browsers.forEach((br) => {
@@ -142,7 +142,15 @@ export default function CommitTaskDialog({
       }
     });
     b.ides.forEach((i) => {
-      if ((i.ideFiles ?? []).some((f) => sel.has(keyIdeFile(i, f)))) {
+      // Seed the "Project Folder" sub-artefact selection from the IDE's
+      // workspaceSelected flag (defaults to selected when a folder is known).
+      if (i.workspacePath && i.workspaceSelected !== false) {
+        sel.add(keyWorkspace(i));
+      }
+      if (
+        sel.has(keyWorkspace(i)) ||
+        (i.ideFiles ?? []).some((f) => sel.has(keyIdeFile(i, f)))
+      ) {
         exp.add(keyIde(i));
       }
     });
@@ -151,6 +159,7 @@ export default function CommitTaskDialog({
         exp.add(keyApp(a));
       }
     });
+    setSelected(sel);
     setExpanded(exp);
   };
 
@@ -209,7 +218,11 @@ export default function CommitTaskDialog({
           const files = (i.ideFiles ?? []).filter((f) =>
             selected.has(keyIdeFile(i, f))
           );
-          return { ...i, ideFiles: files } as IDEEntity;
+          return {
+            ...i,
+            ideFiles: files,
+            workspaceSelected: selected.has(keyWorkspace(i)),
+          } as IDEEntity;
         });
       const applications = bundle.applications
         .filter((a) => selected.has(keyApp(a)))
@@ -403,46 +416,70 @@ export default function CommitTaskDialog({
                           {i.workspacePath || i.path}
                         </div>
                       </div>
-                      {files.length > 0 && (
+                      {(files.length > 0 || i.workspacePath) && (
                         <button
                           type="button"
                           className={`${styles.expand} ${
                             isOpen ? styles.expandOpen : ''
                           }`}
                           onClick={() => toggleExpanded(k)}
-                          aria-label={isOpen ? 'Hide files' : 'Show files'}
+                          aria-label={isOpen ? 'Hide contents' : 'Show contents'}
                         >
                           ▸
                         </button>
                       )}
                     </div>
-                    {isOpen &&
-                      files.map((f) => {
-                        const fk = keyIdeFile(i, f);
-                        const checked = selected.has(fk);
-                        const display =
-                          (f as any).name ?? (f.path || '').split('/').pop();
-                        return (
+                    {isOpen && (
+                      <>
+                        {i.workspacePath && (
                           <div
-                            key={fk}
                             className={`${styles.row} ${styles.child} ${
                               parentChecked ? '' : styles.rowOff
                             }`}
                           >
                             <input
                               type="checkbox"
-                              checked={checked}
+                              checked={selected.has(keyWorkspace(i))}
                               disabled={!parentChecked}
-                              onChange={() => toggle(fk)}
+                              onChange={() => toggle(keyWorkspace(i))}
                             />
-                            <span className={styles.fileGlyph}>📄</span>
+                            <span className={styles.fileGlyph}>📁</span>
                             <div className={styles.body}>
-                              <div className={styles.name}>{display}</div>
-                              <div className={styles.sub}>{f.path}</div>
+                              <div className={styles.name}>Project Folder</div>
+                              <div className={styles.sub}>
+                                {i.workspaceName || i.workspacePath}
+                              </div>
                             </div>
                           </div>
-                        );
-                      })}
+                        )}
+                        {files.map((f) => {
+                          const fk = keyIdeFile(i, f);
+                          const checked = selected.has(fk);
+                          const display =
+                            (f as any).name ?? (f.path || '').split('/').pop();
+                          return (
+                            <div
+                              key={fk}
+                              className={`${styles.row} ${styles.child} ${
+                                parentChecked ? '' : styles.rowOff
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                disabled={!parentChecked}
+                                onChange={() => toggle(fk)}
+                              />
+                              <span className={styles.fileGlyph}>📄</span>
+                              <div className={styles.body}>
+                                <div className={styles.name}>{display}</div>
+                                <div className={styles.sub}>{f.path}</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </>
+                    )}
                   </div>
                 );
               })}

@@ -451,10 +451,20 @@ export default function TaskEditView() {
                     }
                     name={ide.workspaceName || ide.name || 'IDE'}
                     sub={ide.workspacePath || ide.path}
-                    childCount={files.length}
+                    childCount={files.length + (ide.workspacePath ? 1 : 0)}
                     isOpen={isOpen}
                     onToggle={() => toggleExpanded(k)}
                   />
+                  {isOpen && ide.workspacePath && (
+                    <ArtifactRow
+                      isChild
+                      icon={<span className={styles.artifactFileGlyph}>📁</span>}
+                      name={`Project Folder${
+                        ide.workspaceSelected === false ? ' (not selected)' : ''
+                      }`}
+                      sub={ide.workspaceName || ide.workspacePath}
+                    />
+                  )}
                   {isOpen &&
                     files.map((f) => {
                       const display =

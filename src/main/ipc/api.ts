@@ -27,6 +27,7 @@ import IDEFileEntity from '../entity/IDEFile';
 import ApplicationEntity from '../entity/Application';
 import FileEntity from '../entity/File';
 import NeverCloseBrowserTab from '../entity/NeverCloseBrowserTab';
+import KnownApplication from '../entity/KnownApplication';
 import { BrowserType } from 'types/BrowserType';
 import { OpenBrowserTab } from 'types/Commands';
 
@@ -268,6 +269,7 @@ typedIpcMain.handle('stop-task', async () => {
       prevIde?.workspaceName ?? vscodeSnap?.workspaceName ?? '';
     i.workspacePath =
       prevIde?.workspacePath ?? vscodeSnap?.workspacePath ?? '';
+    i.workspaceSelected = prevIde?.workspaceSelected ?? true;
     i.isSelected = true;
     i.relevance = 0;
 
@@ -337,12 +339,26 @@ typedIpcMain.handle('stop-task', async () => {
     appList.push(a);
   }
 
+  // Exclude apps the user marked "never close" from the artefact picker — they
+  // stay open across task switches, so they shouldn't be associated with tasks.
+  const neverClose = await KnownApplication.getAppsThatShouldNeverBeClosed();
+  const neverClosePaths = new Set(neverClose.map((a) => a.path));
+  const neverCloseNames = new Set(
+    neverClose.map((a) => a.name.toLowerCase())
+  );
+  const isNeverClose = (name?: string, path?: string) =>
+    (path != null && neverClosePaths.has(path)) ||
+    (name != null && neverCloseNames.has(name.toLowerCase()));
+
+  const filteredApps = appList.filter((a) => !isNeverClose(a.name, a.path));
+  const filteredIdes = ideList.filter((i) => !isNeverClose(i.name, i.path));
+
   return {
     taskId: stopped.taskId,
     taskName: stopped.taskName,
     browsers: browserList,
-    ides: ideList,
-    applications: appList,
+    ides: filteredIdes,
+    applications: filteredApps,
     previousKeys: Array.from(previousKeys),
     trackedKeys: Array.from(trackedKeys),
   };

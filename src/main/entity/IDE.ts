@@ -44,6 +44,12 @@ export default class IDE extends BaseEntity {
   @Column({ type: 'varchar', nullable: true })
   workspacePath!: string;
 
+  // Whether the project folder (workspacePath) is selected as an artefact to
+  // reopen on restore. Surfaced as a separate "Project Folder" row in the
+  // artefact picker, independent of the IDE's open files.
+  @Column({ type: 'tinyint', nullable: false, default: true })
+  workspaceSelected!: boolean;
+
   @Column({ type: 'tinyint', nullable: false, default: true })
   isSelected!: boolean;
 
