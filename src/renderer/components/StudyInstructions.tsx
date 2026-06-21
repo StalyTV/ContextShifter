@@ -4,10 +4,11 @@ type Props = {
   onClose: () => void;
 };
 
-// Placeholders for repositories created later.
-const REPO_DESKTOP = '<link to ContextShifter desktop repository>';
-const REPO_BROWSER = '<link to ContextShifter browser-extension repository>';
-const REPO_VSCODE = '<link to ContextShifter VS Code-extension repository>';
+const REPO_DESKTOP = 'https://github.com/StalyTV/ContextShifter';
+const REPO_BROWSER =
+  'https://github.com/StalyTV/ContextShifter-browser-extension';
+const REPO_VSCODE =
+  'https://github.com/StalyTV/ContextShifter-vscode-extension';
 
 /**
  * Full-screen instructions panel for study participants. Opened from Settings.
