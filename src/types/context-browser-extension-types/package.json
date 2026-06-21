@@ -1,0 +1,25 @@
+{
+  "name": "context-browser-extension-types",
+  "version": "4.0.0",
+  "description": "types for the context-browser-extension <-> context-electron",
+  "main": "dist/types.js",
+  "types": "dist/types.d.ts",
+  "scripts": {
+    "prepare": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HASEL-UZH/context-browser-extension-types.git"
+  },
+  "author": "roy.rutishauser@gmail.com",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/HASEL-UZH/context-browser-extension-types/issues"
+  },
+  "homepage": "https://github.com/HASEL-UZH/context-browser-extension-types#readme",
+  "devDependencies": {
+    "@types/webextension-polyfill": "^0.8.3",
+    "typescript": "^4.8.3",
+    "webextension-polyfill": "^0.9.0"
+  }
+}

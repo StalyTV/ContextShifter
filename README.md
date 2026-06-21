@@ -6,22 +6,23 @@ ContextShifter is based on TaskSnap and extends it with new context-switching ca
 The application was initially created by [Remy Egloff](https://github.com/regloff) as part of his Master Thesis at the [HASEL Lab](https://hasel.dev/) at the University of Zurich (UZH).
 
 ## ⬇️ Download
-The latest version of the TaskSnap desktop application can be downloaded [here](https://tasksnap-updater.vercel.app/). Updates are installed automatically. Further, the desktop application is accompanied by an [extension](https://marketplace.visualstudio.com/items?itemName=regloff.tasksnap-vscode) for Visual Studio Code and a [browser extension](https://www.royru.ch/gstell/installation) for Chromium based browsers and Firefox. Both extensions are not required for the approach to work, but makes it more useful as more data sources are available.
+ContextShifter is built from source (see [Getting Started](#-getting-started)). It is accompanied by two optional companion extensions that add data sources (open browser tabs and IDE files):
 
-The GitHub project of the VS Code extension can be found [here](https://github.com/HASEL-UZH/TaskSnap-vscode-extension), the browser extension project was created by [royru](https://github.com/royru) and is available [here](https://github.com/HASEL-UZH/context-browser-extension).
+- VS Code extension: https://github.com/StalyTV/ContextShifter-vscode-extension
+- Browser extension (Chromium based browsers and Firefox): https://github.com/StalyTV/ContextShifter-browser-extension
+
+Neither extension is required for the core approach to work, but each makes it more useful as more data sources become available.
 
 
 ## 🔘 Supported USB-Buttons
 Currently, only a single product is supported, the [**Luxafor Mute Button**](https://luxafor.com/product/luxafor-mute-button) (ca 35 USD). However, more products could be easily added in the future.
 
 ## 🚀 Getting Started
-Make sure that you use node version 18
+Use Node.js 18 or newer.
 
 ```
-git clone https://github.com/HASEL-UZH/TaskSnap.git
-cd TaskSnap
-git submodule init
-git submodule update
+git clone https://github.com/StalyTV/ContextShifter.git
+cd ContextShifter
 node -v
 npm i
 npm run start
