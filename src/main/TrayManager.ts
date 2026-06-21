@@ -4,14 +4,12 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
-import { Menu, Tray, app, shell } from 'electron';
+import { Menu, Tray } from 'electron';
 import isMac from './helpers/isMac';
 import getAssetPath from './helpers/getAssetPath';
-import path from 'path';
 import ContextShifter from './ContextShifter';
-import WindowManager from './WindowManager';
-import StudyManager from './StudyManager';
-import { StudyPhase } from '../types/StudyPhase';
+import TaskManager from './TaskManager';
+import ActiveTaskSession from './ActiveTaskSession';
 
 export default class TrayManager {
   private static _tray: Tray | null = null;
@@ -31,62 +29,34 @@ export default class TrayManager {
   }
 
   private static async createMenu(): Promise<Menu> {
-    const isStudy: boolean =
-      StudyManager.getStudyPhase() !== StudyPhase.NoStudy;
-    const areActionsVisible: boolean =
-      StudyManager.getStudyPhase() !== StudyPhase.Baseline;
+    const isActive = ActiveTaskSession.getInstance().isActive();
 
     const menu = Menu.buildFromTemplate([
       {
-        label: 'Open ContextShifter',
-        click: async () => {
-          if (WindowManager.mainWindow === null) {
-            await WindowManager.createMainWindow();
-          } else {
-            WindowManager.mainWindow.show();
-          }
-        },
-        visible: areActionsVisible,
-      },
-      {
-        label: 'Settings',
-        click: async () => {
-          if (WindowManager.settingsWindow === null) {
-            await WindowManager.createSettingsWindow();
-          } else {
-            WindowManager.settingsWindow.show();
-          }
-        },
-        visible: !areActionsVisible, // only visible during baseline phase
-      },
-      { type: 'separator' },
-      {
-        label: 'Open Logs',
+        label: 'Open Widget',
         click: () => {
-          const logPath = isMac
-            ? `Library/Logs/${app.name}/main.log`
-            : `AppData/Roaming/${app.name}/logs/main.log`;
-
-          const fullPath = path.join(app.getPath('home'), logPath);
-          shell.showItemInFolder(fullPath);
-        },
-      },
-      {
-        label: 'Collected Data',
-        click: () => {
-          shell.showItemInFolder(
-            path.join(app.getPath('appData'), app.name, 'database.sqlite')
-          );
+          // Open the task switcher overlay, exactly as turning the dial would.
+          TaskManager.getInstance().openSwitcher();
         },
       },
       { type: 'separator' },
       {
-        label: `Study Phase: ${StudyManager.getStudyPhase()}`,
-        enabled: false,
-        visible: isStudy,
+        // Stacked Create / Stop — one enabled depending on active state.
+        label: 'Create Task',
+        enabled: !isActive,
+        click: () => {
+          TaskManager.getInstance().startNewTask();
+        },
       },
-      { role: 'about' },
-      { role: 'quit' },
+      {
+        label: 'Stop Task',
+        enabled: isActive,
+        click: () => {
+          TaskManager.getInstance().stopActiveTask();
+        },
+      },
+      { type: 'separator' },
+      { role: 'quit', label: 'Quit ContextShifter' },
     ]);
     return menu;
   }

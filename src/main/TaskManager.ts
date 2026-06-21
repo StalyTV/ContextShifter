@@ -1,9 +1,13 @@
 import { info, error } from 'electron-log';
+import { globalShortcut } from 'electron';
 import { In } from 'typeorm';
 import Snapshot from './entity/Snapshot';
 import WindowManager from './WindowManager';
 import ActiveTaskSession from './ActiveTaskSession';
 import TaskRestorer from './TaskRestorer';
+
+// Keys that drive the switcher while it's open (like turning/pressing the dial).
+const SWITCHER_SHORTCUTS = ['Right', 'Down', 'Left', 'Up', 'Return', 'Escape'];
 
 type SwitcherItem = { id: number | null; name: string };
 
@@ -117,6 +121,7 @@ export default class TaskManager {
     this._switcherOpen = true;
 
     WindowManager.createTaskSwitcherWindow();
+    this.registerSwitcherShortcuts();
     this.scheduleCommit();
     this.broadcastState();
   }
@@ -127,7 +132,50 @@ export default class TaskManager {
     this._switcherOpen = false;
     this._mode = 'parent';
     this.clearCommitTimer();
+    this.closeSwitcherWindow();
+  }
+
+  /** Tear down the overlay window and release the arrow-key shortcuts. */
+  private closeSwitcherWindow(): void {
+    this.unregisterSwitcherShortcuts();
     WindowManager.closeTaskSwitcherWindow();
+  }
+
+  /**
+   * While the widget is open, arrow keys drive it like turning the dial and
+   * Enter/Escape act like press/back. Registered globally so the focusless
+   * overlay still responds; released as soon as the widget closes.
+   */
+  private registerSwitcherShortcuts(): void {
+    try {
+      globalShortcut.register('Right', () => this.cycleNext());
+      globalShortcut.register('Down', () => this.cycleNext());
+      globalShortcut.register('Left', () => this.cyclePrev());
+      globalShortcut.register('Up', () => this.cyclePrev());
+      globalShortcut.register('Return', () => this.pressSelect());
+      globalShortcut.register('Escape', () => this.pressBack());
+    } catch (err) {
+      error('[TaskManager] Failed to register switcher shortcuts', err);
+    }
+  }
+
+  private unregisterSwitcherShortcuts(): void {
+    for (const key of SWITCHER_SHORTCUTS) {
+      try {
+        globalShortcut.unregister(key);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  /**
+   * Stop the active task from outside the widget (e.g. the tray "Stop Task").
+   * Routes through the commit picker, ending at "None".
+   */
+  public async stopActiveTask(): Promise<void> {
+    if (!ActiveTaskSession.getInstance().isActive()) return;
+    await this.openCommitDialog({ kind: 'none' });
   }
 
   // ---------- Rotation ----------
@@ -282,7 +330,7 @@ export default class TaskManager {
       this._switcherOpen = false;
       this._mode = 'parent';
       this.clearCommitTimer();
-      WindowManager.closeTaskSwitcherWindow();
+      this.closeSwitcherWindow();
       if (typeof newActiveId === 'number') {
         await this.openCommitDialog({ kind: 'resume', taskId: newActiveId });
       } else {
@@ -296,7 +344,7 @@ export default class TaskManager {
     this._switcherOpen = false;
     this._mode = 'parent';
     this.clearCommitTimer();
-    WindowManager.closeTaskSwitcherWindow();
+    this.closeSwitcherWindow();
 
     if (typeof newActiveId === 'number') {
       try {
@@ -325,7 +373,7 @@ export default class TaskManager {
     this._switcherOpen = false;
     this._mode = 'parent';
     this.clearCommitTimer();
-    WindowManager.closeTaskSwitcherWindow();
+    this.closeSwitcherWindow();
     try {
       if (WindowManager.mainWindow === null) {
         await WindowManager.createMainWindow();
@@ -358,7 +406,7 @@ export default class TaskManager {
     this._switcherOpen = false;
     this._mode = 'parent';
     this.clearCommitTimer();
-    WindowManager.closeTaskSwitcherWindow();
+    this.closeSwitcherWindow();
     try {
       if (WindowManager.mainWindow === null) {
         await WindowManager.createMainWindow();

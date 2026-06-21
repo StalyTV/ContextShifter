@@ -586,6 +586,13 @@ export default class ActiveTaskSession {
           };
       }
       WindowManager.mainWindow?.webContents.send('active-task-changed', payload);
+      // Refresh the tray so Create/Stop Task enable-state tracks the active task.
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        require('./TrayManager').default.updateTray();
+      } catch {
+        // best-effort
+      }
     } catch {
       // best-effort
     }

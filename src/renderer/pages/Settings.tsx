@@ -13,6 +13,7 @@ import NeverCloseBrowserTabEntity from '../../main/entity/NeverCloseBrowserTab';
 import InfoIcon from '../components/Icons/InfoIcon';
 import UserSettings from 'types/UserSettings';
 import { OpenBrowserTab } from 'types/Commands';
+import StudyInstructions from '../components/StudyInstructions';
 
 export default function Settings() {
   let loopRef: NodeJS.Timeout | undefined;
@@ -47,6 +48,7 @@ export default function Settings() {
   const [openBrowserTabs, setOpenBrowserTabs] = useState<OpenBrowserTab[]>([]);
 
   const [isFetchingSettings, setIsFetchingSettings] = useState<boolean>(false);
+  const [showInstructions, setShowInstructions] = useState<boolean>(false);
 
   const getSettings = async () => {
     setIsFetchingSettings(true);
@@ -163,17 +165,6 @@ export default function Settings() {
     setSettings(updatedSettings);
   };
 
-  const onToggleDataAnonymization = async () => {
-    const updatedSettings: UserSettings = {
-      isDarkModeEnabled: isDarkMode,
-      isDataAnonymized: !isDataAnonymized,
-      endOfDayPopUpTime: endOfDayPopUpTime,
-      showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
-    };
-    setIsDataAnonymized(!isDataAnonymized);
-    setSettings(updatedSettings);
-  };
-
   useEffect(() => {
     getSettings();
     getKnownApplications();
@@ -200,14 +191,6 @@ export default function Settings() {
             rightLabel={'dark'}
             icons={false}
             onChange={onToggleColorTheme}
-          />
-          <h4>Anonymize Data</h4>
-          <ContextShifterToggle
-            defaultChecked={isDataAnonymized}
-            leftLabel={'no'}
-            rightLabel={'yes'}
-            icons={false}
-            onChange={onToggleDataAnonymization}
           />
         </div>
       )}
@@ -238,6 +221,32 @@ export default function Settings() {
           ></div>
           <span>Physical Button</span>
         </div>
+      </div>
+
+      <h4>Study Settings</h4>
+      <div className={styles.studyButtons}>
+        <button
+          className={styles.studyButton}
+          onClick={() => setShowInstructions(true)}
+        >
+          Study-instructions
+        </button>
+        <button
+          className={styles.studyButton}
+          onClick={() => {
+            /* TODO: start study data collection */
+          }}
+        >
+          Start collecting Data
+        </button>
+        <button
+          className={styles.studyButton}
+          onClick={() => {
+            /* TODO: export study data */
+          }}
+        >
+          Export Study Data
+        </button>
       </div>
 
       <div className={styles.sectionHeader}>
@@ -368,6 +377,10 @@ export default function Settings() {
             </div>
           )}
         </>
+      )}
+
+      {showInstructions && (
+        <StudyInstructions onClose={() => setShowInstructions(false)} />
       )}
     </div>
   );
