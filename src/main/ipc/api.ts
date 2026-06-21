@@ -28,6 +28,8 @@ import ApplicationEntity from '../entity/Application';
 import FileEntity from '../entity/File';
 import NeverCloseBrowserTab from '../entity/NeverCloseBrowserTab';
 import KnownApplication from '../entity/KnownApplication';
+import ArtifactScorer from '../ArtifactScorer';
+import { isBlankTab } from '../helpers/isBlankTab';
 import { BrowserType } from 'types/BrowserType';
 import { OpenBrowserTab } from 'types/Commands';
 
@@ -96,13 +98,13 @@ typedIpcMain.handle('start-task', async (e, name, parentId) => {
   // If a task is already active, the renderer should stop+commit it first.
   // Treat a duplicate start as a discard of any leftover buffer + a fresh start.
   if (ActiveTaskSession.getInstance().isActive()) {
-    ActiveTaskSession.getInstance().discard();
+    await ActiveTaskSession.getInstance().discard();
   }
   const snap = await SnapshotManager.getInstance().startEmptyTask(
     name,
     parentId ?? null
   );
-  ActiveTaskSession.getInstance().start(snap.id, snap.name);
+  await ActiveTaskSession.getInstance().start(snap.id, snap.name);
   WindowManager.mainWindow?.webContents.send('snapshots-changed');
   return snap;
 });
@@ -111,9 +113,9 @@ typedIpcMain.handle('resume-task', async (e, taskId) => {
   const snap = await Snapshot.findOneBy({ id: taskId });
   if (!snap) throw new Error(`Task ${taskId} not found`);
   if (ActiveTaskSession.getInstance().isActive()) {
-    ActiveTaskSession.getInstance().discard();
+    await ActiveTaskSession.getInstance().discard();
   }
-  ActiveTaskSession.getInstance().resume(snap.id, snap.name);
+  await ActiveTaskSession.getInstance().resume(snap.id, snap.name);
   snap.lastChange = new Date().toISOString();
   await snap.save();
   WindowManager.mainWindow?.webContents.send('snapshots-changed');
@@ -132,8 +134,20 @@ typedIpcMain.handle('get-active-task', async () => {
 });
 
 typedIpcMain.handle('stop-task', async () => {
-  const stopped = ActiveTaskSession.getInstance().stop();
+  const stopped = await ActiveTaskSession.getInstance().stop();
   if (!stopped) return null;
+
+  // Per-artefact scores from accumulated usage, computed at the switch moment.
+  const tabScore = new Map<string, number>();
+  stopped.browsers.forEach((b) =>
+    b.tabs.forEach((t) => tabScore.set(t.url, t.score ?? 0))
+  );
+  const fileScore = new Map<string, number>();
+  stopped.files.forEach((f) => fileScore.set(f.path, f.score ?? 0));
+  const appScore = new Map<string, number>();
+  stopped.apps.forEach((a) => appScore.set(a.path, a.score ?? 0));
+  const ideScore = new Map<string, number>();
+  stopped.ides.forEach((i) => ideScore.set(i.path, i.score ?? 0));
 
   // Load whatever was previously committed to this task so we can pre-check
   // those rows on the picker (lets the user resume the same set easily).
@@ -227,7 +241,18 @@ typedIpcMain.handle('stop-task', async () => {
         byUrl.set(pt.url, t);
       }
     });
-    b.browserTabs = Array.from(byUrl.values());
+    // Drop empty/new-tab pages — they aren't meaningful artefacts.
+    b.browserTabs = Array.from(byUrl.values()).filter(
+      (t) => !isBlankTab(t.url)
+    );
+    // Attach per-tab scores; the browser row's score is its best tab.
+    b.browserTabs.forEach((t) => {
+      t.relevance = tabScore.get(t.url) ?? t.relevance ?? 0;
+    });
+    b.relevance = b.browserTabs.reduce(
+      (m, t) => Math.max(m, t.relevance ?? 0),
+      0
+    );
     browserList.push(b);
   }
 
@@ -307,6 +332,15 @@ typedIpcMain.handle('stop-task', async () => {
       });
     }
     i.ideFiles = Array.from(byPath.values());
+    // Attach per-file scores; the IDE row's score is the best of its files and
+    // its own (no-file focus) score.
+    i.ideFiles.forEach((f) => {
+      f.relevance = fileScore.get(f.path) ?? f.relevance ?? 0;
+    });
+    i.relevance = i.ideFiles.reduce(
+      (m, f) => Math.max(m, f.relevance ?? 0),
+      ideScore.get(i.path) ?? 0
+    );
     ideList.push(i);
   }
   trackedIdeKeys.forEach((k) => trackedKeys.add(k));
@@ -326,7 +360,7 @@ typedIpcMain.handle('stop-task', async () => {
     a.icon = tracked?.icon ?? prevApp?.icon ?? '';
     a.title = tracked?.title ?? prevApp?.title ?? a.name;
     a.isSelected = true;
-    a.relevance = 0;
+    a.relevance = appScore.get(path) ?? 0;
     // Carry previously-committed files (we don't track app files live).
     a.files = (prevApp?.files ?? []).map((f) => {
       const fe = new FileEntity();
@@ -350,8 +384,66 @@ typedIpcMain.handle('stop-task', async () => {
     (path != null && neverClosePaths.has(path)) ||
     (name != null && neverCloseNames.has(name.toLowerCase()));
 
+  // Merge duplicate IDE rows: a tracked IDE is keyed by its app path while a
+  // previously-committed IDE is keyed by its workspace folder, so the same
+  // project could appear twice. Collapse by keyIde (workspace || path),
+  // unioning files and keeping the best score.
+  const dedupedIdeMap = new Map<string, IDEEntity>();
+  for (const i of ideList) {
+    const k = keyIde(i);
+    const existing = dedupedIdeMap.get(k);
+    if (!existing) {
+      dedupedIdeMap.set(k, i);
+      continue;
+    }
+    const byPathMerge = new Map<string, IDEFileEntity>();
+    (existing.ideFiles ?? []).forEach((f) => byPathMerge.set(f.path, f));
+    (i.ideFiles ?? []).forEach((f) => {
+      const e = byPathMerge.get(f.path);
+      if (e) e.relevance = Math.max(e.relevance ?? 0, f.relevance ?? 0);
+      else byPathMerge.set(f.path, f);
+    });
+    existing.ideFiles = Array.from(byPathMerge.values());
+    existing.relevance = Math.max(existing.relevance ?? 0, i.relevance ?? 0);
+    if (!existing.workspacePath && i.workspacePath)
+      existing.workspacePath = i.workspacePath;
+    if (!existing.workspaceName && i.workspaceName)
+      existing.workspaceName = i.workspaceName;
+  }
+  const dedupedIdes = Array.from(dedupedIdeMap.values());
+
   const filteredApps = appList.filter((a) => !isNeverClose(a.name, a.path));
-  const filteredIdes = ideList.filter((i) => !isNeverClose(i.name, i.path));
+  const filteredIdes = dedupedIdes.filter((i) => !isNeverClose(i.name, i.path));
+
+  // Auto-select: pick leaf artefacts scoring above the threshold, then also
+  // check their parent rows (browser / IDE) so the selection is consistent.
+  const leafScores = new Map<string, number>();
+  browserList.forEach((b) =>
+    b.browserTabs.forEach((t) =>
+      leafScores.set(keyTab(b.type, t.url), t.relevance ?? 0)
+    )
+  );
+  filteredIdes.forEach((i) => {
+    (i.ideFiles ?? []).forEach((f) =>
+      leafScores.set(keyIdeFile(i, f), f.relevance ?? 0)
+    );
+    leafScores.set(keyIde(i), ideScore.get(i.path) ?? 0);
+  });
+  filteredApps.forEach((a) => leafScores.set(keyApp(a), a.relevance ?? 0));
+
+  const selectedLeaves = ArtifactScorer.selectAboveThreshold(leafScores);
+  const autoSelect = new Set<string>(selectedLeaves);
+  browserList.forEach((b) =>
+    b.browserTabs.forEach((t) => {
+      if (selectedLeaves.has(keyTab(b.type, t.url)))
+        autoSelect.add(keyBrowser(b.type));
+    })
+  );
+  filteredIdes.forEach((i) =>
+    (i.ideFiles ?? []).forEach((f) => {
+      if (selectedLeaves.has(keyIdeFile(i, f))) autoSelect.add(keyIde(i));
+    })
+  );
 
   return {
     taskId: stopped.taskId,
@@ -361,6 +453,7 @@ typedIpcMain.handle('stop-task', async () => {
     applications: filteredApps,
     previousKeys: Array.from(previousKeys),
     trackedKeys: Array.from(trackedKeys),
+    autoSelectKeys: Array.from(autoSelect),
   };
 });
 
@@ -378,7 +471,7 @@ typedIpcMain.handle(
 );
 
 typedIpcMain.handle('discard-active-task', async () => {
-  ActiveTaskSession.getInstance().discard();
+  await ActiveTaskSession.getInstance().discard();
 });
 
 // settings

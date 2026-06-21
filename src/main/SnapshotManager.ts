@@ -88,7 +88,7 @@ export default class SnapshotManager {
     // Deactivate if we just deleted the active task (or its active subtask).
     const activeId = ActiveTaskSession.getInstance().getActiveTaskId();
     if (activeId === id || children.some((c) => c.id === activeId)) {
-      ActiveTaskSession.getInstance().discard();
+      await ActiveTaskSession.getInstance().discard();
     }
 
     await UsageData.addEntry(

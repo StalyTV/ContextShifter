@@ -239,6 +239,52 @@ export default class BrowserTracker {
         }
       }
     });
+
+    // Feed the current active tab into the active-task session so browser-tab
+    // focus time is scored even when active-win can't read the URL on macOS.
+    try {
+      const type = this.getBrowserTypeFromWindowTitle(
+        data.runtimeInfo.browserInfo.name
+      );
+      const active = this.getActiveTab(type);
+      if (active) {
+        // Lazy require avoids an import cycle with ActiveTaskSession.
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const ActiveTaskSession = require('../ActiveTaskSession').default;
+        ActiveTaskSession.getInstance().onBrowserTabChange(
+          type,
+          active.url,
+          active.title
+        );
+      }
+    } catch {
+      // best-effort
+    }
+  }
+
+  /**
+   * The active tab of the given browser type. Prefers the focused window;
+   * falls back to any window's active tab.
+   */
+  public getActiveTab(
+    type: BrowserType
+  ): { url: string; title: string } | null {
+    let fallback: { url: string; title: string } | null = null;
+    for (const [, win] of this._openWindows) {
+      if (this.getBrowserTypeFromWindowTitle(<string>win.title) !== type) {
+        continue;
+      }
+      const active = (win.tabs ?? []).find((t) => t.active);
+      if (active?.url) {
+        const entry = {
+          url: <string>active.url,
+          title: <string>(active.title ?? ''),
+        };
+        if (win.focused) return entry;
+        if (!fallback) fallback = entry;
+      }
+    }
+    return fallback;
   }
 
   private handleNavigation(data: WebNavigationDetail) {

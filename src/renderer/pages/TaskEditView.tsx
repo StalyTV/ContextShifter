@@ -123,7 +123,12 @@ export default function TaskEditView() {
   const [activeTask, setActiveTask] = useState<ActiveTask>(null);
   const [deleteTarget, setDeleteTarget] = useState<SnapshotEntity | null>(null);
   const [showCommitTask, setShowCommitTask] = useState(false);
-  const [pendingResumeId, setPendingResumeId] = useState<number | null>(null);
+  // What to do after the current task's commit picker is confirmed.
+  const [pendingAction, setPendingAction] = useState<
+    | { kind: 'none' }
+    | { kind: 'resume'; taskId: number }
+    | { kind: 'start'; parentId: number; name: string }
+  >({ kind: 'none' });
 
   const isSubtask = useMemo(
     () => snapshot?.parentId != null,
@@ -180,7 +185,7 @@ export default function TaskEditView() {
   const handleActivate = async (taskId: number) => {
     if (activeTask?.id === taskId) return;
     if (activeTask) {
-      setPendingResumeId(taskId);
+      setPendingAction({ kind: 'resume', taskId });
       setShowCommitTask(true);
       return;
     }
@@ -192,13 +197,31 @@ export default function TaskEditView() {
     }
   };
 
-  const finaliseResume = async () => {
-    const taskId = pendingResumeId;
-    setPendingResumeId(null);
-    if (taskId == null) return;
+  // Pause (deactivate) the active task -> commit picker -> None.
+  const handleStop = () => {
+    setPendingAction({ kind: 'none' });
+    setShowCommitTask(true);
+  };
+
+  const finaliseAction = async () => {
+    const action = pendingAction;
+    setPendingAction({ kind: 'none' });
     try {
-      await window.electron.ipcRenderer.invoke('resume-task', taskId);
-      navigate(`/task/${taskId}`);
+      if (action.kind === 'resume') {
+        await window.electron.ipcRenderer.invoke('resume-task', action.taskId);
+        navigate(`/task/${action.taskId}`);
+      } else if (action.kind === 'start') {
+        const snap = await window.electron.ipcRenderer.invoke(
+          'start-task',
+          action.name,
+          action.parentId
+        );
+        if (snap && typeof (snap as any).id === 'number') {
+          navigate(`/task/${(snap as any).id}`);
+        }
+      } else {
+        await load();
+      }
     } catch {
       /* best-effort */
     }
@@ -238,14 +261,30 @@ export default function TaskEditView() {
     if (!snapshot) return;
     const trimmed = newName.trim();
     if (!trimmed) return;
-    await window.electron.ipcRenderer.invoke(
-      'create-subtask',
-      snapshot.id,
-      trimmed
-    );
     setNewName('');
     setShowAdd(false);
-    await load();
+    const parentId = snapshot.id;
+    // Creating a subtask STARTS it (makes it active) like a normal task. If
+    // another task is active, commit it first via the picker, then start.
+    if (activeTask) {
+      setPendingAction({ kind: 'start', parentId, name: trimmed });
+      setShowCommitTask(true);
+      return;
+    }
+    try {
+      const snap = await window.electron.ipcRenderer.invoke(
+        'start-task',
+        trimmed,
+        parentId
+      );
+      if (snap && typeof (snap as any).id === 'number') {
+        navigate(`/task/${(snap as any).id}`);
+      } else {
+        await load();
+      }
+    } catch {
+      /* best-effort */
+    }
   }
 
   if (loading) {
@@ -309,6 +348,7 @@ export default function TaskEditView() {
           <TaskActionButtons
             isActive={activeTask?.id === snapshot.id}
             onActivate={() => handleActivate(snapshot.id)}
+            onStop={handleStop}
             onDelete={() => setDeleteTarget(snapshot)}
           />
         </div>
@@ -372,6 +412,7 @@ export default function TaskEditView() {
                 <TaskActionButtons
                   isActive={activeTask?.id === c.id}
                   onActivate={() => handleActivate(c.id)}
+                  onStop={handleStop}
                   onDelete={() => setDeleteTarget(c)}
                 />
               </div>
@@ -534,11 +575,11 @@ export default function TaskEditView() {
         <CommitTaskDialog
           onClose={async () => {
             setShowCommitTask(false);
-            await finaliseResume();
+            await finaliseAction();
           }}
           onCommitted={async () => {
             setShowCommitTask(false);
-            await finaliseResume();
+            await finaliseAction();
           }}
         />
       )}

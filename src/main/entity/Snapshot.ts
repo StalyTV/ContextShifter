@@ -52,6 +52,11 @@ export default class Snapshot extends BaseEntity {
   @Column({ type: 'integer', nullable: true })
   parentId!: number | null;
 
+  // Accumulated active (foreground) time across all sessions of this task, in
+  // milliseconds. Denominator for normalized-duration in artefact scoring.
+  @Column({ type: 'integer', nullable: false, default: 0 })
+  activeMs!: number;
+
   @OneToMany(() => Application, (app) => app.snapshot)
   applications!: Application[];
 

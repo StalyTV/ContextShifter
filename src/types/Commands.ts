@@ -32,6 +32,9 @@ export type StoppedTaskBundle = {
   applications: Application[];
   previousKeys: string[];
   trackedKeys: string[];
+  // Picker keys the scorer auto-selected (above the score threshold), incl.
+  // parent rows for any selected leaf.
+  autoSelectKeys: string[];
 };
 
 type Commands = {

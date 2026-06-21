@@ -7,7 +7,10 @@
  * kit token required); add more icons here as needed.
  */
 import { faCirclePlay } from '@fortawesome/free-solid-svg-icons';
-import { faTrashCan } from '@fortawesome/free-regular-svg-icons';
+import {
+  faTrashCan,
+  faCirclePause,
+} from '@fortawesome/free-regular-svg-icons';
 
 export const byPrefixAndName = {
   fas: {
@@ -15,6 +18,7 @@ export const byPrefixAndName = {
   },
   far: {
     'trash-can': faTrashCan,
+    'circle-pause': faCirclePause,
   },
 } as const;
 

@@ -89,6 +89,15 @@ function Icon({
   );
 }
 
+function ScoreBadge({ value }: { value?: number }) {
+  if (value == null || value <= 0) return null;
+  return (
+    <span className={styles.score} title="Relevance score">
+      {value.toFixed(2)}
+    </span>
+  );
+}
+
 export default function CommitTaskDialog({
   bundle: initialBundle,
   onClose,
@@ -132,8 +141,8 @@ export default function CommitTaskDialog({
   }, []);
 
   const primeSelection = (b: StoppedTaskBundle) => {
-    // Pre-check: previously-committed keys ∪ freshly-tracked keys.
-    const sel = new Set<Key>([...b.previousKeys, ...b.trackedKeys]);
+    // Pre-check: the artefacts the scorer auto-selected (above threshold).
+    const sel = new Set<Key>([...(b.autoSelectKeys ?? [])]);
     // Expand any parent that has selected children so the user sees them.
     const exp = new Set<Key>();
     b.browsers.forEach((br) => {
@@ -335,6 +344,7 @@ export default function CommitTaskDialog({
                           {tabs.length} tab{tabs.length === 1 ? '' : 's'}
                         </div>
                       </div>
+                      <ScoreBadge value={b.relevance} />
                       {tabs.length > 0 && (
                         <button
                           type="button"
@@ -378,6 +388,7 @@ export default function CommitTaskDialog({
                                 {hostFromUrl(t.url)}
                               </div>
                             </div>
+                            <ScoreBadge value={t.relevance} />
                           </div>
                         );
                       })}
@@ -416,6 +427,7 @@ export default function CommitTaskDialog({
                           {i.workspacePath || i.path}
                         </div>
                       </div>
+                      <ScoreBadge value={i.relevance} />
                       {(files.length > 0 || i.workspacePath) && (
                         <button
                           type="button"
@@ -475,6 +487,7 @@ export default function CommitTaskDialog({
                                 <div className={styles.name}>{display}</div>
                                 <div className={styles.sub}>{f.path}</div>
                               </div>
+                              <ScoreBadge value={f.relevance} />
                             </div>
                           );
                         })}
@@ -513,6 +526,7 @@ export default function CommitTaskDialog({
                           <div className={styles.sub}>{a.title}</div>
                         )}
                       </div>
+                      <ScoreBadge value={a.relevance} />
                       {files.length > 0 && (
                         <button
                           type="button"

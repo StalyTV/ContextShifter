@@ -304,7 +304,7 @@ export default class TaskManager {
         if (snap) {
           snap.lastChange = new Date().toISOString();
           await snap.save();
-          ActiveTaskSession.getInstance().resume(snap.id, snap.name);
+          await ActiveTaskSession.getInstance().resume(snap.id, snap.name);
           WindowManager.mainWindow?.webContents.send('snapshots-changed');
           // Restore the task's context (open its artefacts, close the rest).
           await TaskRestorer.restore(snap.id);

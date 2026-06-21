@@ -229,9 +229,9 @@
     }
   },
   "electronmon": {
+    "comment": "Watching is disabled for stable manual testing (the active-task session is in-memory, so a hot-restart kills it mid-flow). To re-enable hot-reload of the main process, restore patterns to [\"!**/**\", \"src/main/**\"].",
     "patterns": [
-      "!**/**",
-      "src/main/**"
+      "!**/**"
     ],
     "logLevel": "quiet"
   }

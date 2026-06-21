@@ -224,6 +224,12 @@ export default function TaskList() {
     }
   };
 
+  // Pause (deactivate) the active task -> commit picker -> None.
+  const handleStop = () => {
+    setPendingAfterCommit({ kind: 'none' });
+    setShowCommitTask(true);
+  };
+
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     const id = deleteTarget.id;
@@ -358,6 +364,7 @@ export default function TaskList() {
               <TaskActionButtons
                 isActive={activeTask?.id === s.id}
                 onActivate={() => handleActivate(s.id)}
+                onStop={handleStop}
                 onDelete={() => setDeleteTarget(s)}
               />
             </div>

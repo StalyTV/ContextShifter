@@ -35,10 +35,9 @@
 
 .activate.activeNow {
   color: var(--accent);
-  opacity: 0.45;
 
   &:hover {
-    background: transparent;
+    background: var(--border-subtle);
   }
 }
 
