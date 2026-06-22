@@ -22,6 +22,16 @@ export class WindowsActivityTracker implements ITracker {
   private _lastErrorLogAt = 0;
   private static readonly ERROR_LOG_THROTTLE_MS = 60_000;
 
+  // Guard against overlapping polls: active-win's helper binary *hangs*
+  // indefinitely (it never resolves nor rejects) when the host process lacks
+  // macOS Screen Recording permission. setInterval would otherwise spawn a new
+  // hung `main` child every tick, piling up dozens of zombie processes while
+  // tracking silently produces nothing. We allow only one poll in flight and
+  // race it against a timeout so a hang surfaces as a catchable, logged error
+  // and the loop keeps retrying (so it auto-recovers once permission returns).
+  private _inFlight = false;
+  private static readonly POLL_TIMEOUT_MS = 4_000;
+
   /**
    * Constructor for creating a WindowsActivityTracker instance
    * @param onWindowChange This is a callaback function that receives the activeWindow as an argument and is fired whenever the active window changes.
@@ -42,8 +52,19 @@ export class WindowsActivityTracker implements ITracker {
     }
 
     this.ref = setInterval(async () => {
+      // Skip this tick if the previous poll hasn't settled yet (see _inFlight).
+      if (this._inFlight) return;
+      this._inFlight = true;
       try {
-        const res = await activeWin();
+        const res = await Promise.race([
+          activeWin(),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("active-win timeout")),
+              WindowsActivityTracker.POLL_TIMEOUT_MS
+            )
+          ),
+        ]);
         const window = {
           ts: new Date(),
           windowTitle: res?.title || undefined,
@@ -79,16 +100,20 @@ export class WindowsActivityTracker implements ITracker {
             (error as { stdout?: string })?.stdout ||
             (error as Error)?.message ||
             String(error);
-          if (/permission/i.test(String(detail))) {
+          if (/permission|timeout/i.test(String(detail))) {
             console.warn(
               `[WindowsActivityTracker] active-win unavailable: ${String(
                 detail
-              ).trim()} (window tracking paused; suppressing repeats for 60s)`
+              ).trim()} — window tracking paused. On macOS, grant this app ` +
+                `Screen Recording AND Accessibility (System Settings > Privacy ` +
+                `& Security) and restart. Suppressing repeats for 60s.`
             );
           } else {
             console.error(error);
           }
         }
+      } finally {
+        this._inFlight = false;
       }
     }, this.checkingForWindowChangeInterval);
 
