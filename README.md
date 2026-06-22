@@ -15,7 +15,7 @@ Neither extension is required for the core approach to work, but each makes it m
 
 
 ## 🔘 Supported USB-Buttons
-Currently, only a single product is supported, the [**Luxafor Mute Button**](https://luxafor.com/product/luxafor-mute-button) (ca 35 USD). However, more products could be easily added in the future.
+Currently, only a single product is supported, the [**TimeBuzzer**](https://luxafor.com/product/luxafor-mute-button](https://timebuzzer.com/de/?utm_source=google%20ads%20&utm_medium=brand%20de&customclick=CjwKCAjwl97RBhBWEiwAa9rbXV_wDZRhhAmOzkGj7witZheG3xAvUrvKOqquD8A3hnQdjk4_oCBerhoCW9YQAvD_BwE&gad_source=1&gad_campaignid=21737448887&gbraid=0AAAAADfzrp_Ax3TrMKJ-NoLe2UnP5Bdh9&gclid=CjwKCAjwl97RBhBWEiwAa9rbXV_wDZRhhAmOzkGj7witZheG3xAvUrvKOqquD8A3hnQdjk4_oCBerhoCW9YQAvD_BwE)). However, more products could be easily added in the future.
 
 ## 🚀 Getting Started
 Use Node.js 18 or newer.
@@ -40,8 +40,3 @@ npm exec electron-builder
 - The main components of the application are described [here](./docs/mainComponents.md).
 - Data is **only** stored locally in an SQLite database using the package [better-sqlite3](https://github.com/WiseLibs/better-sqlite3). The database schema is described [here](./docs/databaseSchema.md).
 
-## 💫 Credits
-Special thanks to the developers contributing to the following libraries:
-- https://github.com/node-hid/node-hid
-- https://github.com/WiseLibs/better-sqlite3
-- https://github.com/sindresorhus/active-win
