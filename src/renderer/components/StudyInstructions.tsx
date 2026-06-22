@@ -100,7 +100,7 @@ export default function StudyInstructions({ onClose }: Props) {
                   </li>
                   <li>
                     Light: while a task is active the button glows blue. It is off
-                    when no task is active. Press it to stop the current task.
+                    when no task is active.
                   </li>
                 </ul>
               </li>
