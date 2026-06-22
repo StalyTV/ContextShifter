@@ -22,15 +22,18 @@ export class WindowsActivityTracker implements ITracker {
   private _lastErrorLogAt = 0;
   private static readonly ERROR_LOG_THROTTLE_MS = 60_000;
 
-  // Guard against overlapping polls: active-win's helper binary *hangs*
-  // indefinitely (it never resolves nor rejects) when the host process lacks
-  // macOS Screen Recording permission. setInterval would otherwise spawn a new
-  // hung `main` child every tick, piling up dozens of zombie processes while
-  // tracking silently produces nothing. We allow only one poll in flight and
-  // race it against a timeout so a hang surfaces as a catchable, logged error
-  // and the loop keeps retrying (so it auto-recovers once permission returns).
-  private _inFlight = false;
+  // active-win's helper binary *hangs* indefinitely (never resolves nor
+  // rejects) when the host process lacks macOS Screen Recording permission, and
+  // the abandoned `main` child keeps running. To avoid silent death and a flood
+  // of zombie children we (a) self-schedule each poll only AFTER the previous
+  // one settles (no overlap), (b) race every poll against a timeout so a hang
+  // becomes a catchable/logged error, and (c) back the poll interval off after
+  // consecutive timeouts so a persistent hang leaks at most ~1 child/minute
+  // instead of one every few seconds. A single success snaps back to fast
+  // polling, so the loop auto-recovers the moment permission is granted.
   private static readonly POLL_TIMEOUT_MS = 4_000;
+  private static readonly MAX_BACKOFF_MS = 60_000;
+  private _consecutiveTimeouts = 0;
 
   /**
    * Constructor for creating a WindowsActivityTracker instance
@@ -50,11 +53,16 @@ export class WindowsActivityTracker implements ITracker {
       console.log(`${this.name} is already running!`);
       return;
     }
+    this.isRunning = true;
+    this.scheduleNext(0);
+  }
 
-    this.ref = setInterval(async () => {
-      // Skip this tick if the previous poll hasn't settled yet (see _inFlight).
-      if (this._inFlight) return;
-      this._inFlight = true;
+  private scheduleNext(delayMs: number): void {
+    if (!this.isRunning) return;
+    this.ref = setTimeout(() => this.poll(), delayMs);
+  }
+
+  private async poll(): Promise<void> {
       try {
         const res = await Promise.race([
           activeWin(),
@@ -65,6 +73,7 @@ export class WindowsActivityTracker implements ITracker {
             )
           ),
         ]);
+        this._consecutiveTimeouts = 0;
         const window = {
           ts: new Date(),
           windowTitle: res?.title || undefined,
@@ -88,39 +97,49 @@ export class WindowsActivityTracker implements ITracker {
           this._prev = activeWindow;
         }
       } catch (error) {
-        // Throttle: active-win throws on every tick when the OS permission is
-        // missing, which would otherwise flood the console once per second.
+        const detail =
+          (error as { stdout?: string })?.stdout ||
+          (error as Error)?.message ||
+          String(error);
+        const isStall = /permission|timeout/i.test(String(detail));
+        if (isStall) this._consecutiveTimeouts += 1;
+        // Throttle: active-win fails on every poll when the OS permission is
+        // missing, which would otherwise flood the console.
         const now = Date.now();
         if (
           now - this._lastErrorLogAt >
           WindowsActivityTracker.ERROR_LOG_THROTTLE_MS
         ) {
           this._lastErrorLogAt = now;
-          const detail =
-            (error as { stdout?: string })?.stdout ||
-            (error as Error)?.message ||
-            String(error);
-          if (/permission|timeout/i.test(String(detail))) {
+          if (isStall) {
             console.warn(
               `[WindowsActivityTracker] active-win unavailable: ${String(
                 detail
-              ).trim()} — window tracking paused. On macOS, grant this app ` +
-                `Screen Recording AND Accessibility (System Settings > Privacy ` +
-                `& Security) and restart. Suppressing repeats for 60s.`
+              ).trim()} — window tracking paused (backing off). On macOS, grant ` +
+                `this app Screen Recording AND Accessibility (System Settings > ` +
+                `Privacy & Security) and restart. Suppressing repeats for 60s.`
             );
           } else {
             console.error(error);
           }
         }
       } finally {
-        this._inFlight = false;
+        // Reschedule only after the poll settles, so calls never overlap. Back
+        // off geometrically while active-win keeps stalling (capped), then
+        // resume fast polling as soon as a call succeeds.
+        const base = this.checkingForWindowChangeInterval;
+        const delay =
+          this._consecutiveTimeouts > 0
+            ? Math.min(
+                base * 2 ** Math.min(this._consecutiveTimeouts, 6),
+                WindowsActivityTracker.MAX_BACKOFF_MS
+              )
+            : base;
+        this.scheduleNext(delay);
       }
-    }, this.checkingForWindowChangeInterval);
-
-    this.isRunning = true;
   }
   stop(): void {
-    if (this.ref) clearInterval(this.ref);
+    if (this.ref) clearTimeout(this.ref);
     this.isRunning = false;
   }
 }

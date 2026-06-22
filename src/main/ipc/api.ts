@@ -6,7 +6,9 @@
 
 import typedIpcMain from './typedIpcMain';
 import SnapshotManager from '../SnapshotManager';
-import { nativeTheme } from 'electron';
+import { nativeTheme, dialog } from 'electron';
+import { app as electronApp } from 'electron';
+import path from 'path';
 import ContextShifter from '../ContextShifter';
 import UsageData from '../entity/UsageData';
 import DeviceManager from '../HID/DeviceManager';
@@ -29,6 +31,7 @@ import FileEntity from '../entity/File';
 import NeverCloseBrowserTab from '../entity/NeverCloseBrowserTab';
 import KnownApplication from '../entity/KnownApplication';
 import ArtifactScorer from '../ArtifactScorer';
+import StudyDataCollector from '../StudyDataCollector';
 import { isBlankTab } from '../helpers/isBlankTab';
 import { BrowserType } from 'types/BrowserType';
 import { OpenBrowserTab } from 'types/Commands';
@@ -460,6 +463,17 @@ typedIpcMain.handle('stop-task', async () => {
 typedIpcMain.handle(
   'commit-task-artefacts',
   async (e, taskId, browsers, ides, applications) => {
+    // Capture study data BEFORE committing: commit can prune/rewrite the
+    // ArtifactUsage rows, and we want the scored set as it was at task end.
+    if (await Settings.getIsStudyDataCollectionEnabled()) {
+      const snap = await Snapshot.getSnapshotById(taskId);
+      await StudyDataCollector.record(taskId, snap?.name ?? `Task ${taskId}`, {
+        browsers: browsers ?? [],
+        ides: ides ?? [],
+        applications: applications ?? [],
+      });
+    }
+
     await SnapshotManager.getInstance().commitTaskArtefacts(
       taskId,
       browsers,
@@ -470,6 +484,26 @@ typedIpcMain.handle(
   }
 );
 
+typedIpcMain.handle('export-study-data', async () => {
+  const count = await StudyDataCollector.count();
+  if (count === 0) {
+    return { canceled: false, count: 0, path: null };
+  }
+  const defaultName = `contextshifter-study-data-${
+    new Date().toISOString().slice(0, 10)
+  }.json`;
+  const result = await dialog.showSaveDialog({
+    title: 'Export Study Data',
+    defaultPath: path.join(electronApp.getPath('downloads'), defaultName),
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+  });
+  if (result.canceled || !result.filePath) {
+    return { canceled: true, count: 0, path: null };
+  }
+  const written = await StudyDataCollector.exportAll(result.filePath);
+  return { canceled: false, count: written, path: result.filePath };
+});
+
 typedIpcMain.handle('discard-active-task', async () => {
   await ActiveTaskSession.getInstance().discard();
 });
@@ -479,6 +513,8 @@ typedIpcMain.handle('get-settings', async () => {
   const userSettings: UserSettings = {
     isDarkModeEnabled: nativeTheme.shouldUseDarkColors,
     isDataAnonymized: await Settings.getIsDataAnonymized(),
+    isStudyDataCollectionEnabled:
+      await Settings.getIsStudyDataCollectionEnabled(),
     endOfDayPopUpTime: await Settings.getEndOfDayPopUpTime(),
     showQuestionnaireOnlyOnWorkdays:
       await Settings.getShowQuestionnaireOnlyOnWorkdays()
@@ -496,6 +532,10 @@ typedIpcMain.handle('set-settings', async (e, updatedSettings) => {
   await Database.manager.save(Settings, {
     key: 'isDataAnonymized',
     value: updatedSettings.isDataAnonymized ? 'true' : 'false'
+  });
+  await Database.manager.save(Settings, {
+    key: 'isStudyDataCollectionEnabled',
+    value: updatedSettings.isStudyDataCollectionEnabled ? 'true' : 'false'
   });
   await Database.manager.save(Settings, {
     key: 'endOfDayPopUpTime',

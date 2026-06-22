@@ -14,6 +14,8 @@ import InfoIcon from '../components/Icons/InfoIcon';
 import UserSettings from 'types/UserSettings';
 import { OpenBrowserTab } from 'types/Commands';
 import StudyInstructions from '../components/StudyInstructions';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { byPrefixAndName } from '../fontawesome';
 
 export default function Settings() {
   let loopRef: NodeJS.Timeout | undefined;
@@ -21,9 +23,11 @@ export default function Settings() {
     isVSCodeConnected: false,
     isBrowserConnected: false,
   });
-  const [deviceStatus, setDeviceStatus] = useState<boolean>(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [isDataAnonymized, setIsDataAnonymized] = useState<boolean>(false);
+  const [isStudyDataCollectionEnabled, setIsStudyDataCollectionEnabled] =
+    useState<boolean>(false);
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
   // Persisted but not configurable from this page; round-tripped to keep the
   // existing UserSettings shape stable for the main process / StudyManager.
   const [endOfDayPopUpTime, setEndOfDayPopUpTime] = useState<Date>(
@@ -56,6 +60,7 @@ export default function Settings() {
       const settings = await window.electron.ipcRenderer.invoke('get-settings');
       setIsDarkMode(settings.isDarkModeEnabled);
       setIsDataAnonymized(settings.isDataAnonymized);
+      setIsStudyDataCollectionEnabled(settings.isStudyDataCollectionEnabled);
       setEndOfDayPopUpTime(settings.endOfDayPopUpTime);
       setShowQuestionnaireOnlyOnWorkdays(
         settings.showQuestionnaireOnlyOnWorkdays
@@ -76,11 +81,6 @@ export default function Settings() {
         'get-extensions-status'
       );
       setExtensionStatus(latestExtensionStatus);
-
-      const latestDeviceStatus = await window.electron.ipcRenderer.invoke(
-        'get-device-status'
-      );
-      setDeviceStatus(latestDeviceStatus);
     } catch (err) {
       console.error(err);
     }
@@ -158,11 +158,42 @@ export default function Settings() {
     const updatedSettings: UserSettings = {
       isDarkModeEnabled: !isDarkMode,
       isDataAnonymized: isDataAnonymized,
+      isStudyDataCollectionEnabled: isStudyDataCollectionEnabled,
       endOfDayPopUpTime: endOfDayPopUpTime,
       showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
     };
     setIsDarkMode(!isDarkMode);
     setSettings(updatedSettings);
+  };
+
+  const onToggleDataCollection = async () => {
+    const next = !isStudyDataCollectionEnabled;
+    setIsStudyDataCollectionEnabled(next);
+    const updatedSettings: UserSettings = {
+      isDarkModeEnabled: isDarkMode,
+      isDataAnonymized: isDataAnonymized,
+      isStudyDataCollectionEnabled: next,
+      endOfDayPopUpTime: endOfDayPopUpTime,
+      showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
+    };
+    setSettings(updatedSettings);
+  };
+
+  const onExportStudyData = async () => {
+    setExportMessage(null);
+    try {
+      const result = await window.electron.ipcRenderer.invoke(
+        'export-study-data'
+      );
+      if (result.canceled) return;
+      if (result.count === 0) {
+        setExportMessage('No study data collected yet.');
+      } else {
+        setExportMessage(`Exported ${result.count} record(s).`);
+      }
+    } catch (err) {
+      setExportMessage(`Export failed: ${String(err)}`);
+    }
   };
 
   useEffect(() => {
@@ -213,14 +244,6 @@ export default function Settings() {
           ></div>
           <span>Browser Extension</span>
         </div>
-        <div className={styles.connection}>
-          <div
-            className={`${styles.circle} ${
-              deviceStatus ? styles.connected : undefined
-            }`}
-          ></div>
-          <span>Physical Button</span>
-        </div>
       </div>
 
       <h4>Study Settings</h4>
@@ -231,23 +254,24 @@ export default function Settings() {
         >
           Study-instructions
         </button>
-        <button
-          className={styles.studyButton}
-          onClick={() => {
-            /* TODO: start study data collection */
-          }}
-        >
-          Start collecting Data
-        </button>
-        <button
-          className={styles.studyButton}
-          onClick={() => {
-            /* TODO: export study data */
-          }}
-        >
-          Export Study Data
+        <label className={styles.dataCollectionToggle}>
+          <input
+            type="checkbox"
+            checked={isStudyDataCollectionEnabled}
+            onChange={onToggleDataCollection}
+          />
+          <span>Data Collection</span>
+        </label>
+        <button className={styles.studyButton} onClick={onExportStudyData}>
+          <FontAwesomeIcon
+            icon={byPrefixAndName.fas['arrow-up-from-bracket']}
+          />
+          <span>Export Study Data</span>
         </button>
       </div>
+      {exportMessage ? (
+        <p className={styles.exportMessage}>{exportMessage}</p>
+      ) : null}
 
       <div className={styles.sectionHeader}>
         <div className={styles.titleWithInfo}>

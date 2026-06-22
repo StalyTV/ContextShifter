@@ -141,6 +141,9 @@
   .studyButton {
     font-size: small;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
     border: 1px solid var(--border-color, var(--border-subtle));
     background-color: var(--bg-color-3, var(--surface-raised));
     color: var(--text-primary);
@@ -151,6 +154,27 @@
     &:hover {
       border-color: var(--accent);
     }
+  }
+
+  .dataCollectionToggle {
+    font-size: small;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--text-primary);
+    user-select: none;
+
+    input {
+      cursor: pointer;
+      margin: 0;
+    }
+  }
+
+  .exportMessage {
+    font-size: small;
+    color: var(--text-secondary, var(--text-primary));
+    margin: 0 0 0.5rem;
   }
 
   .list {

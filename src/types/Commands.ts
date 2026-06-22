@@ -87,6 +87,13 @@ type Commands = {
   'get-settings': () => Promise<UserSettings>;
   'set-settings': (settings: UserSettings) => void;
 
+  // study data collection
+  'export-study-data': () => Promise<{
+    canceled: boolean;
+    count: number;
+    path: string | null;
+  }>;
+
   // questionnaires
   'get-study-phase': () => StudyPhase;
 };

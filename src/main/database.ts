@@ -31,6 +31,7 @@ import AnalysisOpenFileSystemTabs from './entity/AnalysisOpenFileSystemTabs';
 import Task from './entity/Task';
 import NeverCloseBrowserTab from './entity/NeverCloseBrowserTab';
 import ArtifactUsage from './entity/ArtifactUsage';
+import StudyDataRecord from './entity/StudyDataRecord';
 
 const dbPath = path.join(
   app.getPath('appData'),
@@ -66,6 +67,7 @@ export const Database = new DataSource({
     Task,
     NeverCloseBrowserTab,
     ArtifactUsage,
+    StudyDataRecord,
   ],
   synchronize: true,
 });

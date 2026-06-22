@@ -7,6 +7,7 @@
 type UserSettings = {
   isDarkModeEnabled: boolean;
   isDataAnonymized: boolean;
+  isStudyDataCollectionEnabled: boolean;
   endOfDayPopUpTime: Date;
   showQuestionnaireOnlyOnWorkdays: boolean;
 };

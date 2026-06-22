@@ -6,7 +6,10 @@
  * `byPrefixAndName.far['trash-can']`. We build it from the free packages (no
  * kit token required); add more icons here as needed.
  */
-import { faCirclePlay } from '@fortawesome/free-solid-svg-icons';
+import {
+  faCirclePlay,
+  faArrowUpFromBracket,
+} from '@fortawesome/free-solid-svg-icons';
 import {
   faTrashCan,
   faCirclePause,
@@ -15,6 +18,7 @@ import {
 export const byPrefixAndName = {
   fas: {
     'circle-play': faCirclePlay,
+    'arrow-up-from-bracket': faArrowUpFromBracket,
   },
   far: {
     'trash-can': faTrashCan,

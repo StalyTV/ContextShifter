@@ -40,6 +40,13 @@ export default class Settings extends BaseEntity {
     }
   }
 
+  static async getIsStudyDataCollectionEnabled(): Promise<boolean> {
+    const enabled = (
+      await this.findOneBy({ key: 'isStudyDataCollectionEnabled' })
+    )?.value;
+    return enabled === 'true';
+  }
+
   static async getShowQuestionnaireOnlyOnWorkdays(): Promise<boolean> {
     const onlyShowWorkdays = (
       await this.findOneBy({ key: 'showQuestionnaireOnlyOnWorkdays' })
