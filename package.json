@@ -214,7 +214,7 @@
     ],
     "publish": {
       "provider": "github",
-      "owner": "HASEL-UZH",
+      "owner": "StalyTV",
       "repo": "ContextShifter"
     }
   },
