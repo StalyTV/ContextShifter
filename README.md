@@ -5,7 +5,7 @@ ContextShifter is based on TaskSnap and extends it with new context-switching ca
 
 The application was initially created by [Remy Egloff](https://github.com/regloff) as part of his Master Thesis at the [HASEL Lab](https://hasel.dev/) at the University of Zurich (UZH).
 
-## ⬇️ Download
+## Download
 ContextShifter is built from source (see [Getting Started](#-getting-started)). It is accompanied by two optional companion extensions that add data sources (open browser tabs and IDE files):
 
 - VS Code extension: https://github.com/StalyTV/ContextShifter-vscode-extension
@@ -14,10 +14,10 @@ ContextShifter is built from source (see [Getting Started](#-getting-started)). 
 Neither extension is required for the core approach to work, but each makes it more useful as more data sources become available.
 
 
-## 🔘 Supported USB-Buttons
+## Supported USB-Buttons
 Currently, only a single product is supported, the [**TimeBuzzer**](https://timebuzzer.com/de/?utm_source=google%20ads%20&utm_medium=brand%20de&customclick=CjwKCAjwl97RBhBWEiwAa9rbXV_wDZRhhAmOzkGj7witZheG3xAvUrvKOqquD8A3hnQdjk4_oCBerhoCW9YQAvD_BwE&gad_source=1&gad_campaignid=21737448887&gbraid=0AAAAADfzrp_Ax3TrMKJNoLe2UnP5Bdh9&gclid=CjwKCAjwl97RBhBWEiwAa9rbXV_wDZRhhAmOzkGj7witZheG3xAvUrvKOqquD8A3hnQdjk4_oCBerhoCW9YQAvD_BwE). However, more products could be easily added in the future.
 
-## 🚀 Getting Started
+## Getting Started
 Use Node.js 18 or newer.
 
 ```
@@ -28,13 +28,13 @@ npm i
 npm run start
 ```
 
-## 🏗 Build locally
+## Build locally
 ```
 npm run build
 npm exec electron-builder
 ```
 
-## 🏛 Architecture
+## Architecture
 - The application is written in TypeScript using the Electron framework. The frontend is react-based.
 - As a starting point, the [electron-react-boilerplate](https://github.com/electron-react-boilerplate/electron-react-boilerplate) was used.
 - The main components of the application are described [here](./docs/mainComponents.md).
