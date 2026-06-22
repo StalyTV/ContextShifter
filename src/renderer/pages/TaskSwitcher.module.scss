@@ -137,6 +137,16 @@
   letter-spacing: 0.2px;
 }
 
+// "Stop current task" slot (shown when a task is active). Overrides .slotNew
+// so it reads as a destructive action. Defined after .slotNew/.slot* so the
+// red colour wins at equal specificity.
+.slotStop {
+  color: #f87171;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
 .empty {
   color: rgba(229, 231, 235, 0.45);
   font-style: italic;

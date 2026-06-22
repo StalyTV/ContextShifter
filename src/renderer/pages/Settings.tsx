@@ -212,7 +212,15 @@ export default function Settings() {
 
   return (
     <div className={styles.settingsContainer}>
-      <h3>Settings</h3>
+      <div className={styles.pageHeader}>
+        <h3>Settings</h3>
+        <button
+          className={styles.instructionsButton}
+          onClick={() => setShowInstructions(true)}
+        >
+          Study Instructions
+        </button>
+      </div>
       {isFetchingSettings ? null : (
         <div>
           <h4>Color Theme</h4>
@@ -247,31 +255,26 @@ export default function Settings() {
       </div>
 
       <h4>Study Settings</h4>
-      <div className={styles.studyButtons}>
-        <button
-          className={styles.studyButton}
-          onClick={() => setShowInstructions(true)}
-        >
-          Study-instructions
-        </button>
-        <label className={styles.dataCollectionToggle}>
+      <div className={styles.studyCard}>
+        <label className={styles.dataCollectionRow}>
           <input
             type="checkbox"
+            className={styles.checkbox}
             checked={isStudyDataCollectionEnabled}
             onChange={onToggleDataCollection}
           />
-          <span>Data Collection</span>
+          <span className={styles.dataCollectionLabel}>Data Collection</span>
         </label>
-        <button className={styles.studyButton} onClick={onExportStudyData}>
+        <button className={styles.exportButton} onClick={onExportStudyData}>
           <FontAwesomeIcon
             icon={byPrefixAndName.fas['arrow-up-from-bracket']}
           />
           <span>Export Study Data</span>
         </button>
+        {exportMessage ? (
+          <p className={styles.exportMessage}>{exportMessage}</p>
+        ) : null}
       </div>
-      {exportMessage ? (
-        <p className={styles.exportMessage}>{exportMessage}</p>
-      ) : null}
 
       <div className={styles.sectionHeader}>
         <div className={styles.titleWithInfo}>

@@ -25,11 +25,13 @@ function Row({
   index,
   active,
   emptyText,
+  activeTaskId,
 }: {
   items: Item[];
   index: number;
   active: boolean;
   emptyText?: string;
+  activeTaskId?: number | null;
 }) {
   const len = items.length;
 
@@ -113,12 +115,16 @@ function Row({
                 ? styles.slotNear
                 : styles.slotFar;
             const isNewTask = item.id === -1 || item.id === -2;
+            // The "-1" slot is "Stop current task" when a task is active; flag
+            // it so it can be shown in red.
+            const isStopTask =
+              item.id === -1 && activeTaskId !== null && activeTaskId !== undefined;
             return (
               <div
                 key={`${itemIdx}-${off}`}
                 className={`${styles.slot} ${slotClass} ${
                   isNewTask ? styles.slotNew : ''
-                }`}
+                } ${isStopTask ? styles.slotStop : ''}`}
                 style={{ width: SLOT_WIDTH }}
               >
                 <span className={styles.slotLabel}>{item.name}</span>
@@ -147,7 +153,8 @@ export default function TaskSwitcher() {
     return () => (window as any).electron.removeOnTaskSwitcherState();
   }, []);
 
-  const { parents, parentIndex, children, childIndex, mode } = state;
+  const { parents, parentIndex, children, childIndex, mode, activeTaskId } =
+    state;
   const hint =
     mode === 'parent'
       ? children.length > 0
@@ -157,7 +164,12 @@ export default function TaskSwitcher() {
 
   return (
     <div className={styles.container}>
-      <Row items={parents} index={parentIndex} active={mode === 'parent'} />
+      <Row
+        items={parents}
+        index={parentIndex}
+        active={mode === 'parent'}
+        activeTaskId={activeTaskId}
+      />
       <Row
         items={children}
         index={childIndex}
