@@ -1,5 +1,6 @@
 import { info, error } from 'electron-log';
 import TaskManager from '../TaskManager';
+import ActiveTaskSession from '../ActiveTaskSession';
 
 const TimeBuzzer = require('./time-buzzer');
 // libusb-based hotplug events (no polling). The package is shipped via
@@ -28,6 +29,11 @@ export default class TimeBuzzerManager {
   // events aren't reliable for this MIDI-class device, so we also poll so the
   // dial is picked up whenever it's plugged in — even long after startup.
   private static readonly RECONNECT_POLL_MS = 3000;
+  // Colour the button glows while a task is active (r,g,b, 0-255 each). The
+  // driver has up to 3 LEDs (0..2); we light all of them so the whole button
+  // glows. Off = (0,0,0).
+  private static readonly ACTIVE_COLOR: [number, number, number] = [0, 200, 80];
+  private static readonly LED_COUNT = 3;
 
   private _device: any | undefined;
   private _active: boolean = false;
@@ -47,6 +53,9 @@ export default class TimeBuzzerManager {
   // double-press state
   private _pendingPressTimer: NodeJS.Timeout | null = null;
   private _lastPressAt: number = 0;
+
+  // last LED state we wrote, to avoid redundant MIDI writes
+  private _ledActive: boolean | null = null;
 
   private constructor() {
     this.connect();
@@ -126,6 +135,10 @@ export default class TimeBuzzerManager {
       this._device = device;
       this._active = true;
       info('[TimeBuzzerManager] timeBuzzer connected');
+      // Reflect the current active-task state on the button LED right away
+      // (e.g. after a hot-plug reconnect while a task is already active).
+      this._ledActive = null;
+      this.updateActiveIndicator();
     } catch (err) {
       if (verbose) {
         error('[TimeBuzzerManager] Failed to initialize timeBuzzer', err);
@@ -224,14 +237,50 @@ export default class TimeBuzzerManager {
       if (tm.isSwitcherOpen()) {
         info('[TimeBuzzerManager] press -> select / drilldown');
         tm.pressSelect();
+      } else if (ActiveTaskSession.getInstance().isActive()) {
+        // Switcher closed and a task is active (button is lit): a single press
+        // stops the current task and opens the artefact selection screen.
+        info('[TimeBuzzerManager] press -> stop active task');
+        tm.stopActiveTask();
       } else {
-        // Switcher closed: a single press starts a new task — opens the
-        // name dialog and kicks off the usual task-creation flow (committing
-        // the current task first if one is active).
+        // Switcher closed, no active task: a single press starts a new task —
+        // opens the name dialog and kicks off the usual task-creation flow.
         info('[TimeBuzzerManager] press -> start new task');
         tm.startNewTask();
       }
     }, TimeBuzzerManager.DOUBLE_PRESS_WINDOW_MS);
+  }
+
+  // ---------- Button LED (active-task indicator) ----------
+
+  /**
+   * Light the button while a task is active, turn it off otherwise. Safe to
+   * call any time; no-ops when no device is connected or the state is unchanged.
+   */
+  public updateActiveIndicator(): void {
+    if (!this.isDeviceConnected()) {
+      this._ledActive = null;
+      return;
+    }
+    const active = ActiveTaskSession.getInstance().isActive();
+    if (active === this._ledActive) return;
+    this._ledActive = active;
+    this.applyLed(active).catch((err) => {
+      error('[TimeBuzzerManager] Failed to set button LED', err);
+    });
+  }
+
+  private async applyLed(active: boolean): Promise<void> {
+    if (!this._device) return;
+    const [r, g, b] = active
+      ? TimeBuzzerManager.ACTIVE_COLOR
+      : [0, 0, 0];
+    // Write LEDs sequentially; the driver paces MIDI writes with short delays,
+    // so overlapping calls could interleave bytes.
+    for (let led = 0; led < TimeBuzzerManager.LED_COUNT; led += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await this._device.setColor(led, r, g, b);
+    }
   }
 
   public isDeviceConnected(): boolean {

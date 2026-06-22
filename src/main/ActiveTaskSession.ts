@@ -593,6 +593,15 @@ export default class ActiveTaskSession {
       } catch {
         // best-effort
       }
+      // Light the physical button while a task is active (off otherwise).
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        require('./HID/TimeBuzzerManager').default
+          .getInstance()
+          .updateActiveIndicator();
+      } catch {
+        // best-effort
+      }
     } catch {
       // best-effort
     }

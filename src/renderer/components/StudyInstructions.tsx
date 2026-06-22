@@ -89,21 +89,14 @@ export default function StudyInstructions({ onClose }: Props) {
                 <strong>Button actions:</strong>
                 <ul>
                   <li>
-                    Play: makes a task active. Its saved artefacts reopen and
-                    unrelated windows close.
+                    Press: starts a new task. When a task is active the button
+                    glows; pressing it then stops the current task and opens the
+                    selection screen.
                   </li>
                   <li>
-                    Pause: stops the active task and opens the selection screen.
-                  </li>
-                  <li>Delete: removes a task and its subtasks.</li>
-                  <li>
-                    Subtasks behave like normal tasks and are scored separately.
-                  </li>
-                  <li>
-                    Widget: open it from the menu-bar icon ("Open Widget") or by
-                    turning the physical button. Use the arrow keys to move
-                    through tasks and Enter to select, just like turning and
-                    pressing the button.
+                    Turn: opens the widget and lets you select a task in it. Keep
+                    turning to move through your tasks, then press to select the
+                    highlighted one.
                   </li>
                 </ul>
               </li>
@@ -118,15 +111,45 @@ export default function StudyInstructions({ onClose }: Props) {
           </section>
 
           <section className={styles.section}>
-            <h3>3. During the study</h3>
+            <h3>3. In-app controls</h3>
+            <p>These actions are available in the app and are not tied to the
+              physical button.</p>
+            <ul>
+              <li>
+                <strong>Play:</strong> makes a task active. Its saved artefacts
+                reopen and unrelated windows close.
+              </li>
+              <li>
+                <strong>Pause:</strong> stops the active task and opens the
+                selection screen.
+              </li>
+              <li>
+                <strong>Delete:</strong> removes a task and its subtasks.
+              </li>
+              <li>
+                <strong>Subtasks</strong> behave like normal tasks and are scored
+                separately.
+              </li>
+              <li>
+                <strong>Widget:</strong> open it by turning the physical button or
+                from the menu-bar icon ("Open Widget"). Use the arrow keys to move
+                through tasks and Enter to select, just like turning and pressing
+                the button.
+              </li>
+            </ul>
+          </section>
+
+          <section className={styles.section}>
+            <h3>4. During the study</h3>
             <ul>
               <li>
                 <strong>At the start of the study:</strong> open Settings, go to
-                "Study Settings", and click "Start collecting Data".
+                "Study Settings", and enable the "Data Collection" tickbox.
               </li>
               <li>
                 <strong>At the end of the study:</strong> open Settings, go to
-                "Study Settings", and click "Export Study Data".
+                "Study Settings", and click "Export Study Data" to choose where to
+                save the collected data.
               </li>
               <li>
                 <strong>Your data is anonymous.</strong> Artefact names and
