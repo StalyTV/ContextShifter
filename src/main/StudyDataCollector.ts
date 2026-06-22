@@ -13,6 +13,8 @@ import { writeFile } from 'fs/promises';
 import ArtifactUsage from './entity/ArtifactUsage';
 import StudyDataRecord from './entity/StudyDataRecord';
 import Snapshot from './entity/Snapshot';
+import KnownApplication from './entity/KnownApplication';
+import NeverCloseBrowserTab from './entity/NeverCloseBrowserTab';
 
 /** The committed (manually selected) artefacts, as sent to commit-task-artefacts. */
 export type CommittedSelection = {
@@ -55,7 +57,29 @@ export default class StudyDataCollector {
     selection: CommittedSelection
   ): Promise<void> {
     try {
-      const usage = await ArtifactUsage.getForSnapshot(taskId);
+      const usageRaw = await ArtifactUsage.getForSnapshot(taskId);
+
+      // Drop artefacts the user marked "never close": they stay open across
+      // task switches and are excluded from the artefact picker, so they aren't
+      // part of the selection decision and shouldn't pollute the study data.
+      const neverCloseApps =
+        await KnownApplication.getAppsThatShouldNeverBeClosed();
+      const neverClosePaths = new Set(neverCloseApps.map((a) => a.path));
+      const neverCloseNames = new Set(
+        neverCloseApps.map((a) => a.name.toLowerCase())
+      );
+      const neverCloseTabUrls = await NeverCloseBrowserTab.getUrlSet();
+      const isNeverClose = (r: ArtifactUsage): boolean => {
+        if (r.kind === 'tab') return neverCloseTabUrls.has(r.url);
+        if (r.kind === 'app' || r.kind === 'ide') {
+          return (
+            (!!r.path && neverClosePaths.has(r.path)) ||
+            (!!r.name && neverCloseNames.has(r.name.toLowerCase()))
+          );
+        }
+        return false;
+      };
+      const usage = usageRaw.filter((r) => !isNeverClose(r));
 
       // Natural identifiers of the manually-kept artefacts.
       const selectedTabUrls = new Set<string>();
