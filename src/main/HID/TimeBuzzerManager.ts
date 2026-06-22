@@ -32,7 +32,7 @@ export default class TimeBuzzerManager {
   // Colour the button glows while a task is active (r,g,b, 0-255 each). The
   // driver has up to 3 LEDs (0..2); we light all of them so the whole button
   // glows. Off = (0,0,0).
-  private static readonly ACTIVE_COLOR: [number, number, number] = [0, 200, 80];
+  private static readonly ACTIVE_COLOR: [number, number, number] = [0, 90, 255];
   private static readonly LED_COUNT = 3;
 
   private _device: any | undefined;

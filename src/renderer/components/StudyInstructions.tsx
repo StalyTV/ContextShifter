@@ -94,9 +94,13 @@ export default function StudyInstructions({ onClose }: Props) {
                     selection screen.
                   </li>
                   <li>
-                    Turn: opens the widget and lets you select a task in it. Keep
-                    turning to move through your tasks, then press to select the
-                    highlighted one.
+                    Turn: opens the widget and lets you move through your tasks.
+                    Stay on a task for 3 seconds to select it. Pressing the button
+                    while the widget is open opens that task's subtask selection.
+                  </li>
+                  <li>
+                    Light: while a task is active the button glows blue. It is off
+                    when no task is active. Press it to stop the current task.
                   </li>
                 </ul>
               </li>
@@ -133,8 +137,8 @@ export default function StudyInstructions({ onClose }: Props) {
               <li>
                 <strong>Widget:</strong> open it by turning the physical button or
                 from the menu-bar icon ("Open Widget"). Use the arrow keys to move
-                through tasks and Enter to select, just like turning and pressing
-                the button.
+                through tasks (stay on one for 3 seconds to select it) and Enter to
+                open its subtasks — just like turning and pressing the button.
               </li>
             </ul>
           </section>
