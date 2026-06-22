@@ -15,7 +15,7 @@ Neither extension is required for the core approach to work, but each makes it m
 
 
 ## 🔘 Supported USB-Buttons
-Currently, only a single product is supported, the [**TimeBuzzer**]((https://timebuzzer.com/de/?utm_source=google%20ads%20&utm_medium=brand%20de&customclick=CjwKCAjwl97RBhBWEiwAa9rbXV_wDZRhhAmOzkGj7witZheG3xAvUrvKOqquD8A3hnQdjk4_oCBerhoCW9YQAvD_BwE&gad_source=1&gad_campaignid=21737448887&gbraid=0AAAAADfzrp_Ax3TrMKJ-NoLe2UnP5Bdh9&gclid=CjwKCAjwl97RBhBWEiwAa9rbXV_wDZRhhAmOzkGj7witZheG3xAvUrvKOqquD8A3hnQdjk4_oCBerhoCW9YQAvD_BwE)). However, more products could be easily added in the future.
+Currently, only a single product is supported, the [**TimeBuzzer**](https://timebuzzer.com/de/?utm_source=google%20ads%20&utm_medium=brand%20de&customclick=CjwKCAjwl97RBhBWEiwAa9rbXV_wDZRhhAmOzkGj7witZheG3xAvUrvKOqquD8A3hnQdjk4_oCBerhoCW9YQAvD_BwE&gad_source=1&gad_campaignid=21737448887&gbraid=0AAAAADfzrp_Ax3TrMKJNoLe2UnP5Bdh9&gclid=CjwKCAjwl97RBhBWEiwAa9rbXV_wDZRhhAmOzkGj7witZheG3xAvUrvKOqquD8A3hnQdjk4_oCBerhoCW9YQAvD_BwE). However, more products could be easily added in the future.
 
 ## 🚀 Getting Started
 Use Node.js 18 or newer.
