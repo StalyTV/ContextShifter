@@ -15,6 +15,8 @@ import StudyDataRecord from './entity/StudyDataRecord';
 import Snapshot from './entity/Snapshot';
 import KnownApplication from './entity/KnownApplication';
 import NeverCloseBrowserTab from './entity/NeverCloseBrowserTab';
+import Settings from './entity/Settings';
+import { hashString } from './helpers/hashString';
 
 /** The committed (manually selected) artefacts, as sent to commit-task-artefacts. */
 export type CommittedSelection = {
@@ -44,7 +46,34 @@ type ArtefactRow = {
   lastAccessTs: string;
   score: number;
   selected: boolean;
+  /** Stable anonymous id (set only when anonymization is enabled). */
+  anonId?: string;
 };
+
+/**
+ * Replace every identifying field of an artefact with empty strings and a
+ * stable hash id, so the study data keeps its structure (kind, scores, which
+ * were selected) but never exposes real artefact names, paths, or URLs.
+ */
+function anonymizeArtefact(r: ArtefactRow): ArtefactRow {
+  const anonId = hashString(r.key || r.url || r.path || r.name || '');
+  return {
+    key: `${r.kind}:${anonId}`,
+    kind: r.kind,
+    name: '',
+    path: '',
+    url: '',
+    title: '',
+    // browserType is just chrome/firefox/etc. — not identifying, keep it.
+    browserType: r.browserType,
+    totalDurationMs: r.totalDurationMs,
+    accessCount: r.accessCount,
+    lastAccessTs: r.lastAccessTs,
+    score: r.score,
+    selected: r.selected,
+    anonId,
+  };
+}
 
 export default class StudyDataCollector {
   /**
@@ -110,7 +139,7 @@ export default class StudyDataCollector {
         }
       };
 
-      const artefacts: ArtefactRow[] = usage
+      let artefacts: ArtefactRow[] = usage
         .map((r) => ({
           key: r.key,
           kind: r.kind,
@@ -127,13 +156,20 @@ export default class StudyDataCollector {
         }))
         .sort((a, b) => b.score - a.score);
 
+      // Optionally strip artefact names/paths/URLs from the recorded data.
+      const anonymized = await Settings.getIsDataAnonymized();
+      if (anonymized) {
+        artefacts = artefacts.map(anonymizeArtefact);
+      }
+
       const snap = await Snapshot.findOneBy({ id: taskId });
       const recordedAt = new Date().toISOString();
 
       const payload = {
         taskId,
-        taskName,
+        taskName: anonymized ? `task-${hashString(taskName)}` : taskName,
         recordedAt,
+        anonymized,
         accumulatedActiveMs: snap?.activeMs ?? 0,
         artefactCount: artefacts.length,
         selectedCount: artefacts.filter((a) => a.selected).length,
@@ -142,13 +178,15 @@ export default class StudyDataCollector {
 
       const row = StudyDataRecord.create({
         snapshotId: taskId,
-        taskName,
+        taskName: payload.taskName,
         recordedAt,
         payload: JSON.stringify(payload),
       });
       await row.save();
       info(
-        `[StudyDataCollector] Recorded task ${taskId} "${taskName}" — ${payload.artefactCount} artefacts, ${payload.selectedCount} selected`
+        `[StudyDataCollector] Recorded task ${taskId} — ${payload.artefactCount} artefacts, ${payload.selectedCount} selected${
+          anonymized ? ' (anonymized)' : ''
+        }`
       );
     } catch (err) {
       warn(`[StudyDataCollector] Failed to record study data: ${String(err)}`);

@@ -179,6 +179,19 @@ export default function Settings() {
     setSettings(updatedSettings);
   };
 
+  const onToggleAnonymize = async () => {
+    const next = !isDataAnonymized;
+    setIsDataAnonymized(next);
+    const updatedSettings: UserSettings = {
+      isDarkModeEnabled: isDarkMode,
+      isDataAnonymized: next,
+      isStudyDataCollectionEnabled: isStudyDataCollectionEnabled,
+      endOfDayPopUpTime: endOfDayPopUpTime,
+      showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
+    };
+    setSettings(updatedSettings);
+  };
+
   const onExportStudyData = async () => {
     setExportMessage(null);
     try {
@@ -264,6 +277,15 @@ export default function Settings() {
             onChange={onToggleDataCollection}
           />
           <span className={styles.dataCollectionLabel}>Data Collection</span>
+        </label>
+        <label className={styles.dataCollectionRow}>
+          <input
+            type="checkbox"
+            className={styles.checkbox}
+            checked={isDataAnonymized}
+            onChange={onToggleAnonymize}
+          />
+          <span className={styles.dataCollectionLabel}>Anonymize Data</span>
         </label>
         <button className={styles.exportButton} onClick={onExportStudyData}>
           <FontAwesomeIcon

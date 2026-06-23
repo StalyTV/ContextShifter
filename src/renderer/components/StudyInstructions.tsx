@@ -163,9 +163,10 @@ export default function StudyInstructions({ onClose }: Props) {
                 save the collected data.
               </li>
               <li>
-                <strong>Your data is anonymous.</strong> Artefact names and
-                window titles are not stored or shown. Only anonymised,
-                aggregated usage information is collected.
+                <strong>Anonymize data (optional):</strong> enable the "Anonymize
+                Data" tickbox in Study Settings to strip artefact names, paths,
+                and URLs from the collected data. Only the artefact kind, usage
+                scores, and which artefacts you selected are kept.
               </li>
             </ul>
           </section>
