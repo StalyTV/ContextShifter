@@ -46,7 +46,7 @@ export default function StudyInstructions({ onClose }: Props) {
             <ul>
               <li>
                 <strong>Desktop app:</strong> download and install ContextShifter
-                from {REPO_DESKTOP} (You probably have already done that). Updates should install automatically.
+                from {REPO_DESKTOP} (You probably have already done that).
               </li>
               <li>
                 <strong>Browser extension (Chrome):</strong> install it from{' '}
