@@ -46,7 +46,14 @@ export default function StudyInstructions({ onClose }: Props) {
             <ul>
               <li>
                 <strong>Desktop app:</strong> download and install ContextShifter
-                from {REPO_DESKTOP} (You probably have already done that).
+                from {REPO_DESKTOP} (You probably have already done that). The app
+                is unsigned, so on first launch macOS may say it is "damaged". If
+                so, drag it into Applications, then run this once in Terminal and
+                open it again:
+                <br />
+                <code>
+                  xattr -dr com.apple.quarantine /Applications/ContextShifter.app
+                </code>
               </li>
               <li>
                 <strong>Browser extension (Chrome):</strong> install it from{' '}

@@ -6,12 +6,37 @@ ContextShifter is based on TaskSnap and extends it with new context-switching ca
 The application was initially created by [Remy Egloff](https://github.com/regloff) as part of his Master Thesis at the [HASEL Lab](https://hasel.dev/) at the University of Zurich (UZH).
 
 ## Download
-ContextShifter is built from source (see [Getting Started](#-getting-started)). It is accompanied by two optional companion extensions that add data sources (open browser tabs and IDE files):
+Download the latest macOS build (Apple Silicon) from the
+[**Releases**](https://github.com/StalyTV/ContextShifter/releases) page
+(`ContextShifter-x.y.z-arm64.dmg`). You can also build from source — see
+[Getting Started](#getting-started).
+
+### Installing on macOS (important)
+The app is **not signed with an Apple Developer ID** (that costs money), so when
+you download and open it macOS will say it is **"damaged and can't be opened"**.
+The app is fine — macOS just blocks unsigned downloads. To open it:
+
+1. Drag **ContextShifter** into your **Applications** folder.
+2. Open **Terminal** and run this one line (copy–paste it):
+
+   ```
+   xattr -dr com.apple.quarantine /Applications/ContextShifter.app
+   ```
+
+3. Now open ContextShifter normally (double-click). You only need to do this once.
+
+After it opens, grant it **Screen Recording** and **Accessibility** permission
+under System Settings → Privacy & Security (needed for window/tab tracking), then
+restart the app.
+
+### Companion extensions
+ContextShifter is accompanied by two optional companion extensions that add data
+sources (open browser tabs and IDE files):
 
 - VS Code extension: https://github.com/StalyTV/ContextShifter-vscode-extension
 - Browser extension (Chromium based browsers and Firefox): https://github.com/StalyTV/ContextShifter-browser-extension
 
-Neither extension is required for the core approach to work, but each makes it more useful as more data sources become available.
+Neither extension is required for the core approach to work, but each makes it more useful as more data sources become available. See each repo's Releases page for a ready-to-install download.
 
 
 ## Supported USB-Buttons
