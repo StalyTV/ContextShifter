@@ -32,7 +32,7 @@ export default function StudyInstructions({ onClose }: Props) {
           >
             &larr; Back
           </button>
-          <h2 className={styles.title}>Study Instructions</h2>
+          <h2 className={styles.title}>Instructions</h2>
         </div>
 
         <div className={styles.body}>
@@ -46,7 +46,7 @@ export default function StudyInstructions({ onClose }: Props) {
             <ul>
               <li>
                 <strong>Desktop app:</strong> download and install ContextShifter
-                from {REPO_DESKTOP}. Updates install automatically.
+                from {REPO_DESKTOP} (You probably have already done that). Updates should install automatically.
               </li>
               <li>
                 <strong>Browser extension (Chrome):</strong> install it from{' '}

@@ -218,7 +218,7 @@ export default function Settings() {
           className={styles.instructionsButton}
           onClick={() => setShowInstructions(true)}
         >
-          Study Instructions
+          Instructions
         </button>
       </div>
       {isFetchingSettings ? null : (
