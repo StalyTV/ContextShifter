@@ -22,6 +22,9 @@ export default class VSCodeTracker {
   private _port = 8086;
   private _server: WebSocketServer;
   private _lastUsedSocket: WebSocket | undefined;
+  // Per-window socket -> its workspace folder path, so we can address a
+  // specific VS Code window (e.g. to close the ones not part of a task).
+  private _socketWorkspaces: Map<WebSocket, string> = new Map();
   private _connectionListeners: Array<() => void> = [];
   private _openFiles: OpenVSCodeFile[] = [];
   private _pendingSnapshotResolvers: Array<(snap: VSCodeSnapshot | null) => void> = [];
@@ -51,6 +54,7 @@ export default class VSCodeTracker {
 
       socket.on('close', function () {
         self._openFiles = [];
+        self._socketWorkspaces.delete(socket);
         debug('[VSCodeTracker] Socket closed');
       });
 
@@ -68,8 +72,15 @@ export default class VSCodeTracker {
         };
         debug('[VSCodeTracker] Received: %s', obj);
 
-        if (obj.endpoint === 'get-vscode-snapshot') {
+        if (obj.endpoint === 'ws-connected') {
+          // Each window announces its workspace folder on connect.
+          const ws = (obj.data as { workspacePath?: string })?.workspacePath;
+          if (ws) self._socketWorkspaces.set(socket, ws);
+        } else if (obj.endpoint === 'get-vscode-snapshot') {
           const vscodeSnapshot = obj.data as VSCodeSnapshot;
+          if (vscodeSnapshot?.workspacePath) {
+            self._socketWorkspaces.set(socket, vscodeSnapshot.workspacePath);
+          }
           self.handleVSCodeSnapshotEvent(vscodeSnapshot);
         } else if (obj.endpoint === 'active-file') {
           const activeFileMessage = obj.data as ActiveFileMessage;
@@ -133,6 +144,29 @@ export default class VSCodeTracker {
         JSON.stringify({ data: filePaths, endpoint: 'close-files' })
       );
     }
+  }
+
+  /**
+   * Ask every connected VS Code window whose workspace folder is NOT in
+   * keepWorkspacePaths to close itself. Used when restoring a task so windows
+   * showing an unrelated project don't linger. Windows whose workspace we don't
+   * know are left untouched. Returns how many close requests were sent.
+   */
+  public closeWindowsExcept(keepWorkspacePaths: string[]): number {
+    const keep = new Set(keepWorkspacePaths.filter(Boolean));
+    let closed = 0;
+    for (const [socket, ws] of this._socketWorkspaces) {
+      if (!ws || keep.has(ws)) continue;
+      if (socket.readyState !== WebSocket.OPEN) continue;
+      try {
+        socket.send(JSON.stringify({ endpoint: 'close-window' }));
+        closed += 1;
+        info(`[VSCodeTracker] Asked VS Code window to close (workspace=${ws})`);
+      } catch (err) {
+        info(`[VSCodeTracker] close-window send failed: ${String(err)}`);
+      }
+    }
+    return closed;
   }
 
   private handleVSCodeSnapshotEvent(data: VSCodeSnapshot) {

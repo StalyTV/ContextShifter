@@ -124,6 +124,7 @@ export default class TaskRestorer {
       // timeout-guarded — a hang there must not prevent the others.
       await this.closeOtherBrowserTabs(taskBrowsers);
       await this.closeOtherVSCodeFiles(taskIdes);
+      await this.closeOtherVSCodeWindows(taskIdes);
       await this.closeOtherFileExplorerWindows(taskApps);
       await this.closeOtherApplications(
         keepPaths,
@@ -414,6 +415,31 @@ export default class TaskRestorer {
         }
       }
     });
+  }
+
+  /**
+   * Close VS Code windows that show a project other than the task's. Only runs
+   * when the task actually has a VS Code project (so we never close all
+   * windows). Windows whose workspace the extension hasn't reported are left
+   * alone. Needs the VS Code extension's close-window support.
+   */
+  private static async closeOtherVSCodeWindows(
+    taskIdes: IDEEntity[]
+  ): Promise<void> {
+    const vsIdes = taskIdes.filter(isVSCodeIde);
+    if (vsIdes.length === 0) return;
+    const keepWorkspaces = vsIdes
+      .map((i) => i.workspacePath)
+      .filter((p): p is string => !!p);
+    if (keepWorkspaces.length === 0) return;
+    try {
+      const n = VSCodeTracker.getInstance().closeWindowsExcept(keepWorkspaces);
+      if (n > 0) {
+        info(`[TaskRestorer] Closed ${n} unrelated VS Code window(s)`);
+      }
+    } catch (err) {
+      error('[TaskRestorer] Failed to close unrelated VS Code windows', err);
+    }
   }
 
   private static async closeOtherFileExplorerWindows(
