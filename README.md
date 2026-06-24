@@ -12,8 +12,8 @@ Download the latest macOS build (Apple Silicon) from the
 [Getting Started](#getting-started).
 
 ### Installing on macOS (important)
-The app is **not signed with an Apple Developer ID** (that costs money), so when
-you download and open it macOS will say it is **"damaged and can't be opened"**.
+The app is **not signed with an Apple Developer ID**, so when
+you download and open it macOS will say it is **"Can't be opened..."**.
 The app is fine — macOS just blocks unsigned downloads. To open it:
 
 1. Drag **ContextShifter** into your **Applications** folder.
