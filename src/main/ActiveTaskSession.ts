@@ -21,6 +21,7 @@ import WindowManager from './WindowManager';
 import Snapshot from './entity/Snapshot';
 import ArtifactUsage, { ArtifactKind } from './entity/ArtifactUsage';
 import ArtifactScorer from './ArtifactScorer';
+import StaticSettings from './StaticSettings';
 import KnownApplication from './entity/KnownApplication';
 import NeverCloseBrowserTab from './entity/NeverCloseBrowserTab';
 import { isBlankTab } from './helpers/isBlankTab';
@@ -365,11 +366,9 @@ export default class ActiveTaskSession {
       if (s) s.lastAccessMs = now;
       return;
     }
-    // Accrue duration to the previously focused artefact.
-    if (this._focusKey) {
-      const prev = this._stats.get(this._focusKey);
-      if (prev) prev.totalDurationMs += Math.max(0, now - this._focusStart);
-    }
+    // End the previous visit: accrue its duration and, if it was long enough,
+    // count it as an access (see closeCurrentVisit).
+    this.closeCurrentVisit(now);
     this._focusKey = key;
     this._focusStart = now;
     let s = this._stats.get(key);
@@ -383,8 +382,26 @@ export default class ActiveTaskSession {
       };
       this._stats.set(key, s);
     }
-    s.accessCount += 1;
+    // accessCount is NOT incremented here: an access is only counted once the
+    // visit ends and is found to have lasted >= MIN_QUALIFYING_ACCESS_MS.
     s.lastAccessMs = now;
+  }
+
+  /**
+   * End the current focus visit: accrue its foreground duration, and count it as
+   * an "access" toward the frequency score ONLY if it lasted at least
+   * MIN_QUALIFYING_ACCESS_MS. This keeps brief, accidental focus (e.g. tabbing
+   * through windows/tabs/files) from inflating the access count.
+   */
+  private closeCurrentVisit(now: number): void {
+    if (!this._focusKey) return;
+    const prev = this._stats.get(this._focusKey);
+    if (!prev) return;
+    const visitMs = Math.max(0, now - this._focusStart);
+    prev.totalDurationMs += visitMs;
+    if (visitMs >= StaticSettings.MIN_QUALIFYING_ACCESS_MS) {
+      prev.accessCount += 1;
+    }
   }
 
   /**
@@ -401,10 +418,7 @@ export default class ActiveTaskSession {
   }
 
   private accrueFocus(now: number): void {
-    if (this._focusKey) {
-      const prev = this._stats.get(this._focusKey);
-      if (prev) prev.totalDurationMs += Math.max(0, now - this._focusStart);
-    }
+    this.closeCurrentVisit(now);
     this._focusKey = null;
     this._focusStart = now;
   }

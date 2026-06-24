@@ -26,6 +26,10 @@ export default class StaticSettings {
   public static SCORE_WEIGHT_INTERACTION = 0;
   // Recency decay rate per minute since last access: e^(-lambda * minutes).
   public static SCORE_DECAY_LAMBDA = 0.05;
+  // A focus visit must last at least this long (ms) to count as an "access" for
+  // the frequency score. Briefer focus (e.g. accidentally tabbing through a
+  // window/tab/file) is ignored so it doesn't inflate the access count.
+  public static MIN_QUALIFYING_ACCESS_MS = 5000;
   // Auto-select artefacts scoring at least this fraction of the top score.
   public static SCORE_SELECT_THRESHOLD = 0.5;
 
