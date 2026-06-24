@@ -17,6 +17,11 @@ import ActiveTaskSession from '../ActiveTaskSession';
 export default class InteractionTracker {
   private _started = false;
   private _hook: any | undefined;
+  private _lastActivityAt = 0;
+
+  // mousemove/wheel fire very frequently; only forward passive activity this
+  // often (ms). 1s is plenty for a 3-minute idle timeout.
+  private static readonly ACTIVITY_THROTTLE_MS = 1000;
 
   public start(): void {
     if (this._started) return;
@@ -34,10 +39,28 @@ export default class InteractionTracker {
         }
       };
 
+      // Passive activity (movement / scrolling): keeps duration alive without
+      // counting as an interaction. Throttled because mousemove is very chatty.
+      const onActivity = () => {
+        const now = Date.now();
+        if (now - this._lastActivityAt < InteractionTracker.ACTIVITY_THROTTLE_MS) {
+          return;
+        }
+        this._lastActivityAt = now;
+        try {
+          ActiveTaskSession.getInstance().onActivity();
+        } catch {
+          // best-effort
+        }
+      };
+
       // One count per key press and per mouse-button press (ignore key/mouse
-      // up, wheel, and movement so we don't double-count or count noise).
+      // up so we don't double-count).
       uIOhook.on('keydown', onInteraction);
       uIOhook.on('mousedown', onInteraction);
+      // Movement and scrolling break inactivity but aren't interactions.
+      uIOhook.on('mousemove', onActivity);
+      uIOhook.on('wheel', onActivity);
 
       uIOhook.start();
       this._started = true;

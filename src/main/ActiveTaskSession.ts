@@ -433,6 +433,16 @@ export default class ActiveTaskSession {
   }
 
   /**
+   * Mark user activity on the focused artefact: credit active time up to now
+   * (capping any idle gap that just ended), then resume counting from now.
+   */
+  private markActivity(now: number): void {
+    this.flushActiveDuration(now);
+    this._lastActivityMs = now;
+    this._lastAccruedMs = now;
+  }
+
+  /**
    * Hook from the global input tracker: a click or keystroke happened. Attribute
    * it to the currently focused artefact (if any) while a task is active. This
    * also marks activity, so duration resumes counting after an idle gap.
@@ -443,13 +453,21 @@ export default class ActiveTaskSession {
     const s = this._stats.get(this._focusKey);
     if (!s) return;
     const now = Date.now();
-    // Credit active time accrued up to this interaction (capping any idle gap
-    // that just ended), then resume counting from now.
-    this.flushActiveDuration(now);
-    this._lastActivityMs = now;
-    this._lastAccruedMs = now;
+    this.markActivity(now);
     s.interactionCount += 1;
     s.lastAccessMs = now;
+  }
+
+  /**
+   * Hook from the global input tracker: passive activity (mouse movement or
+   * scrolling). It keeps the focused artefact's duration alive — breaking the
+   * idle timeout — but is NOT counted as an interaction in the interaction
+   * score (only clicks and keystrokes are).
+   */
+  public onActivity(): void {
+    if (this._activeTaskId === null) return;
+    if (!this._focusKey) return;
+    this.markActivity(Date.now());
   }
 
   private accrueFocus(now: number): void {
