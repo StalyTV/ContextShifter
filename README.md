@@ -25,9 +25,12 @@ The app is fine — macOS just blocks unsigned downloads. To open it:
 
 3. Now open ContextShifter normally (double-click). You only need to do this once.
 
-After it opens, grant it **Screen Recording** and **Accessibility** permission
-under System Settings → Privacy & Security (needed for window/tab tracking), then
-restart the app.
+After it opens, grant it the following permissions under System Settings →
+Privacy & Security, then restart the app:
+
+- **Screen Recording** and **Accessibility** — window/tab tracking.
+- **Input Monitoring** — counting interactions (clicks and keystrokes) per
+  artefact. Only counts are recorded, never the keys or their content.
 
 ### Companion extensions
 ContextShifter is accompanied by two optional companion extensions that add data

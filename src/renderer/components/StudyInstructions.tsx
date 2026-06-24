@@ -54,6 +54,13 @@ export default function StudyInstructions({ onClose }: Props) {
                 <code>
                   xattr -dr com.apple.quarantine /Applications/ContextShifter.app
                 </code>
+                <br />
+                Then grant it <strong>Screen Recording</strong>,{' '}
+                <strong>Accessibility</strong>, and <strong>Input Monitoring</strong>{' '}
+                permission under System Settings &rarr; Privacy &amp; Security, and
+                restart the app. (Screen Recording / Accessibility track windows
+                and tabs; Input Monitoring counts clicks and keystrokes per
+                artefact — only counts, never the keys themselves.)
               </li>
               <li>
                 <strong>Browser extension (Chrome):</strong> install it from{' '}
