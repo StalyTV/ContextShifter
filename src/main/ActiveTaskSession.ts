@@ -21,6 +21,8 @@ import WindowManager from './WindowManager';
 import Snapshot from './entity/Snapshot';
 import ArtifactUsage, { ArtifactKind } from './entity/ArtifactUsage';
 import ArtifactScorer from './ArtifactScorer';
+import KnownApplication from './entity/KnownApplication';
+import NeverCloseBrowserTab from './entity/NeverCloseBrowserTab';
 import { isBlankTab } from './helpers/isBlankTab';
 
 const fileIcon = require('extract-file-icon');
@@ -52,6 +54,7 @@ type UsageStat = {
   kind: ArtifactKind;
   totalDurationMs: number;
   accessCount: number;
+  interactionCount: number;
   lastAccessMs: number;
 };
 
@@ -371,11 +374,30 @@ export default class ActiveTaskSession {
     this._focusStart = now;
     let s = this._stats.get(key);
     if (!s) {
-      s = { kind, totalDurationMs: 0, accessCount: 0, lastAccessMs: now };
+      s = {
+        kind,
+        totalDurationMs: 0,
+        accessCount: 0,
+        interactionCount: 0,
+        lastAccessMs: now,
+      };
       this._stats.set(key, s);
     }
     s.accessCount += 1;
     s.lastAccessMs = now;
+  }
+
+  /**
+   * Hook from the global input tracker: a click or keystroke happened. Attribute
+   * it to the currently focused artefact (if any) while a task is active.
+   */
+  public onInteraction(): void {
+    if (this._activeTaskId === null) return;
+    if (!this._focusKey) return;
+    const s = this._stats.get(this._focusKey);
+    if (!s) return;
+    s.interactionCount += 1;
+    s.lastAccessMs = Date.now();
   }
 
   private accrueFocus(now: number): void {
@@ -440,6 +462,36 @@ export default class ActiveTaskSession {
   }
 
   /**
+   * Build a predicate that tells whether an artefact key refers to a
+   * "never close" app / IDE / browser tab. Those are excluded from the
+   * interaction-share denominator (and get a 0 share).
+   */
+  private async buildNeverCloseKeyPredicate(): Promise<
+    (key: string, stat: UsageStat) => boolean
+  > {
+    const neverCloseApps =
+      await KnownApplication.getAppsThatShouldNeverBeClosed();
+    const ncPaths = new Set(neverCloseApps.map((a) => a.path));
+    const ncNames = new Set(neverCloseApps.map((a) => a.name.toLowerCase()));
+    const ncTabUrls = await NeverCloseBrowserTab.getUrlSet();
+
+    return (key: string, stat: UsageStat): boolean => {
+      if (stat.kind === 'tab') {
+        return ncTabUrls.has(key.slice('tab:'.length));
+      }
+      if (stat.kind === 'app' || stat.kind === 'ide') {
+        const prefix = stat.kind === 'app' ? 'app:' : 'ide:';
+        const path = key.slice(prefix.length);
+        const meta =
+          stat.kind === 'app' ? this._apps.get(path) : this._ides.get(path);
+        const name = meta?.name?.toLowerCase();
+        return ncPaths.has(path) || (name != null && ncNames.has(name));
+      }
+      return false;
+    };
+  }
+
+  /**
    * Compute scores and upsert ArtifactUsage rows + Snapshot.activeMs.
    * Returns key -> score.
    */
@@ -451,13 +503,28 @@ export default class ActiveTaskSession {
     const existingRows = await ArtifactUsage.getForSnapshot(taskId);
     const byKey = new Map(existingRows.map((r) => [r.key, r] as const));
 
+    // Interaction share is relative to all tracked artefacts EXCEPT never-close
+    // ones, so build the never-close key predicate and the total up front.
+    const isNeverCloseKey = await this.buildNeverCloseKeyPredicate();
+    let totalInteractions = 0;
+    for (const [key, stat] of this._stats) {
+      if (!isNeverCloseKey(key, stat)) totalInteractions += stat.interactionCount;
+    }
+
     const toSave: ArtifactUsage[] = [];
     for (const [key, stat] of this._stats) {
+      // Each artefact's share of the (non-never-close) interaction total, [0,1].
+      const interactionShare =
+        isNeverCloseKey(key, stat) || totalInteractions <= 0
+          ? 0
+          : stat.interactionCount / totalInteractions;
+
       const score = ArtifactScorer.score(
         {
           totalDurationMs: stat.totalDurationMs,
           accessCount: stat.accessCount,
           lastAccessMs: stat.lastAccessMs,
+          interactionShare,
         },
         this._accumulatedActiveMs,
         nowMs
@@ -479,6 +546,7 @@ export default class ActiveTaskSession {
       row.browserType = meta.browserType;
       row.totalDurationMs = stat.totalDurationMs;
       row.accessCount = stat.accessCount;
+      row.interactionCount = stat.interactionCount;
       row.lastAccessTs = stat.lastAccessMs
         ? new Date(stat.lastAccessMs).toISOString()
         : '';
@@ -503,6 +571,7 @@ export default class ActiveTaskSession {
         kind: r.kind,
         totalDurationMs: r.totalDurationMs ?? 0,
         accessCount: r.accessCount ?? 0,
+        interactionCount: r.interactionCount ?? 0,
         lastAccessMs: Number.isNaN(lastSeen) ? 0 : lastSeen,
       });
       if (r.kind === 'app') {

@@ -25,6 +25,12 @@ export type ScoreInput = {
   accessCount: number;
   /** Epoch ms of the last interaction; 0/undefined means "never". */
   lastAccessMs: number;
+  /**
+   * Share of total interactions (clicks + keystrokes) this artefact received,
+   * relative to all tracked non-never-close artefacts. Already in [0,1].
+   * Defaults to 0 when not provided.
+   */
+  interactionShare?: number;
 };
 
 export default class ArtifactScorer {
@@ -41,6 +47,7 @@ export default class ArtifactScorer {
     const w1 = StaticSettings.SCORE_WEIGHT_DURATION;
     const w2 = StaticSettings.SCORE_WEIGHT_FREQUENCY;
     const w3 = StaticSettings.SCORE_WEIGHT_RECENCY;
+    const w4 = StaticSettings.SCORE_WEIGHT_INTERACTION;
     const lambda = StaticSettings.SCORE_DECAY_LAMBDA;
 
     const normalizedDuration =
@@ -52,8 +59,15 @@ export default class ArtifactScorer {
       input.lastAccessMs > 0
         ? Math.exp((-lambda * Math.max(0, nowMs - input.lastAccessMs)) / 60000)
         : 0;
+    // Already normalized to [0,1] by the caller (share of total interactions).
+    const interaction = Math.min(1, Math.max(0, input.interactionShare ?? 0));
 
-    return w1 * normalizedDuration + w2 * frequency + w3 * recency;
+    return (
+      w1 * normalizedDuration +
+      w2 * frequency +
+      w3 * recency +
+      w4 * interaction
+    );
   }
 
   /**

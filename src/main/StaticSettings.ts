@@ -20,6 +20,10 @@ export default class StaticSettings {
   public static SCORE_WEIGHT_DURATION = 1; // w1 (normalized foreground time)
   public static SCORE_WEIGHT_FREQUENCY = 1; // w2 (log(1 + access count))
   public static SCORE_WEIGHT_RECENCY = 1; // w3 (exponential recency decay)
+  // w4: share of total interactions (clicks + keystrokes) across tracked,
+  // non-never-close artefacts. Already normalized to [0,1]. Kept at 0 for now
+  // so interactions are recorded but do NOT influence relevance scoring yet.
+  public static SCORE_WEIGHT_INTERACTION = 0;
   // Recency decay rate per minute since last access: e^(-lambda * minutes).
   public static SCORE_DECAY_LAMBDA = 0.05;
   // Auto-select artefacts scoring at least this fraction of the top score.

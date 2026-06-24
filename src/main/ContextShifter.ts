@@ -8,6 +8,7 @@ import { app } from "electron";
 import { info } from "electron-log";
 import WindowTracker from "./trackers/WindowTracker";
 import FileSystemWatcher from "./trackers/FileSystemWatcher";
+import InteractionTracker from "./trackers/InteractionTracker";
 import TrayManager from "./TrayManager";
 import activeWin from "active-win";
 import Application from "./entity/Application";
@@ -62,6 +63,7 @@ export default class ContextShifter {
   private _vscodeTracker: VSCodeTracker;
   private _deviceManager: DeviceManager;
   private _timeBuzzerManager: TimeBuzzerManager;
+  private _interactionTracker: InteractionTracker;
 
   private constructor() {
     this._windowTracker = new WindowTracker();
@@ -70,6 +72,7 @@ export default class ContextShifter {
     this._vscodeTracker = VSCodeTracker.getInstance();
     this._deviceManager = DeviceManager.getInstance();
     this._timeBuzzerManager = TimeBuzzerManager.getInstance();
+    this._interactionTracker = new InteractionTracker();
   }
 
   public static getInstance() {
@@ -91,6 +94,7 @@ export default class ContextShifter {
     info('[ContextShifter] Started Trackers');
     this._windowTracker.start();
     this._fileSystemWatcher.start();
+    this._interactionTracker.start();
     ActiveArtifact.startIdleCheck();
     Exporter.startBackupLoop();
     StudyManager.startOpenArtifactsSampling();
@@ -100,6 +104,7 @@ export default class ContextShifter {
     info('[ContextShifter] Stopped Trackers');
     await this._windowTracker.stop();
     this._fileSystemWatcher.stop();
+    this._interactionTracker.stop();
     await ActiveArtifact.storeAll();
     await ActiveArtifact.stopIdleCheck();
     Exporter.stopBackupLoop();

@@ -65,6 +65,11 @@ export default class ArtifactUsage extends BaseEntity {
   @Column({ type: 'integer', default: 0 })
   accessCount!: number;
 
+  // Total interactions (clicks + keystrokes) while this artefact was focused,
+  // accumulated across all sessions of the task.
+  @Column({ type: 'integer', default: 0 })
+  interactionCount!: number;
+
   @Column({ type: 'varchar', nullable: true })
   lastAccessTs!: string;
 

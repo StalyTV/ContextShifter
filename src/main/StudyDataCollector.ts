@@ -43,6 +43,10 @@ type ArtefactRow = {
   browserType: string;
   totalDurationMs: number;
   accessCount: number;
+  /** Raw count of clicks + keystrokes while this artefact was focused. */
+  interactionCount: number;
+  /** This artefact's share of the task's total interactions, [0,1]. */
+  interactionShare: number;
   lastAccessTs: string;
   score: number;
   selected: boolean;
@@ -68,6 +72,8 @@ function anonymizeArtefact(r: ArtefactRow): ArtefactRow {
     browserType: r.browserType,
     totalDurationMs: r.totalDurationMs,
     accessCount: r.accessCount,
+    interactionCount: r.interactionCount,
+    interactionShare: r.interactionShare,
     lastAccessTs: r.lastAccessTs,
     score: r.score,
     selected: r.selected,
@@ -139,6 +145,14 @@ export default class StudyDataCollector {
         }
       };
 
+      // Interaction share = this artefact's interactions / total interactions
+      // across the tracked, non-never-close artefacts (usage is already
+      // never-close-filtered above). In [0,1], sums to ~1 over the set.
+      const totalInteractions = usage.reduce(
+        (sum, r) => sum + (r.interactionCount ?? 0),
+        0
+      );
+
       let artefacts: ArtefactRow[] = usage
         .map((r) => ({
           key: r.key,
@@ -150,6 +164,11 @@ export default class StudyDataCollector {
           browserType: r.browserType ?? '',
           totalDurationMs: r.totalDurationMs ?? 0,
           accessCount: r.accessCount ?? 0,
+          interactionCount: r.interactionCount ?? 0,
+          interactionShare:
+            totalInteractions > 0
+              ? (r.interactionCount ?? 0) / totalInteractions
+              : 0,
           lastAccessTs: r.lastAccessTs ?? '',
           score: r.score ?? 0,
           selected: isSelected(r),
@@ -171,6 +190,7 @@ export default class StudyDataCollector {
         recordedAt,
         anonymized,
         accumulatedActiveMs: snap?.activeMs ?? 0,
+        totalInteractions,
         artefactCount: artefacts.length,
         selectedCount: artefacts.filter((a) => a.selected).length,
         artefacts,
