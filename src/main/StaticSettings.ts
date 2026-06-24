@@ -30,6 +30,11 @@ export default class StaticSettings {
   // the frequency score. Briefer focus (e.g. accidentally tabbing through a
   // window/tab/file) is ignored so it doesn't inflate the access count.
   public static MIN_QUALIFYING_ACCESS_MS = 5000;
+  // A focus visit must last at least this long (ms) to refresh an artefact's
+  // recency (last-access time). Briefer accidental focus with no interaction
+  // therefore doesn't give it a full recency score. An actual interaction
+  // (click / keystroke) always refreshes recency regardless of visit length.
+  public static MIN_RECENCY_ACCESS_MS = 3000;
   // Foreground duration stops accumulating once an artefact has had no
   // interaction (click / keystroke) for this long, so leaving an artefact open
   // while away from the keyboard doesn't keep inflating its duration. Each idle

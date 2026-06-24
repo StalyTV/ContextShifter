@@ -366,13 +366,9 @@ export default class ActiveTaskSession {
 
   private switchFocus(key: string, kind: ArtifactKind): void {
     const now = Date.now();
-    if (this._focusKey === key) {
-      const s = this._stats.get(key);
-      if (s) s.lastAccessMs = now;
-      return;
-    }
+    if (this._focusKey === key) return;
     // End the previous visit: accrue its duration and, if it was long enough,
-    // count it as an access (see closeCurrentVisit).
+    // count it as an access / refresh its recency (see closeCurrentVisit).
     this.closeCurrentVisit(now);
     this._focusKey = key;
     this._focusStart = now;
@@ -386,13 +382,16 @@ export default class ActiveTaskSession {
         totalDurationMs: 0,
         accessCount: 0,
         interactionCount: 0,
-        lastAccessMs: now,
+        // 0 = "never meaningfully accessed". Recency is only refreshed once a
+        // visit lasts >= MIN_RECENCY_ACCESS_MS or an interaction happens, so a
+        // brief accidental focus doesn't grant a full recency score.
+        lastAccessMs: 0,
       };
       this._stats.set(key, s);
     }
-    // accessCount is NOT incremented here: an access is only counted once the
-    // visit ends and is found to have lasted >= MIN_QUALIFYING_ACCESS_MS.
-    s.lastAccessMs = now;
+    // Neither accessCount nor lastAccessMs is updated here: both are only
+    // applied when the visit ends and is found to have lasted long enough
+    // (see closeCurrentVisit). Interactions refresh recency immediately.
   }
 
   /**
@@ -416,10 +415,10 @@ export default class ActiveTaskSession {
 
   /**
    * End the current focus visit: accrue its (idle-capped) foreground duration,
-   * and count it as an "access" toward the frequency score ONLY if it was
-   * focused at least MIN_QUALIFYING_ACCESS_MS (wall-clock). This keeps brief,
-   * accidental focus (e.g. tabbing through windows/tabs/files) from inflating
-   * the access count.
+   * count it as an "access" toward the frequency score ONLY if it lasted at
+   * least MIN_QUALIFYING_ACCESS_MS, and refresh its recency ONLY if it lasted at
+   * least MIN_RECENCY_ACCESS_MS. This keeps brief, accidental focus from
+   * inflating the access count or granting a full recency score.
    */
   private closeCurrentVisit(now: number): void {
     if (!this._focusKey) return;
@@ -429,6 +428,11 @@ export default class ActiveTaskSession {
     const visitMs = Math.max(0, now - this._focusStart);
     if (visitMs >= StaticSettings.MIN_QUALIFYING_ACCESS_MS) {
       prev.accessCount += 1;
+    }
+    if (visitMs >= StaticSettings.MIN_RECENCY_ACCESS_MS) {
+      // Last meaningful access = the last activity in this visit (interaction,
+      // scroll/move, or the focus itself), never beyond it.
+      prev.lastAccessMs = Math.max(prev.lastAccessMs, this._lastActivityMs);
     }
   }
 

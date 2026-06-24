@@ -113,6 +113,7 @@ flowchart LR
 - **Inputs (hooks)**: `onWindow` (focused window, from `ActiveArtifact`), `onFile` (VS Code active file), `onBrowserTabChange` (active tab, from `BrowserTracker`), `onInteraction` (click/keystroke, from `InteractionTracker`), `onActivity` (mouse-move/scroll — keeps duration alive but is not counted as an interaction).
 - **Focus attribution**: each focus "visit" accrues foreground time to the focused artefact. Two refinements:
   - **Frequency gate** — an access is only counted once a visit *ends* having lasted ≥ `MIN_QUALIFYING_ACCESS_MS` (5 s), so briefly tabbing through windows doesn't inflate the count.
+  - **Recency gate** — a visit only refreshes the artefact's last-access time if it lasted ≥ `MIN_RECENCY_ACCESS_MS` (3 s) or had an interaction, so a momentary accidental focus doesn't grant a full recency score.
   - **Idle-aware duration** — time only accrues up to *(last activity + `DURATION_IDLE_TIMEOUT_MS`)* (3 min). Leaving an artefact open while away stops adding to its duration.
 - **Lifecycle**: `start`/`resume` load accumulated stats from `ArtifactUsage`; `stop` accrues the final visit, persists, computes scores, returns the artefact bundle + the keys to auto-select; `discard` persists without surfacing a picker.
 - **Side effects**: broadcasts active-task changes to the renderer, refreshes the tray, and lights/clears the TimeBuzzer LED.
