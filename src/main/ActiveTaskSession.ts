@@ -121,6 +121,11 @@ export default class ActiveTaskSession {
   // Current-focus tracking, to attribute foreground duration.
   private _focusKey: string | null = null;
   private _focusStart = 0;
+  // Idle-aware duration: only count time up to (last activity + idle timeout).
+  // _lastActivityMs is the time of the last interaction (or the focus start);
+  // _lastAccruedMs is how far we've already credited duration for this focus.
+  private _lastActivityMs = 0;
+  private _lastAccruedMs = 0;
   private _lastActiveFilePath: string | null = null;
   // Which browser (if any) is currently the frontmost app, so tab-switch events
   // from the extension are only counted while that browser is focused.
@@ -371,6 +376,9 @@ export default class ActiveTaskSession {
     this.closeCurrentVisit(now);
     this._focusKey = key;
     this._focusStart = now;
+    // Focusing an artefact counts as activity that seeds the duration grace.
+    this._lastActivityMs = now;
+    this._lastAccruedMs = now;
     let s = this._stats.get(key);
     if (!s) {
       s = {
@@ -388,17 +396,37 @@ export default class ActiveTaskSession {
   }
 
   /**
-   * End the current focus visit: accrue its foreground duration, and count it as
-   * an "access" toward the frequency score ONLY if it lasted at least
-   * MIN_QUALIFYING_ACCESS_MS. This keeps brief, accidental focus (e.g. tabbing
-   * through windows/tabs/files) from inflating the access count.
+   * Credit the focused artefact with active foreground time up to NOW, but only
+   * as far as (last activity + idle timeout). Time spent with no interaction
+   * beyond the grace period is not counted, so an artefact left open while the
+   * user is away stops accumulating duration.
+   */
+  private flushActiveDuration(now: number): void {
+    if (!this._focusKey) return;
+    const s = this._stats.get(this._focusKey);
+    if (!s) return;
+    const activeUntil =
+      this._lastActivityMs + StaticSettings.DURATION_IDLE_TIMEOUT_MS;
+    const accrueTo = Math.min(now, activeUntil);
+    if (accrueTo > this._lastAccruedMs) {
+      s.totalDurationMs += accrueTo - this._lastAccruedMs;
+      this._lastAccruedMs = accrueTo;
+    }
+  }
+
+  /**
+   * End the current focus visit: accrue its (idle-capped) foreground duration,
+   * and count it as an "access" toward the frequency score ONLY if it was
+   * focused at least MIN_QUALIFYING_ACCESS_MS (wall-clock). This keeps brief,
+   * accidental focus (e.g. tabbing through windows/tabs/files) from inflating
+   * the access count.
    */
   private closeCurrentVisit(now: number): void {
     if (!this._focusKey) return;
     const prev = this._stats.get(this._focusKey);
     if (!prev) return;
+    this.flushActiveDuration(now);
     const visitMs = Math.max(0, now - this._focusStart);
-    prev.totalDurationMs += visitMs;
     if (visitMs >= StaticSettings.MIN_QUALIFYING_ACCESS_MS) {
       prev.accessCount += 1;
     }
@@ -406,15 +434,22 @@ export default class ActiveTaskSession {
 
   /**
    * Hook from the global input tracker: a click or keystroke happened. Attribute
-   * it to the currently focused artefact (if any) while a task is active.
+   * it to the currently focused artefact (if any) while a task is active. This
+   * also marks activity, so duration resumes counting after an idle gap.
    */
   public onInteraction(): void {
     if (this._activeTaskId === null) return;
     if (!this._focusKey) return;
     const s = this._stats.get(this._focusKey);
     if (!s) return;
+    const now = Date.now();
+    // Credit active time accrued up to this interaction (capping any idle gap
+    // that just ended), then resume counting from now.
+    this.flushActiveDuration(now);
+    this._lastActivityMs = now;
+    this._lastAccruedMs = now;
     s.interactionCount += 1;
-    s.lastAccessMs = Date.now();
+    s.lastAccessMs = now;
   }
 
   private accrueFocus(now: number): void {
@@ -649,6 +684,8 @@ export default class ActiveTaskSession {
     this._sessionStart = Date.now();
     this._focusKey = null;
     this._focusStart = 0;
+    this._lastActivityMs = 0;
+    this._lastAccruedMs = 0;
     this._lastActiveFilePath = null;
     this._frontmostBrowserType = null;
   }
