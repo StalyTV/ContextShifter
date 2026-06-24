@@ -60,7 +60,11 @@ type Commands = {
   ) => Promise<Snapshot>;
 
   // active-task session model
-  'start-task': (name: string, parentId?: number | null) => Promise<Snapshot>;
+  'start-task': (
+    name: string,
+    parentId?: number | null,
+    declutter?: boolean
+  ) => Promise<Snapshot>;
   'resume-task': (taskId: number) => Promise<Snapshot>;
   'stop-task': () => Promise<StoppedTaskBundle | null>;
   'commit-task-artefacts': (

@@ -296,7 +296,8 @@
 }
 
 .primary,
-.secondary {
+.secondary,
+.declutter {
   font-size: 13px;
   font-weight: 500;
   padding: 8px 14px;
@@ -308,6 +309,19 @@
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+}
+
+// "Declutter and start task": off-white background, dark text — stands apart
+// from the accent-coloured primary as a distinct, more destructive action.
+.declutter {
+  background: #f1f1ee;
+  color: #1b1b1f;
+  border-color: #d9d9d4;
+
+  &:hover:not(:disabled) {
+    background: #ffffff;
+    border-color: #c4c4bd;
   }
 }
 

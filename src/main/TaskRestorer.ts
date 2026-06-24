@@ -142,6 +142,48 @@ export default class TaskRestorer {
     }
   }
 
+  /**
+   * Close every currently-open artefact (apps, browser tabs, VS Code files,
+   * file-explorer windows) EXCEPT the never-close ones — a "clean slate" used by
+   * "Declutter and start task". ContextShifter itself, the file explorer, and
+   * never-close apps/tabs are preserved. Never throws.
+   */
+  public static async declutter(): Promise<void> {
+    try {
+      info('[TaskRestorer] Declutter: closing all non-protected artefacts');
+      const neverClose =
+        await KnownApplication.getAppsThatShouldNeverBeClosed();
+      const neverClosePaths = new Set(neverClose.map((a) => a.path));
+      const neverCloseNames = new Set(
+        neverClose.map((a) => a.name.toLowerCase())
+      );
+      // Keep browsers that host a never-close tab, so quitting the app doesn't
+      // kill a protected tab.
+      let keepBrowserTypes = new Set<BrowserType>();
+      try {
+        const ncTabs = await NeverCloseBrowserTab.getAll();
+        keepBrowserTypes = new Set(ncTabs.map((t) => t.browserType));
+      } catch (err) {
+        error('[TaskRestorer] Could not load never-close tabs', err);
+      }
+
+      // Empty task keep-sets => close everything except the protected items.
+      await this.closeOtherBrowserTabs([]);
+      await this.closeOtherVSCodeFiles([]);
+      await this.closeOtherFileExplorerWindows([]);
+      await this.closeOtherApplications(
+        new Set<string>(),
+        new Set<string>(),
+        keepBrowserTypes,
+        neverClosePaths,
+        neverCloseNames
+      );
+      info('[TaskRestorer] Declutter finished');
+    } catch (err) {
+      error('[TaskRestorer] Declutter failed', err);
+    }
+  }
+
   // ---------------- OPEN ----------------
 
   private static async openArtefacts(

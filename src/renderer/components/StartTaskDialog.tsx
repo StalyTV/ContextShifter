@@ -26,11 +26,16 @@ export default function StartTaskDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleStart = async () => {
+  const handleStart = async (declutter = false) => {
     if (saving) return;
     setSaving(true);
     try {
-      await window.electron.ipcRenderer.invoke('start-task', name, parentId);
+      await window.electron.ipcRenderer.invoke(
+        'start-task',
+        name,
+        parentId,
+        declutter
+      );
       onStarted();
     } catch (err) {
       setError(String(err));
@@ -71,7 +76,7 @@ export default function StartTaskDialog({
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') handleStart();
+              if (e.key === 'Enter') handleStart(false);
             }}
             autoFocus
           />
@@ -97,10 +102,19 @@ export default function StartTaskDialog({
           <button
             type="button"
             className={styles.primary}
-            onClick={handleStart}
+            onClick={() => handleStart(false)}
             disabled={saving || name.trim().length === 0}
           >
             {saving ? 'Starting...' : 'Start task'}
+          </button>
+          <button
+            type="button"
+            className={styles.declutter}
+            onClick={() => handleStart(true)}
+            disabled={saving || name.trim().length === 0}
+            title="Start the task and close everything currently open (except never-close apps and tabs)"
+          >
+            {saving ? 'Starting...' : 'Declutter and start task'}
           </button>
         </div>
       </div>

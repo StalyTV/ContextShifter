@@ -97,7 +97,7 @@ const keyApp = (a: { path: string }) => `app:${a.path}`;
 const keyFile = (a: { path: string }, f: { path: string }) =>
   `file:${a.path}|${f.path}`;
 
-typedIpcMain.handle('start-task', async (e, name, parentId) => {
+typedIpcMain.handle('start-task', async (e, name, parentId, declutter) => {
   // If a task is already active, the renderer should stop+commit it first.
   // Treat a duplicate start as a discard of any leftover buffer + a fresh start.
   if (ActiveTaskSession.getInstance().isActive()) {
@@ -109,6 +109,12 @@ typedIpcMain.handle('start-task', async (e, name, parentId) => {
   );
   await ActiveTaskSession.getInstance().start(snap.id, snap.name);
   WindowManager.mainWindow?.webContents.send('snapshots-changed');
+  // "Declutter and start": close everything currently open except never-close
+  // artefacts so the task begins from a clean slate. Run in the background so
+  // the UI returns immediately; TaskRestorer.declutter logs its own errors.
+  if (declutter) {
+    TaskRestorer.declutter().catch(() => undefined);
+  }
   return snap;
 });
 
@@ -282,6 +288,17 @@ typedIpcMain.handle('stop-task', async () => {
     if (existing) existing.prev = prevIde;
     else allIdeEntries.set(k, { prev: prevIde });
   });
+  // Collect every IDE's workspace folder so a tracked/open file can be matched
+  // to the project it actually belongs to (and not leak into another IDE).
+  const allWorkspacePaths = new Set<string>();
+  for (const [, entry] of allIdeEntries) {
+    const ws = entry.prev?.workspacePath || (vscodeSnap?.workspacePath ?? '');
+    if (ws) allWorkspacePaths.add(ws);
+  }
+  const underWorkspace = (filePath: string, ws: string) =>
+    !!ws &&
+    (filePath === ws ||
+      filePath.startsWith(ws.endsWith('/') ? ws : `${ws}/`));
   for (const [, entry] of allIdeEntries) {
     const tracked = entry.tracked;
     const prevIde = entry.prev;
@@ -308,8 +325,22 @@ typedIpcMain.handle('stop-task', async () => {
     (prevIde?.ideFiles ?? []).forEach((f) => byPath.set(f.path, f));
     const looksLikeVSCode = /code/i.test(i.name) || /code/i.test(i.path);
     if (looksLikeVSCode) {
+      // Only attach files that belong to THIS IDE's project folder, so files
+      // from a different VS Code window don't leak into this one. An IDE with a
+      // known workspace takes files under it; an IDE with no known workspace
+      // takes only files not claimed by any other workspace.
+      const wp = i.workspacePath;
+      const otherWorkspaces = Array.from(allWorkspacePaths).filter(
+        (w) => w !== wp
+      );
+      const fileBelongs = (filePath: string): boolean => {
+        if (wp) return underWorkspace(filePath, wp);
+        return !otherWorkspaces.some((w) => underWorkspace(filePath, w));
+      };
+
       // Tracked file paths first.
       stopped.files.forEach((tf) => {
+        if (!fileBelongs(tf.path)) return;
         if (!byPath.has(tf.path)) {
           const fe = new IDEFileEntity();
           fe.name = tf.path.split('/').pop() ?? tf.path;
@@ -323,6 +354,7 @@ typedIpcMain.handle('stop-task', async () => {
       });
       // Live VS Code snapshot files (in case tracker missed them but they're open now).
       (vscodeSnap?.openFiles ?? []).forEach((of) => {
+        if (!fileBelongs(of.path)) return;
         if (!byPath.has(of.path)) {
           const fe = new IDEFileEntity();
           fe.name = of.name;
