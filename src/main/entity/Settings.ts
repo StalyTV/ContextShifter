@@ -40,6 +40,14 @@ export default class Settings extends BaseEntity {
     }
   }
 
+  static async getIsArtefactSelectionEnabled(): Promise<boolean> {
+    // Default ON: only OFF when explicitly set to 'false'.
+    const enabled = (
+      await this.findOneBy({ key: 'isArtefactSelectionEnabled' })
+    )?.value;
+    return enabled !== 'false';
+  }
+
   static async getIsStudyDataCollectionEnabled(): Promise<boolean> {
     const enabled = (
       await this.findOneBy({ key: 'isStudyDataCollectionEnabled' })

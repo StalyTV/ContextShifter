@@ -113,21 +113,51 @@ export default function CommitTaskDialog({
   const [selected, setSelected] = useState<Set<Key>>(new Set());
   const [expanded, setExpanded] = useState<Set<Key>>(new Set());
   const [committed, setCommitted] = useState(false);
+  // undefined = undecided; true = skip the picker and auto-commit; false = show
+  // the picker. Driven by the "Artefact Selection" setting.
+  const [autoMode, setAutoMode] = useState<boolean | undefined>(undefined);
 
   useEffect(() => {
-    if (initialBundle !== undefined) {
-      if (initialBundle) primeSelection(initialBundle);
-      return () => undefined;
-    }
     let cancelled = false;
     (async () => {
       try {
-        const result = (await window.electron.ipcRenderer.invoke(
-          'stop-task'
-        )) as StoppedTaskBundle | null;
+        // Is the artefact-selection screen enabled? If not, we auto-commit.
+        let skip = false;
+        try {
+          const settings = await window.electron.ipcRenderer.invoke(
+            'get-settings'
+          );
+          skip = (settings as { isArtefactSelectionEnabled?: boolean })
+            ?.isArtefactSelectionEnabled === false;
+        } catch {
+          // default to showing the picker
+        }
+        if (cancelled) return;
+        setAutoMode(skip);
+
+        let result: StoppedTaskBundle | null = initialBundle ?? null;
+        if (initialBundle === undefined) {
+          result = (await window.electron.ipcRenderer.invoke(
+            'stop-task'
+          )) as StoppedTaskBundle | null;
+        }
         if (cancelled) return;
         setBundle(result);
-        if (result) primeSelection(result);
+
+        if (result) {
+          const { sel, exp } = computeAutoSelection(result);
+          if (skip) {
+            // Skip the screen: commit the scorer's selection and finish.
+            await commitSelection(result, sel);
+            if (!cancelled) {
+              setCommitted(true);
+              onCommitted();
+            }
+            return;
+          }
+          setSelected(sel);
+          setExpanded(exp);
+        }
       } catch (err) {
         if (!cancelled) setError(String(err));
       } finally {
@@ -140,7 +170,8 @@ export default function CommitTaskDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const primeSelection = (b: StoppedTaskBundle) => {
+  // Compute the scorer's pre-selection (and which parents to expand). Pure.
+  const computeAutoSelection = (b: StoppedTaskBundle) => {
     // Pre-check: the artefacts the scorer auto-selected (above threshold).
     const sel = new Set<Key>([...(b.autoSelectKeys ?? [])]);
     // Expand any parent that has selected children so the user sees them.
@@ -168,8 +199,7 @@ export default function CommitTaskDialog({
         exp.add(keyApp(a));
       }
     });
-    setSelected(sel);
-    setExpanded(exp);
+    return { sel, exp };
   };
 
   const toggle = (k: Key) => {
@@ -209,45 +239,48 @@ export default function CommitTaskDialog({
     return { parents, parentsSelected };
   }, [bundle, selected]);
 
+  // Build the committed payload from a selection set and send it.
+  const commitSelection = async (b: StoppedTaskBundle, sel: Set<Key>) => {
+    const browsers = b.browsers
+      .filter((br) => sel.has(keyBrowser(br)))
+      .map((br) => {
+        const tabs = (br.browserTabs ?? []).filter((t) =>
+          sel.has(keyTab(br, t))
+        );
+        return { ...br, browserTabs: tabs } as BrowserEntity;
+      });
+    const ides = b.ides
+      .filter((i) => sel.has(keyIde(i)))
+      .map((i) => {
+        const files = (i.ideFiles ?? []).filter((f) =>
+          sel.has(keyIdeFile(i, f))
+        );
+        return {
+          ...i,
+          ideFiles: files,
+          workspaceSelected: sel.has(keyWorkspace(i)),
+        } as IDEEntity;
+      });
+    const applications = b.applications
+      .filter((a) => sel.has(keyApp(a)))
+      .map((a) => {
+        const files = (a.files ?? []).filter((f) => sel.has(keyFile(a, f)));
+        return { ...a, files } as ApplicationEntity;
+      });
+    await window.electron.ipcRenderer.invoke(
+      'commit-task-artefacts',
+      b.taskId,
+      browsers,
+      ides,
+      applications
+    );
+  };
+
   const handleCommit = async () => {
     if (!bundle || saving) return;
     setSaving(true);
     try {
-      const browsers = bundle.browsers
-        .filter((b) => selected.has(keyBrowser(b)))
-        .map((b) => {
-          const tabs = (b.browserTabs ?? []).filter((t) =>
-            selected.has(keyTab(b, t))
-          );
-          return { ...b, browserTabs: tabs } as BrowserEntity;
-        });
-      const ides = bundle.ides
-        .filter((i) => selected.has(keyIde(i)))
-        .map((i) => {
-          const files = (i.ideFiles ?? []).filter((f) =>
-            selected.has(keyIdeFile(i, f))
-          );
-          return {
-            ...i,
-            ideFiles: files,
-            workspaceSelected: selected.has(keyWorkspace(i)),
-          } as IDEEntity;
-        });
-      const applications = bundle.applications
-        .filter((a) => selected.has(keyApp(a)))
-        .map((a) => {
-          const files = (a.files ?? []).filter((f) =>
-            selected.has(keyFile(a, f))
-          );
-          return { ...a, files } as ApplicationEntity;
-        });
-      await window.electron.ipcRenderer.invoke(
-        'commit-task-artefacts',
-        bundle.taskId,
-        browsers,
-        ides,
-        applications
-      );
+      await commitSelection(bundle, selected);
       setCommitted(true);
       onCommitted();
     } catch (err) {
@@ -267,6 +300,10 @@ export default function CommitTaskDialog({
     }
     onClose();
   };
+
+  // When the selection screen is disabled (or while we're still deciding), the
+  // dialog auto-commits in the effect above and renders nothing.
+  if (autoMode !== false) return null;
 
   return (
     <div

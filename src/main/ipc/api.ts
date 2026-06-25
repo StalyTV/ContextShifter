@@ -556,6 +556,8 @@ typedIpcMain.handle('get-settings', async () => {
   const userSettings: UserSettings = {
     isDarkModeEnabled: nativeTheme.shouldUseDarkColors,
     isDataAnonymized: await Settings.getIsDataAnonymized(),
+    isArtefactSelectionEnabled:
+      await Settings.getIsArtefactSelectionEnabled(),
     isStudyDataCollectionEnabled:
       await Settings.getIsStudyDataCollectionEnabled(),
     endOfDayPopUpTime: await Settings.getEndOfDayPopUpTime(),
@@ -575,6 +577,10 @@ typedIpcMain.handle('set-settings', async (e, updatedSettings) => {
   await Database.manager.save(Settings, {
     key: 'isDataAnonymized',
     value: updatedSettings.isDataAnonymized ? 'true' : 'false'
+  });
+  await Database.manager.save(Settings, {
+    key: 'isArtefactSelectionEnabled',
+    value: updatedSettings.isArtefactSelectionEnabled ? 'true' : 'false'
   });
   await Database.manager.save(Settings, {
     key: 'isStudyDataCollectionEnabled',

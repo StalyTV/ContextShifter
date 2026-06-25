@@ -26,6 +26,8 @@ export default function Settings() {
   });
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [isDataAnonymized, setIsDataAnonymized] = useState<boolean>(false);
+  const [isArtefactSelectionEnabled, setIsArtefactSelectionEnabled] =
+    useState<boolean>(true);
   const [isStudyDataCollectionEnabled, setIsStudyDataCollectionEnabled] =
     useState<boolean>(false);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
@@ -62,6 +64,7 @@ export default function Settings() {
       const settings = await window.electron.ipcRenderer.invoke('get-settings');
       setIsDarkMode(settings.isDarkModeEnabled);
       setIsDataAnonymized(settings.isDataAnonymized);
+      setIsArtefactSelectionEnabled(settings.isArtefactSelectionEnabled);
       setIsStudyDataCollectionEnabled(settings.isStudyDataCollectionEnabled);
       setEndOfDayPopUpTime(settings.endOfDayPopUpTime);
       setShowQuestionnaireOnlyOnWorkdays(
@@ -156,42 +159,39 @@ export default function Settings() {
     await getBrowserTabs();
   };
 
+  const buildSettings = (
+    overrides: Partial<UserSettings>
+  ): UserSettings => ({
+    isDarkModeEnabled: isDarkMode,
+    isDataAnonymized: isDataAnonymized,
+    isArtefactSelectionEnabled: isArtefactSelectionEnabled,
+    isStudyDataCollectionEnabled: isStudyDataCollectionEnabled,
+    endOfDayPopUpTime: endOfDayPopUpTime,
+    showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
+    ...overrides,
+  });
+
   const onToggleColorTheme = async () => {
-    const updatedSettings: UserSettings = {
-      isDarkModeEnabled: !isDarkMode,
-      isDataAnonymized: isDataAnonymized,
-      isStudyDataCollectionEnabled: isStudyDataCollectionEnabled,
-      endOfDayPopUpTime: endOfDayPopUpTime,
-      showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
-    };
     setIsDarkMode(!isDarkMode);
-    setSettings(updatedSettings);
+    setSettings(buildSettings({ isDarkModeEnabled: !isDarkMode }));
   };
 
   const onToggleDataCollection = async () => {
     const next = !isStudyDataCollectionEnabled;
     setIsStudyDataCollectionEnabled(next);
-    const updatedSettings: UserSettings = {
-      isDarkModeEnabled: isDarkMode,
-      isDataAnonymized: isDataAnonymized,
-      isStudyDataCollectionEnabled: next,
-      endOfDayPopUpTime: endOfDayPopUpTime,
-      showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
-    };
-    setSettings(updatedSettings);
+    setSettings(buildSettings({ isStudyDataCollectionEnabled: next }));
   };
 
   const onToggleAnonymize = async () => {
     const next = !isDataAnonymized;
     setIsDataAnonymized(next);
-    const updatedSettings: UserSettings = {
-      isDarkModeEnabled: isDarkMode,
-      isDataAnonymized: next,
-      isStudyDataCollectionEnabled: isStudyDataCollectionEnabled,
-      endOfDayPopUpTime: endOfDayPopUpTime,
-      showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
-    };
-    setSettings(updatedSettings);
+    setSettings(buildSettings({ isDataAnonymized: next }));
+  };
+
+  const onToggleArtefactSelection = async () => {
+    const next = !isArtefactSelectionEnabled;
+    setIsArtefactSelectionEnabled(next);
+    setSettings(buildSettings({ isArtefactSelectionEnabled: next }));
   };
 
   const onExportStudyData = async () => {
@@ -248,6 +248,23 @@ export default function Settings() {
           />
         </div>
       )}
+
+      <h4>Artefact Selection</h4>
+      <div className={styles.studyCard}>
+        <label className={styles.dataCollectionRow}>
+          <input
+            type="checkbox"
+            className={styles.checkbox}
+            checked={isArtefactSelectionEnabled}
+            onChange={onToggleArtefactSelection}
+          />
+          <span className={styles.dataCollectionLabel}>Artefact Selection</span>
+        </label>
+        <p className={styles.exportMessage}>
+          When off, ending or switching a task skips the selection screen and
+          automatically keeps the artefacts the scorer finds relevant.
+        </p>
+      </div>
 
       <h4>Connection Status</h4>
       <div className={styles.connections}>
