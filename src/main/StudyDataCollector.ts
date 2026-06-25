@@ -183,12 +183,22 @@ export default class StudyDataCollector {
 
       const snap = await Snapshot.findOneBy({ id: taskId });
       const recordedAt = new Date().toISOString();
+      // Start->finish time of the session that just ended.
+      const startedAt = snap?.lastStartTs ?? null;
+      const stoppedAt = snap?.lastStopTs ?? recordedAt;
+      const sessionDurationMs =
+        startedAt && stoppedAt
+          ? Math.max(0, Date.parse(stoppedAt) - Date.parse(startedAt))
+          : null;
 
       const payload = {
         taskId,
         taskName: anonymized ? `task-${hashString(taskName)}` : taskName,
         recordedAt,
         anonymized,
+        startedAt,
+        stoppedAt,
+        sessionDurationMs,
         accumulatedActiveMs: snap?.activeMs ?? 0,
         totalInteractions,
         artefactCount: artefacts.length,

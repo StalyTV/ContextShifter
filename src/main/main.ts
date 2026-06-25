@@ -13,6 +13,7 @@ import { app, globalShortcut, powerMonitor } from 'electron';
 import log from "electron-log";
 import { info } from 'electron-log';
 import ContextShifter from './ContextShifter';
+import ScoreWeights from './ScoreWeights';
 import { Database } from './database';
 import Log from './entity/Log';
 import WindowManager from './WindowManager';
@@ -112,6 +113,9 @@ app
       key: 'lastStart',
       value: new Date().toISOString(),
     });
+    // Load the persisted artefact-scoring weights before anything scores.
+    await ScoreWeights.load();
+
     const contextShifter = ContextShifter.getInstance();
     contextShifter.start();
 

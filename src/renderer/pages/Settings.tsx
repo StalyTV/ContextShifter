@@ -14,6 +14,7 @@ import InfoIcon from '../components/Icons/InfoIcon';
 import UserSettings from 'types/UserSettings';
 import { OpenBrowserTab } from 'types/Commands';
 import StudyInstructions from '../components/StudyInstructions';
+import WeightsDialog from '../components/WeightsDialog';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { byPrefixAndName } from '../fontawesome';
 
@@ -53,6 +54,7 @@ export default function Settings() {
 
   const [isFetchingSettings, setIsFetchingSettings] = useState<boolean>(false);
   const [showInstructions, setShowInstructions] = useState<boolean>(false);
+  const [showWeights, setShowWeights] = useState<boolean>(false);
 
   const getSettings = async () => {
     setIsFetchingSettings(true);
@@ -293,6 +295,12 @@ export default function Settings() {
           />
           <span>Export Study Data</span>
         </button>
+        <button
+          className={styles.exportButton}
+          onClick={() => setShowWeights(true)}
+        >
+          <span>Weights</span>
+        </button>
         {exportMessage ? (
           <p className={styles.exportMessage}>{exportMessage}</p>
         ) : null}
@@ -428,6 +436,7 @@ export default function Settings() {
         </>
       )}
 
+      {showWeights && <WeightsDialog onClose={() => setShowWeights(false)} />}
       {showInstructions && (
         <StudyInstructions onClose={() => setShowInstructions(false)} />
       )}

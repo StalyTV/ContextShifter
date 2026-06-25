@@ -57,6 +57,15 @@ export default class Snapshot extends BaseEntity {
   @Column({ type: 'integer', nullable: false, default: 0 })
   activeMs!: number;
 
+  // ISO timestamps of the most recent active session: when the task was last
+  // made active, and when it was last stopped/discarded. Used for study data
+  // (start→stop time) and as the reference moment when re-scoring artefacts.
+  @Column({ type: 'varchar', nullable: true })
+  lastStartTs!: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  lastStopTs!: string | null;
+
   @OneToMany(() => Application, (app) => app.snapshot)
   applications!: Application[];
 

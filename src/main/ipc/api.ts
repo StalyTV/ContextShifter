@@ -31,6 +31,7 @@ import FileEntity from '../entity/File';
 import NeverCloseBrowserTab from '../entity/NeverCloseBrowserTab';
 import KnownApplication from '../entity/KnownApplication';
 import ArtifactScorer from '../ArtifactScorer';
+import ScoreWeights from '../ScoreWeights';
 import StudyDataCollector from '../StudyDataCollector';
 import { isBlankTab } from '../helpers/isBlankTab';
 import { BrowserType } from 'types/BrowserType';
@@ -515,6 +516,16 @@ typedIpcMain.handle(
     WindowManager.mainWindow?.webContents.send('snapshots-changed');
   }
 );
+
+typedIpcMain.handle('get-score-weights', async () => {
+  return ScoreWeights.get();
+});
+
+typedIpcMain.handle('set-score-weights', async (e, weights) => {
+  const rescoredTasks = await ScoreWeights.update(weights);
+  WindowManager.mainWindow?.webContents.send('snapshots-changed');
+  return { rescoredTasks };
+});
 
 typedIpcMain.handle('export-study-data', async () => {
   const count = await StudyDataCollector.count();

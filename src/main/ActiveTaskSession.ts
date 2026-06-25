@@ -155,6 +155,16 @@ export default class ActiveTaskSession {
     await this.loadAccumulated(taskId);
     this._sessionStart = Date.now();
     this._activeTaskId = taskId;
+    // Record when this active session started (for study data start->stop time).
+    try {
+      const snap = await Snapshot.findOneBy({ id: taskId });
+      if (snap) {
+        snap.lastStartTs = new Date(this._sessionStart).toISOString();
+        await snap.save();
+      }
+    } catch {
+      // best-effort
+    }
     info(`[ActiveTaskSession] Started task ${taskId} "${taskName}"`);
     this.broadcastChange();
   }
@@ -629,6 +639,7 @@ export default class ActiveTaskSession {
     const snap = await Snapshot.findOneBy({ id: taskId });
     if (snap) {
       snap.activeMs = this._accumulatedActiveMs;
+      snap.lastStopTs = new Date(nowMs).toISOString();
       await snap.save();
     }
     return scores;

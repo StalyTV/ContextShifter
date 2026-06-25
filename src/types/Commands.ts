@@ -24,6 +24,15 @@ export type OpenBrowserTab = {
   browserType: BrowserType;
 };
 
+// Artefact-scoring weights (w1..w4 + lambda), editable from Study Settings.
+export type ScoreWeightsDTO = {
+  duration: number;
+  frequency: number;
+  recency: number;
+  interaction: number;
+  lambda: number;
+};
+
 export type StoppedTaskBundle = {
   taskId: number;
   taskName: string;
@@ -97,6 +106,12 @@ type Commands = {
     count: number;
     path: string | null;
   }>;
+
+  // artefact-scoring weights (w1..w4 + lambda)
+  'get-score-weights': () => Promise<ScoreWeightsDTO>;
+  'set-score-weights': (
+    weights: ScoreWeightsDTO
+  ) => Promise<{ rescoredTasks: number }>;
 
   // questionnaires
   'get-study-phase': () => StudyPhase;
