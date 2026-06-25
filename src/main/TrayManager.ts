@@ -17,10 +17,11 @@ export default class TrayManager {
 
   public static async init(contextShifter: ContextShifter) {
     this._contextShifterInstance = contextShifter;
-    const platform = isMac ? 'mac' : 'windows';
-    const iconPath = getAssetPath(
-      `trayIcons/${platform}/CameraIcon${isMac ? 'Template' : ''}.png`
-    );
+    // ContextShifter dial glyph (blue, transparent background). Not a macOS
+    // "Template" image, so its colour is kept rather than rendered monochrome.
+    const iconPath = isMac
+      ? getAssetPath('trayIcons/mac/ContextShifterTray.png')
+      : getAssetPath('trayIcons/windows/CameraIcon.png');
     this._tray = new Tray(iconPath);
 
     const menu = await this.createMenu();

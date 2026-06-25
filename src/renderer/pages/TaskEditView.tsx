@@ -13,6 +13,7 @@ import FileEntity from '../../main/entity/File';
 import TaskActionButtons from '../components/TaskActionButtons';
 import ConfirmDialog from '../components/ConfirmDialog';
 import CommitTaskDialog from '../components/CommitTaskDialog';
+import StartTaskDialog from '../components/StartTaskDialog';
 
 type ActiveTask = { id: number; name: string } | null;
 
@@ -123,11 +124,18 @@ export default function TaskEditView() {
   const [activeTask, setActiveTask] = useState<ActiveTask>(null);
   const [deleteTarget, setDeleteTarget] = useState<SnapshotEntity | null>(null);
   const [showCommitTask, setShowCommitTask] = useState(false);
+  const [showStartTask, setShowStartTask] = useState(false);
+  const [startTaskParentId, setStartTaskParentId] = useState<number | null>(
+    null
+  );
   // What to do after the current task's commit picker is confirmed.
   const [pendingAction, setPendingAction] = useState<
     | { kind: 'none' }
     | { kind: 'resume'; taskId: number }
     | { kind: 'start'; parentId: number; name: string }
+    // From the menu-bar / widget / physical button: open the name dialog after
+    // committing (no name yet, unlike inline subtask creation).
+    | { kind: 'startDialog'; parentId: number | null }
   >({ kind: 'none' });
 
   const isSubtask = useMemo(
@@ -181,6 +189,30 @@ export default function TaskEditView() {
     };
   }, []);
 
+  // The menu-bar icon, the switcher widget, and the physical button stop/switch
+  // tasks from the main process — which sends this event regardless of which
+  // view is open. Handle it here too so stopping works while viewing a task.
+  useEffect(() => {
+    const onOpen = (
+      _e: unknown,
+      action:
+        | { kind: 'none' }
+        | { kind: 'start'; parentId: number | null }
+        | { kind: 'resume'; taskId: number }
+    ) => {
+      if (action?.kind === 'resume') {
+        setPendingAction({ kind: 'resume', taskId: action.taskId });
+      } else if (action?.kind === 'start') {
+        setPendingAction({ kind: 'startDialog', parentId: action.parentId });
+      } else {
+        setPendingAction({ kind: 'none' });
+      }
+      setShowCommitTask(true);
+    };
+    (window as any).electron.onOpenCommitTaskDialog(onOpen);
+    return () => (window as any).electron.removeOnOpenCommitTaskDialog();
+  }, []);
+
   // Activate a task/subtask. If another task is active, commit it first.
   const handleActivate = async (taskId: number) => {
     if (activeTask?.id === taskId) return;
@@ -219,6 +251,10 @@ export default function TaskEditView() {
         if (snap && typeof (snap as any).id === 'number') {
           navigate(`/task/${(snap as any).id}`);
         }
+      } else if (action.kind === 'startDialog') {
+        // Open the name dialog to start a new task (menu-bar / widget / button).
+        setStartTaskParentId(action.parentId);
+        setShowStartTask(true);
       } else {
         await load();
       }
@@ -581,6 +617,22 @@ export default function TaskEditView() {
             setShowCommitTask(false);
             await finaliseAction();
           }}
+        />
+      )}
+
+      {showStartTask && (
+        <StartTaskDialog
+          onClose={() => setShowStartTask(false)}
+          onStarted={() => {
+            setShowStartTask(false);
+            load();
+          }}
+          parentId={startTaskParentId}
+          parentName={
+            startTaskParentId !== null && startTaskParentId === snapshot?.id
+              ? snapshot?.name ?? null
+              : null
+          }
         />
       )}
 
