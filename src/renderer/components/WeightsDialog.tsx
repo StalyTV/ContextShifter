@@ -102,7 +102,10 @@ export default function WeightsDialog({ onClose }: Props) {
             {FIELDS.map((f) => (
               <label key={f.key} className={styles.field}>
                 <span className={styles.label}>
-                  {f.label} <span className={styles.muted}>({f.hint})</span>
+                  {f.label}{' '}
+                  <span className={styles.muted} style={{ fontSize: '0.7rem' }}>
+                    ({f.hint})
+                  </span>
                 </span>
                 <input
                   className={styles.input}
@@ -115,10 +118,6 @@ export default function WeightsDialog({ onClose }: Props) {
                 />
               </label>
             ))}
-
-            <div className={styles.muted} style={{ marginTop: 6 }}>
-              {`score = w1·duration + w2·log(1+accesses) + w3·e^(−λ·minutes) + w4·interaction_share`}
-            </div>
 
             {step === 1 && (
               <div className={styles.error} style={{ marginTop: 10 }}>
