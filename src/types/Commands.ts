@@ -106,6 +106,7 @@ type Commands = {
     count: number;
     path: string | null;
   }>;
+  'clear-study-data': () => Promise<{ cleared: number }>;
 
   // artefact-scoring weights (w1..w4 + lambda)
   'get-score-weights': () => Promise<ScoreWeightsDTO>;

@@ -527,6 +527,11 @@ typedIpcMain.handle('set-score-weights', async (e, weights) => {
   return { rescoredTasks };
 });
 
+typedIpcMain.handle('clear-study-data', async () => {
+  const cleared = await StudyDataCollector.clearAll();
+  return { cleared };
+});
+
 typedIpcMain.handle('export-study-data', async () => {
   const count = await StudyDataCollector.count();
   if (count === 0) {

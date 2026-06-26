@@ -15,6 +15,7 @@ import UserSettings from 'types/UserSettings';
 import { OpenBrowserTab } from 'types/Commands';
 import StudyInstructions from '../components/StudyInstructions';
 import WeightsDialog from '../components/WeightsDialog';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { byPrefixAndName } from '../fontawesome';
 
@@ -57,6 +58,7 @@ export default function Settings() {
   const [isFetchingSettings, setIsFetchingSettings] = useState<boolean>(false);
   const [showInstructions, setShowInstructions] = useState<boolean>(false);
   const [showWeights, setShowWeights] = useState<boolean>(false);
+  const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
 
   const getSettings = async () => {
     setIsFetchingSettings(true);
@@ -211,6 +213,19 @@ export default function Settings() {
     }
   };
 
+  const onConfirmClearStudyData = async () => {
+    setShowClearConfirm(false);
+    setExportMessage(null);
+    try {
+      const result = await window.electron.ipcRenderer.invoke(
+        'clear-study-data'
+      );
+      setExportMessage(`Cleared ${result.cleared} record(s).`);
+    } catch (err) {
+      setExportMessage(`Clear failed: ${String(err)}`);
+    }
+  };
+
   useEffect(() => {
     getSettings();
     getKnownApplications();
@@ -317,6 +332,12 @@ export default function Settings() {
           onClick={() => setShowWeights(true)}
         >
           <span>Weights</span>
+        </button>
+        <button
+          className={styles.clearButton}
+          onClick={() => setShowClearConfirm(true)}
+        >
+          <span>Clear Data Collection</span>
         </button>
         {exportMessage ? (
           <p className={styles.exportMessage}>{exportMessage}</p>
@@ -454,6 +475,16 @@ export default function Settings() {
       )}
 
       {showWeights && <WeightsDialog onClose={() => setShowWeights(false)} />}
+      {showClearConfirm && (
+        <ConfirmDialog
+          title="Clear collected study data"
+          message="Permanently delete all collected study data records? This cannot be undone. (Export them first if you want to keep them.)"
+          confirmLabel="Clear data"
+          danger
+          onConfirm={onConfirmClearStudyData}
+          onCancel={() => setShowClearConfirm(false)}
+        />
+      )}
       {showInstructions && (
         <StudyInstructions onClose={() => setShowInstructions(false)} />
       )}

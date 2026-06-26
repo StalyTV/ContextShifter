@@ -212,6 +212,26 @@
     }
   }
 
+  .clearButton {
+    align-self: flex-start;
+    font-size: small;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border: 1px solid #e0564b;
+    background-color: transparent;
+    color: #e0564b;
+    border-radius: var(--border-radius, 8px);
+    padding: 0.4rem 0.9rem;
+    transition: background-color 120ms ease-out, color 120ms ease-out;
+
+    &:hover {
+      background-color: #e0564b;
+      color: #ffffff;
+    }
+  }
+
   .exportMessage {
     font-size: small;
     color: var(--text-secondary, var(--text-primary));

@@ -16,6 +16,7 @@ import Snapshot from './entity/Snapshot';
 import KnownApplication from './entity/KnownApplication';
 import NeverCloseBrowserTab from './entity/NeverCloseBrowserTab';
 import Settings from './entity/Settings';
+import ScoreWeights from './ScoreWeights';
 import { hashString } from './helpers/hashString';
 
 /** The committed (manually selected) artefacts, as sent to commit-task-artefacts. */
@@ -199,6 +200,8 @@ export default class StudyDataCollector {
         startedAt,
         stoppedAt,
         sessionDurationMs,
+        // Scoring weights in effect when this task was scored/saved.
+        weights: ScoreWeights.get(),
         accumulatedActiveMs: snap?.activeMs ?? 0,
         totalInteractions,
         artefactCount: artefacts.length,
@@ -256,5 +259,13 @@ export default class StudyDataCollector {
 
   public static async count(): Promise<number> {
     return StudyDataRecord.count();
+  }
+
+  /** Delete every collected study record. Returns how many were removed. */
+  public static async clearAll(): Promise<number> {
+    const n = await StudyDataRecord.count();
+    await StudyDataRecord.clear();
+    info(`[StudyDataCollector] Cleared ${n} study record(s)`);
+    return n;
   }
 }
