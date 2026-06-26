@@ -245,14 +245,39 @@ export default class StudyDataCollector {
         };
       }
     });
+    // Also list the artefacts the user marked "never close" (apps + browser
+    // tabs). Honour the anonymize setting so this matches the rest of the export.
+    const anonymized = await Settings.getIsDataAnonymized();
+    let neverCloseApplications: unknown[] = [];
+    let neverCloseBrowserTabs: unknown[] = [];
+    try {
+      const apps = await KnownApplication.getAppsThatShouldNeverBeClosed();
+      neverCloseApplications = apps.map((a) =>
+        anonymized
+          ? { id: hashString(a.path || a.name || '') }
+          : { name: a.name, path: a.path }
+      );
+      const tabs = await NeverCloseBrowserTab.getAll();
+      neverCloseBrowserTabs = tabs.map((t) =>
+        anonymized
+          ? { id: hashString(t.url || ''), browserType: t.browserType }
+          : { url: t.url, title: t.title, browserType: t.browserType }
+      );
+    } catch (err) {
+      warn(`[StudyDataCollector] Could not read never-close list: ${String(err)}`);
+    }
+
     const out = {
       exportedAt: new Date().toISOString(),
       recordCount: records.length,
+      anonymized,
+      neverCloseApplications,
+      neverCloseBrowserTabs,
       records,
     };
     await writeFile(filePath, JSON.stringify(out, null, 2), 'utf8');
     info(
-      `[StudyDataCollector] Exported ${records.length} records to ${filePath}`
+      `[StudyDataCollector] Exported ${records.length} records (+${neverCloseApplications.length} never-close apps, ${neverCloseBrowserTabs.length} tabs) to ${filePath}`
     );
     return records.length;
   }
