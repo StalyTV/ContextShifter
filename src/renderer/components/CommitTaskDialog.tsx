@@ -7,6 +7,7 @@ import ApplicationEntity from '../../main/entity/Application';
 import FileEntity from '../../main/entity/File';
 import { StoppedTaskBundle } from '../../types/Commands';
 import TrimBar from './TrimBar';
+import ConfirmDialog from './ConfirmDialog';
 import styles from './NewTaskDialog.module.scss';
 
 type Props = {
@@ -121,6 +122,8 @@ export default function CommitTaskDialog({
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(0);
   const [trimBusy, setTrimBusy] = useState(false);
+  // Whether the "discard this session?" confirmation is showing.
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -338,14 +341,25 @@ export default function CommitTaskDialog({
     }
   };
 
-  const handleCancel = async () => {
+  // The Discard/Cancel button. When this would throw away a tracked session,
+  // ask for confirmation first; otherwise just close.
+  const handleCancel = () => {
     if (saving) return;
     if (discardOnCancel && bundle && !committed) {
-      try {
-        await window.electron.ipcRenderer.invoke('discard-active-task');
-      } catch {
-        // best-effort
-      }
+      setConfirmDiscard(true);
+      return;
+    }
+    onClose();
+  };
+
+  // Actually discard the session (after the user confirms).
+  const performDiscard = async () => {
+    if (saving) return;
+    setConfirmDiscard(false);
+    try {
+      await window.electron.ipcRenderer.invoke('discard-active-task');
+    } catch {
+      // best-effort
     }
     onClose();
   };
@@ -355,12 +369,7 @@ export default function CommitTaskDialog({
   if (autoMode !== false) return null;
 
   return (
-    <div
-      className={styles.backdrop}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) handleCancel();
-      }}
-    >
+    <div className={styles.backdrop}>
       <div className={styles.dialog} role="dialog" aria-modal="true">
         <div className={styles.header}>
           <h2 className={styles.title}>
@@ -691,6 +700,18 @@ export default function CommitTaskDialog({
           </button>
         </div>
       </div>
+
+      {confirmDiscard && (
+        <ConfirmDialog
+          title="Discard this session?"
+          message="The tracked artefacts for this session won't be saved to the task. This can't be undone."
+          confirmLabel="Discard"
+          cancelLabel="Keep editing"
+          danger
+          onConfirm={performDiscard}
+          onCancel={() => setConfirmDiscard(false)}
+        />
+      )}
     </div>
   );
 }
