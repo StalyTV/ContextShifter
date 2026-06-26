@@ -44,7 +44,12 @@ export type StoppedTaskBundle = {
   // Picker keys the scorer auto-selected (above the score threshold), incl.
   // parent rows for any selected leaf.
   autoSelectKeys: string[];
+  // Wall-clock span of the just-stopped session — the trim bar's full range.
+  sessionStartMs: number;
+  sessionEndMs: number;
 };
+
+export type TrimWindow = { startMs: number; endMs: number };
 
 type Commands = {
   'get-snapshot-by-id': (id: number) => Snapshot | null;
@@ -76,11 +81,17 @@ type Commands = {
   ) => Promise<Snapshot>;
   'resume-task': (taskId: number) => Promise<Snapshot>;
   'stop-task': () => Promise<StoppedTaskBundle | null>;
+  // Re-score the just-stopped session over [startMs, endMs] (timeline trim).
+  'simulate-trim': (
+    startMs: number,
+    endMs: number
+  ) => Promise<StoppedTaskBundle | null>;
   'commit-task-artefacts': (
     taskId: number,
     browsers: Browser[],
     ides: IDE[],
-    applications: Application[]
+    applications: Application[],
+    trim?: TrimWindow
   ) => Promise<void>;
   'discard-active-task': () => Promise<void>;
   'get-active-task': () => Promise<{ id: number; name: string } | null>;

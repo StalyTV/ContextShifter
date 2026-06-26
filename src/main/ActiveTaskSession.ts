@@ -1,15 +1,20 @@
 /*
  * ActiveTaskSession
  * -----------------
- * Tracks the artefacts the user touches while a task is active AND accumulates
- * per-artefact usage stats (foreground duration, distinct access count, last
- * access) so they can be scored. Stats are persisted to ArtifactUsage when the
- * task stops being active and reloaded when it becomes active again, so scoring
- * CONTINUES across multiple sessions of the same task. Only the currently
- * active task's stats are ever mutated, so other tasks are unaffected.
+ * Tracks the artefacts the user touches while a task is active. It records the
+ * raw timeline of events (focus changes, interactions, passive activity) and
+ * feeds them to a StatsAccumulator to derive per-artefact usage stats
+ * (foreground duration, access count, interaction count, last access).
  *
- * Fed by the existing trackers (WindowTracker -> ActiveArtifact.setCurrentWindow,
- * VSCodeTracker -> ActiveArtifact.setCurrentFile).
+ * Stats accumulate across sessions: previously-saved stats are loaded as
+ * `_priorStats` and this session's contribution is added on top. The raw
+ * timeline is kept after the task stops (as `_pending`) so the end-of-task
+ * "trim the timeline" curation can re-score the session over any window; once
+ * the user commits, the trimmed contribution is folded into the saved stats and
+ * the temporary timeline is dropped.
+ *
+ * Fed by the trackers (WindowTracker -> ActiveArtifact.setCurrentWindow,
+ * VSCodeTracker -> ActiveArtifact.setCurrentFile, InteractionTracker).
  */
 
 import { info } from 'electron-log';
@@ -21,10 +26,11 @@ import WindowManager from './WindowManager';
 import Snapshot from './entity/Snapshot';
 import ArtifactUsage, { ArtifactKind } from './entity/ArtifactUsage';
 import ArtifactScorer from './ArtifactScorer';
-import StaticSettings from './StaticSettings';
 import KnownApplication from './entity/KnownApplication';
 import NeverCloseBrowserTab from './entity/NeverCloseBrowserTab';
 import { isBlankTab } from './helpers/isBlankTab';
+import StatsAccumulator, { UsageStat } from './scoring/StatsAccumulator';
+import { TLEvent, replay, mergeStats } from './scoring/SessionTimeline';
 
 const fileIcon = require('extract-file-icon');
 
@@ -51,14 +57,6 @@ export type TrackedFile = {
   score?: number;
 };
 
-type UsageStat = {
-  kind: ArtifactKind;
-  totalDurationMs: number;
-  accessCount: number;
-  interactionCount: number;
-  lastAccessMs: number;
-};
-
 export type StoppedSession = {
   taskId: number;
   taskName: string;
@@ -70,6 +68,28 @@ export type StoppedSession = {
   autoSelectKeys: string[];
   accumulatedActiveMs: number;
   stopMomentMs: number;
+  /** The current session's wall-clock span — the trim bar's full range. */
+  sessionStartMs: number;
+  sessionEndMs: number;
+};
+
+type Meta = {
+  apps: Map<string, TrackedApp>;
+  ides: Map<string, TrackedApp>;
+  browsers: Map<BrowserType, TrackedApp>;
+  tabs: Map<string, TrackedTab>;
+  files: Map<string, TrackedFile>;
+};
+
+type PendingSession = {
+  taskId: number;
+  taskName: string;
+  priorStats: Map<string, UsageStat>;
+  priorAccumulatedMs: number;
+  events: TLEvent[];
+  sessionStartMs: number;
+  sessionEndMs: number;
+  meta: Meta;
 };
 
 const BROWSER_NAME_TO_TYPE: Array<{ test: RegExp; type: BrowserType }> = [
@@ -111,25 +131,24 @@ export default class ActiveTaskSession {
   private _tabs: Map<string, TrackedTab> = new Map(); // by url
   private _files: Map<string, TrackedFile> = new Map(); // by path
 
-  // Accumulated usage stats, keyed by unified artefact key.
-  private _stats: Map<string, UsageStat> = new Map();
+  // Accumulated stats from previous sessions (loaded; never mutated in place).
+  private _priorStats: Map<string, UsageStat> = new Map();
+  private _priorAccumulatedMs = 0;
 
-  // Accumulated active time across all sessions of the current task.
-  private _accumulatedActiveMs = 0;
-  private _sessionStart = 0;
+  // This session's live contribution + the raw event timeline driving it.
+  private _acc: StatsAccumulator = new StatsAccumulator();
+  private _events: TLEvent[] = [];
+  private _sessionStartMs = 0;
 
-  // Current-focus tracking, to attribute foreground duration.
+  // Just enough focus state to avoid recording duplicate focus events and to
+  // attribute VS Code files / browser tabs to the frontmost window.
   private _focusKey: string | null = null;
-  private _focusStart = 0;
-  // Idle-aware duration: only count time up to (last activity + idle timeout).
-  // _lastActivityMs is the time of the last interaction (or the focus start);
-  // _lastAccruedMs is how far we've already credited duration for this focus.
-  private _lastActivityMs = 0;
-  private _lastAccruedMs = 0;
   private _lastActiveFilePath: string | null = null;
-  // Which browser (if any) is currently the frontmost app, so tab-switch events
-  // from the extension are only counted while that browser is focused.
   private _frontmostBrowserType: BrowserType | null = null;
+
+  // The just-stopped session, kept so its timeline can be re-scored (trimmed)
+  // until the user commits.
+  private _pending: PendingSession | null = null;
 
   private constructor() {}
 
@@ -153,13 +172,12 @@ export default class ActiveTaskSession {
     this._activeTaskName = taskName;
     this.resetSession();
     await this.loadAccumulated(taskId);
-    this._sessionStart = Date.now();
+    this._sessionStartMs = Date.now();
     this._activeTaskId = taskId;
-    // Record when this active session started (for study data start->stop time).
     try {
       const snap = await Snapshot.findOneBy({ id: taskId });
       if (snap) {
-        snap.lastStartTs = new Date(this._sessionStart).toISOString();
+        snap.lastStartTs = new Date(this._sessionStartMs).toISOString();
         await snap.save();
       }
     } catch {
@@ -169,20 +187,14 @@ export default class ActiveTaskSession {
     this.broadcastChange();
   }
 
-  /**
-   * Make a task active again, continuing its accumulated scoring.
-   */
   public async resume(taskId: number, taskName: string): Promise<void> {
-    // resume is identical to start now: both reload accumulated stats so
-    // scoring continues across sessions.
     await this.start(taskId, taskName);
     info(`[ActiveTaskSession] Resumed task ${taskId} "${taskName}"`);
   }
 
   /**
-   * Stop the active task: accrue final focus, persist accumulated stats, and
-   * return the artefacts (each annotated with its score) plus the keys the
-   * scorer auto-selected. Returns null when no task is active.
+   * Stop the active task: close the timeline, persist the full-session stats,
+   * keep the session pending (for trimming), and return the scored artefacts.
    */
   public async stop(): Promise<StoppedSession | null> {
     if (this._activeTaskId === null) return null;
@@ -190,36 +202,34 @@ export default class ActiveTaskSession {
     const taskName = this._activeTaskName ?? `Task ${taskId}`;
     const now = Date.now();
 
-    this.accrueFocus(now);
-    this._accumulatedActiveMs += Math.max(0, now - this._sessionStart);
+    this._acc.end(now);
 
-    const scores = await this.persist(taskId, now);
-    const accumulatedActiveMs = this._accumulatedActiveMs;
+    // Snapshot everything needed to re-score the session for any trim window.
+    this._pending = {
+      taskId,
+      taskName,
+      priorStats: this._priorStats,
+      priorAccumulatedMs: this._priorAccumulatedMs,
+      events: this._events,
+      sessionStartMs: this._sessionStartMs,
+      sessionEndMs: now,
+      meta: this.snapshotMeta(),
+    };
 
-    const apps = Array.from(this._apps.values())
-      .map((a) => ({ ...a, score: scores.get(appKey(a.path)) ?? 0 }))
-      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-    const ides = Array.from(this._ides.values())
-      .map((i) => ({ ...i, score: scores.get(ideKey(i.path)) ?? 0 }))
-      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-    const browsers = Array.from(this._browsers.entries()).map(([type, app]) => ({
-      type,
-      app,
-      tabs: Array.from(this._tabs.values())
-        .filter((t) => t.browserType === type)
-        .map((t) => ({ ...t, score: scores.get(tabKey(t.url)) ?? 0 }))
-        .sort((a, b) => (b.score ?? 0) - (a.score ?? 0)),
-    }));
-    const files = Array.from(this._files.values())
-      .map((f) => ({ ...f, score: scores.get(fileKey(f.path)) ?? 0 }))
-      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-
-    const autoSelectKeys = Array.from(
-      ArtifactScorer.selectAboveThreshold(scores)
+    // Persist + score the full (untrimmed) session up front so nothing is lost
+    // even if the user never commits.
+    const stopped = await this.buildAndPersist(
+      this._pending,
+      this._sessionStartMs,
+      now,
+      /* persist */ true
     );
 
     info(
-      `[ActiveTaskSession] Stopped task ${taskId} "${taskName}" — ${this._stats.size} artefacts, ${autoSelectKeys.length} auto-selected, activeMs=${accumulatedActiveMs}`
+      `[ActiveTaskSession] Stopped task ${taskId} "${taskName}" — ${stopped.apps.length +
+        stopped.ides.length +
+        stopped.browsers.length +
+        stopped.files.length} artefacts, ${stopped.autoSelectKeys.length} auto-selected`
     );
 
     this._activeTaskId = null;
@@ -227,40 +237,77 @@ export default class ActiveTaskSession {
     this.resetSession();
     this.broadcastChange();
 
-    return {
-      taskId,
-      taskName,
-      apps,
-      ides,
-      browsers,
-      files,
-      autoSelectKeys,
-      accumulatedActiveMs,
-      stopMomentMs: now,
-    };
+    return stopped;
   }
 
   /**
-   * Stop tracking without surfacing a picker, but STILL persist accumulated
-   * stats so a session's scoring isn't lost.
+   * Re-score the just-stopped session as if only [winStart, winEnd] happened.
+   * Does NOT persist. Returns null when there is no pending session.
+   */
+  public async scoreWindow(
+    winStart: number,
+    winEnd: number
+  ): Promise<StoppedSession | null> {
+    if (!this._pending) return null;
+    return this.buildAndPersist(this._pending, winStart, winEnd, false);
+  }
+
+  /**
+   * Commit the chosen trim window: re-persist the session's stats over the
+   * window and drop the pending timeline. Returns null when nothing is pending.
+   */
+  public async commitTrim(
+    winStart: number,
+    winEnd: number
+  ): Promise<StoppedSession | null> {
+    if (!this._pending) return null;
+    const stopped = await this.buildAndPersist(
+      this._pending,
+      winStart,
+      winEnd,
+      true
+    );
+    this.clearPending();
+    return stopped;
+  }
+
+  public clearPending(): void {
+    this._pending = null;
+  }
+
+  /**
+   * Stop tracking without surfacing a picker, but STILL persist the full
+   * session's stats so its scoring isn't lost.
    */
   public async discard(): Promise<void> {
     if (this._activeTaskId === null) return;
     const taskId = this._activeTaskId;
     const now = Date.now();
-    this.accrueFocus(now);
-    this._accumulatedActiveMs += Math.max(0, now - this._sessionStart);
+    this._acc.end(now);
+    const pending: PendingSession = {
+      taskId,
+      taskName: this._activeTaskName ?? `Task ${taskId}`,
+      priorStats: this._priorStats,
+      priorAccumulatedMs: this._priorAccumulatedMs,
+      events: this._events,
+      sessionStartMs: this._sessionStartMs,
+      sessionEndMs: now,
+      meta: this.snapshotMeta(),
+    };
     try {
-      await this.persist(taskId, now);
+      await this.buildAndPersist(pending, this._sessionStartMs, now, true);
     } catch {
       // best-effort
     }
     info(`[ActiveTaskSession] Discarded active task ${taskId}`);
     this._activeTaskId = null;
     this._activeTaskName = null;
+    this.clearPending();
     this.resetSession();
     this.broadcastChange();
   }
+
+  // ---------- tracker hooks ----------
 
   /** Hook from ActiveArtifact.setCurrentWindow */
   public onWindow(sample: ActiveWindowSample): void {
@@ -268,7 +315,6 @@ export default class ActiveTaskSession {
     const appName = sample.process;
     const appPath = sample.processPath;
     if (!appName || !appPath) return;
-    // Skip our own process so users don't end up tracking ContextShifter itself.
     if (appName === 'Electron' || appName === electronApp.getName()) return;
 
     const now = Date.now();
@@ -285,14 +331,10 @@ export default class ActiveTaskSession {
         title,
         lastSeen: now,
       });
-      // Prefer active-win's URL; on macOS it's usually absent (needs Screen
-      // Recording), so fall back to the active tab the browser extension
-      // reports. This is what makes browser-tab time actually get scored.
       let url = sample.url;
       let tabTitle = title;
       if (!url) {
         try {
-          // Lazy require avoids an import cycle with BrowserTracker.
           // eslint-disable-next-line @typescript-eslint/no-var-requires
           const BrowserTracker = require('./trackers/BrowserTracker').default;
           const at = BrowserTracker.getInstance().getActiveTab(browserType);
@@ -306,7 +348,7 @@ export default class ActiveTaskSession {
       }
       if (url && !isBlankTab(url)) {
         this._tabs.set(url, { url, title: tabTitle, browserType, lastSeen: now });
-        this.switchFocus(tabKey(url), 'tab');
+        this.recordFocus(tabKey(url), 'tab');
       }
       return;
     }
@@ -321,11 +363,10 @@ export default class ActiveTaskSession {
         title,
         lastSeen: now,
       });
-      // Attribute focus to the current file when known, else to the IDE itself.
       if (this._lastActiveFilePath && this._files.has(this._lastActiveFilePath)) {
-        this.switchFocus(fileKey(this._lastActiveFilePath), 'file');
+        this.recordFocus(fileKey(this._lastActiveFilePath), 'file');
       } else {
-        this.switchFocus(ideKey(appPath), 'ide');
+        this.recordFocus(ideKey(appPath), 'ide');
       }
       return;
     }
@@ -338,14 +379,10 @@ export default class ActiveTaskSession {
       title,
       lastSeen: now,
     });
-    this.switchFocus(appKey(appPath), 'app');
+    this.recordFocus(appKey(appPath), 'app');
   }
 
-  /**
-   * Hook from BrowserTracker when the extension reports the active tab changed.
-   * Only counts while that browser is the frontmost app (so background tab
-   * updates from another browser don't steal focus time).
-   */
+  /** Hook from BrowserTracker when the extension reports the active tab changed. */
   public onBrowserTabChange(
     type: BrowserType,
     url: string,
@@ -360,7 +397,7 @@ export default class ActiveTaskSession {
       browserType: type,
       lastSeen: Date.now(),
     });
-    this.switchFocus(tabKey(url), 'tab');
+    this.recordFocus(tabKey(url), 'tab');
   }
 
   /** Hook from VSCodeTracker -> ActiveArtifact.setCurrentFile */
@@ -369,187 +406,159 @@ export default class ActiveTaskSession {
     if (!file.path) return;
     this._files.set(file.path, { path: file.path, lastSeen: Date.now() });
     this._lastActiveFilePath = file.path;
-    this.switchFocus(fileKey(file.path), 'file');
+    this.recordFocus(fileKey(file.path), 'file');
   }
 
-  // ---------- focus / stats ----------
-
-  private switchFocus(key: string, kind: ArtifactKind): void {
-    const now = Date.now();
-    if (this._focusKey === key) return;
-    // End the previous visit: accrue its duration and, if it was long enough,
-    // count it as an access / refresh its recency (see closeCurrentVisit).
-    this.closeCurrentVisit(now);
-    this._focusKey = key;
-    this._focusStart = now;
-    // Focusing an artefact counts as activity that seeds the duration grace.
-    this._lastActivityMs = now;
-    this._lastAccruedMs = now;
-    let s = this._stats.get(key);
-    if (!s) {
-      s = {
-        kind,
-        totalDurationMs: 0,
-        accessCount: 0,
-        interactionCount: 0,
-        // 0 = "never meaningfully accessed". Recency is only refreshed once a
-        // visit lasts >= MIN_RECENCY_ACCESS_MS or an interaction happens, so a
-        // brief accidental focus doesn't grant a full recency score.
-        lastAccessMs: 0,
-      };
-      this._stats.set(key, s);
-    }
-    // Neither accessCount nor lastAccessMs is updated here: both are only
-    // applied when the visit ends and is found to have lasted long enough
-    // (see closeCurrentVisit). Interactions refresh recency immediately.
-  }
-
-  /**
-   * Credit the focused artefact with active foreground time up to NOW, but only
-   * as far as (last activity + idle timeout). Time spent with no interaction
-   * beyond the grace period is not counted, so an artefact left open while the
-   * user is away stops accumulating duration.
-   */
-  private flushActiveDuration(now: number): void {
-    if (!this._focusKey) return;
-    const s = this._stats.get(this._focusKey);
-    if (!s) return;
-    const activeUntil =
-      this._lastActivityMs + StaticSettings.DURATION_IDLE_TIMEOUT_MS;
-    const accrueTo = Math.min(now, activeUntil);
-    if (accrueTo > this._lastAccruedMs) {
-      s.totalDurationMs += accrueTo - this._lastAccruedMs;
-      this._lastAccruedMs = accrueTo;
-    }
-  }
-
-  /**
-   * End the current focus visit: accrue its (idle-capped) foreground duration,
-   * count it as an "access" toward the frequency score ONLY if it lasted at
-   * least MIN_QUALIFYING_ACCESS_MS, and refresh its recency ONLY if it lasted at
-   * least MIN_RECENCY_ACCESS_MS. This keeps brief, accidental focus from
-   * inflating the access count or granting a full recency score.
-   */
-  private closeCurrentVisit(now: number): void {
-    if (!this._focusKey) return;
-    const prev = this._stats.get(this._focusKey);
-    if (!prev) return;
-    this.flushActiveDuration(now);
-    const visitMs = Math.max(0, now - this._focusStart);
-    if (visitMs >= StaticSettings.MIN_QUALIFYING_ACCESS_MS) {
-      prev.accessCount += 1;
-    }
-    if (visitMs >= StaticSettings.MIN_RECENCY_ACCESS_MS) {
-      // Last meaningful access = the last activity in this visit (interaction,
-      // scroll/move, or the focus itself), never beyond it.
-      prev.lastAccessMs = Math.max(prev.lastAccessMs, this._lastActivityMs);
-    }
-  }
-
-  /**
-   * Mark user activity on the focused artefact: credit active time up to now
-   * (capping any idle gap that just ended), then resume counting from now.
-   */
-  private markActivity(now: number): void {
-    this.flushActiveDuration(now);
-    this._lastActivityMs = now;
-    this._lastAccruedMs = now;
-  }
-
-  /**
-   * Hook from the global input tracker: a click or keystroke happened. Attribute
-   * it to the currently focused artefact (if any) while a task is active. This
-   * also marks activity, so duration resumes counting after an idle gap.
-   */
+  /** A click / keystroke happened (attributed to the focused artefact). */
   public onInteraction(): void {
     if (this._activeTaskId === null) return;
-    if (!this._focusKey) return;
-    const s = this._stats.get(this._focusKey);
-    if (!s) return;
-    const now = Date.now();
-    this.markActivity(now);
-    s.interactionCount += 1;
-    s.lastAccessMs = now;
+    const t = Date.now();
+    this._events.push({ ty: 'i', t });
+    this._acc.interaction(t);
   }
 
-  /**
-   * Hook from the global input tracker: passive activity (mouse movement or
-   * scrolling). It keeps the focused artefact's duration alive — breaking the
-   * idle timeout — but is NOT counted as an interaction in the interaction
-   * score (only clicks and keystrokes are).
-   */
+  /** Passive activity (mouse-move / scroll) — keeps duration alive. */
   public onActivity(): void {
     if (this._activeTaskId === null) return;
-    if (!this._focusKey) return;
-    this.markActivity(Date.now());
+    const t = Date.now();
+    this._events.push({ ty: 'a', t });
+    this._acc.activity(t);
   }
 
-  private accrueFocus(now: number): void {
-    this.closeCurrentVisit(now);
-    this._focusKey = null;
-    this._focusStart = now;
+  private recordFocus(key: string, kind: ArtifactKind): void {
+    if (this._focusKey === key) return;
+    const t = Date.now();
+    this._events.push({ ty: 'f', t, key, kind });
+    this._acc.focus(key, kind, t);
+    this._focusKey = key;
   }
 
-  // ---------- persistence ----------
+  // ---------- scoring + persistence ----------
 
-  private metaForKey(key: string, stat: UsageStat) {
-    if (stat.kind === 'app') {
-      const m = this._apps.get(key.slice('app:'.length));
-      return {
-        name: m?.name ?? '',
-        path: m?.path ?? key.slice('app:'.length),
-        url: '',
-        title: m?.title ?? '',
-        icon: m?.icon ?? '',
-        favIconUrl: '',
-        browserType: '',
-      };
+  /**
+   * Re-score the session over [winStart, winEnd] from its raw timeline, build
+   * the StoppedSession (artefacts annotated with scores), and optionally persist
+   * the merged stats to ArtifactUsage + Snapshot.activeMs.
+   */
+  private async buildAndPersist(
+    p: PendingSession,
+    winStart: number,
+    winEnd: number,
+    persist: boolean
+  ): Promise<StoppedSession> {
+    const contribution = replay(p.events, winStart, winEnd);
+    const merged = mergeStats(p.priorStats, contribution);
+    const activeMs = p.priorAccumulatedMs + Math.max(0, winEnd - winStart);
+
+    const scores = await this.scoreStats(merged, p.meta, activeMs, winEnd);
+
+    if (persist) {
+      await this.persist(p.taskId, merged, scores, p.meta, activeMs, winEnd);
     }
-    if (stat.kind === 'ide') {
-      const m = this._ides.get(key.slice('ide:'.length));
-      return {
-        name: m?.name ?? '',
-        path: m?.path ?? key.slice('ide:'.length),
-        url: '',
-        title: m?.title ?? '',
-        icon: m?.icon ?? '',
-        favIconUrl: '',
-        browserType: '',
-      };
+
+    const stopped = this.buildStoppedSession(p, scores);
+    stopped.accumulatedActiveMs = activeMs;
+    stopped.stopMomentMs = winEnd;
+    return stopped;
+  }
+
+  /** key -> score for the merged stats, including never-close-aware interaction share. */
+  private async scoreStats(
+    merged: Map<string, UsageStat>,
+    meta: Meta,
+    activeMs: number,
+    nowMs: number
+  ): Promise<Map<string, number>> {
+    const isNeverCloseKey = await this.buildNeverCloseKeyPredicate(meta);
+    let totalInteractions = 0;
+    for (const [key, stat] of merged) {
+      if (!isNeverCloseKey(key, stat)) totalInteractions += stat.interactionCount;
     }
-    if (stat.kind === 'tab') {
-      const m = this._tabs.get(key.slice('tab:'.length));
-      return {
-        name: '',
-        path: '',
-        url: m?.url ?? key.slice('tab:'.length),
-        title: m?.title ?? '',
-        icon: '',
-        favIconUrl: '',
-        browserType: m?.browserType ?? '',
-      };
+    const scores = new Map<string, number>();
+    for (const [key, stat] of merged) {
+      const interactionShare =
+        isNeverCloseKey(key, stat) || totalInteractions <= 0
+          ? 0
+          : stat.interactionCount / totalInteractions;
+      scores.set(
+        key,
+        ArtifactScorer.score(
+          {
+            totalDurationMs: stat.totalDurationMs,
+            accessCount: stat.accessCount,
+            lastAccessMs: stat.lastAccessMs,
+            interactionShare,
+          },
+          activeMs,
+          nowMs
+        )
+      );
     }
-    // file
-    const m = this._files.get(key.slice('file:'.length));
+    return scores;
+  }
+
+  private buildStoppedSession(
+    p: PendingSession,
+    scores: Map<string, number>
+  ): StoppedSession {
+    const { meta } = p;
+    const apps = Array.from(meta.apps.values())
+      .map((a) => ({ ...a, score: scores.get(appKey(a.path)) ?? 0 }))
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    const ides = Array.from(meta.ides.values())
+      .map((i) => ({ ...i, score: scores.get(ideKey(i.path)) ?? 0 }))
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    const browsers = Array.from(meta.browsers.entries()).map(([type, app]) => ({
+      type,
+      app,
+      tabs: Array.from(meta.tabs.values())
+        .filter((t) => t.browserType === type)
+        .map((t) => ({ ...t, score: scores.get(tabKey(t.url)) ?? 0 }))
+        .sort((a, b) => (b.score ?? 0) - (a.score ?? 0)),
+    }));
+    const files = Array.from(meta.files.values())
+      .map((f) => ({ ...f, score: scores.get(fileKey(f.path)) ?? 0 }))
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+
+    const autoSelectKeys = Array.from(
+      ArtifactScorer.selectAboveThreshold(scores)
+    );
+
     return {
-      name: '',
-      path: m?.path ?? key.slice('file:'.length),
-      url: '',
-      title: '',
-      icon: '',
-      favIconUrl: '',
-      browserType: '',
+      taskId: p.taskId,
+      taskName: p.taskName,
+      apps,
+      ides,
+      browsers,
+      files,
+      autoSelectKeys,
+      accumulatedActiveMs: 0,
+      stopMomentMs: p.sessionEndMs,
+      sessionStartMs: p.sessionStartMs,
+      sessionEndMs: p.sessionEndMs,
     };
   }
 
-  /**
-   * Build a predicate that tells whether an artefact key refers to a
-   * "never close" app / IDE / browser tab. Those are excluded from the
-   * interaction-share denominator (and get a 0 share).
-   */
-  private async buildNeverCloseKeyPredicate(): Promise<
-    (key: string, stat: UsageStat) => boolean
-  > {
+  private metaForKey(key: string, kind: ArtifactKind, meta: Meta) {
+    if (kind === 'app') {
+      const m = meta.apps.get(key.slice('app:'.length));
+      return blankMeta({ name: m?.name, path: m?.path ?? key.slice('app:'.length), title: m?.title, icon: m?.icon });
+    }
+    if (kind === 'ide') {
+      const m = meta.ides.get(key.slice('ide:'.length));
+      return blankMeta({ name: m?.name, path: m?.path ?? key.slice('ide:'.length), title: m?.title, icon: m?.icon });
+    }
+    if (kind === 'tab') {
+      const m = meta.tabs.get(key.slice('tab:'.length));
+      return blankMeta({ url: m?.url ?? key.slice('tab:'.length), title: m?.title, browserType: m?.browserType });
+    }
+    const m = meta.files.get(key.slice('file:'.length));
+    return blankMeta({ path: m?.path ?? key.slice('file:'.length) });
+  }
+
+  private async buildNeverCloseKeyPredicate(
+    meta: Meta
+  ): Promise<(key: string, stat: UsageStat) => boolean> {
     const neverCloseApps =
       await KnownApplication.getAppsThatShouldNeverBeClosed();
     const ncPaths = new Set(neverCloseApps.map((a) => a.path));
@@ -557,99 +566,68 @@ export default class ActiveTaskSession {
     const ncTabUrls = await NeverCloseBrowserTab.getUrlSet();
 
     return (key: string, stat: UsageStat): boolean => {
-      if (stat.kind === 'tab') {
-        return ncTabUrls.has(key.slice('tab:'.length));
-      }
+      if (stat.kind === 'tab') return ncTabUrls.has(key.slice('tab:'.length));
       if (stat.kind === 'app' || stat.kind === 'ide') {
         const prefix = stat.kind === 'app' ? 'app:' : 'ide:';
         const path = key.slice(prefix.length);
-        const meta =
-          stat.kind === 'app' ? this._apps.get(path) : this._ides.get(path);
-        const name = meta?.name?.toLowerCase();
+        const m =
+          stat.kind === 'app' ? meta.apps.get(path) : meta.ides.get(path);
+        const name = m?.name?.toLowerCase();
         return ncPaths.has(path) || (name != null && ncNames.has(name));
       }
       return false;
     };
   }
 
-  /**
-   * Compute scores and upsert ArtifactUsage rows + Snapshot.activeMs.
-   * Returns key -> score.
-   */
   private async persist(
     taskId: number,
+    merged: Map<string, UsageStat>,
+    scores: Map<string, number>,
+    meta: Meta,
+    activeMs: number,
     nowMs: number
-  ): Promise<Map<string, number>> {
-    const scores = new Map<string, number>();
+  ): Promise<void> {
     const existingRows = await ArtifactUsage.getForSnapshot(taskId);
     const byKey = new Map(existingRows.map((r) => [r.key, r] as const));
 
-    // Interaction share is relative to all tracked artefacts EXCEPT never-close
-    // ones, so build the never-close key predicate and the total up front.
-    const isNeverCloseKey = await this.buildNeverCloseKeyPredicate();
-    let totalInteractions = 0;
-    for (const [key, stat] of this._stats) {
-      if (!isNeverCloseKey(key, stat)) totalInteractions += stat.interactionCount;
-    }
-
     const toSave: ArtifactUsage[] = [];
-    for (const [key, stat] of this._stats) {
-      // Each artefact's share of the (non-never-close) interaction total, [0,1].
-      const interactionShare =
-        isNeverCloseKey(key, stat) || totalInteractions <= 0
-          ? 0
-          : stat.interactionCount / totalInteractions;
-
-      const score = ArtifactScorer.score(
-        {
-          totalDurationMs: stat.totalDurationMs,
-          accessCount: stat.accessCount,
-          lastAccessMs: stat.lastAccessMs,
-          interactionShare,
-        },
-        this._accumulatedActiveMs,
-        nowMs
-      );
-      scores.set(key, score);
-
-      const meta = this.metaForKey(key, stat);
+    for (const [key, stat] of merged) {
+      const m = this.metaForKey(key, stat.kind, meta);
       let row = byKey.get(key);
       if (!row) {
         row = ArtifactUsage.create({ snapshotId: taskId, key, kind: stat.kind });
       }
       row.kind = stat.kind;
-      row.name = meta.name;
-      row.path = meta.path;
-      row.url = meta.url;
-      row.title = meta.title;
-      if (meta.icon) row.icon = meta.icon;
-      if (meta.favIconUrl) row.favIconUrl = meta.favIconUrl;
-      row.browserType = meta.browserType;
+      row.name = m.name;
+      row.path = m.path;
+      row.url = m.url;
+      row.title = m.title;
+      if (m.icon) row.icon = m.icon;
+      row.browserType = m.browserType;
       row.totalDurationMs = stat.totalDurationMs;
       row.accessCount = stat.accessCount;
       row.interactionCount = stat.interactionCount;
       row.lastAccessTs = stat.lastAccessMs
         ? new Date(stat.lastAccessMs).toISOString()
         : '';
-      row.score = score;
+      row.score = scores.get(key) ?? 0;
       toSave.push(row);
     }
     if (toSave.length > 0) await ArtifactUsage.save(toSave);
 
     const snap = await Snapshot.findOneBy({ id: taskId });
     if (snap) {
-      snap.activeMs = this._accumulatedActiveMs;
+      snap.activeMs = activeMs;
       snap.lastStopTs = new Date(nowMs).toISOString();
       await snap.save();
     }
-    return scores;
   }
 
   private async loadAccumulated(taskId: number): Promise<void> {
     const rows = await ArtifactUsage.getForSnapshot(taskId);
     for (const r of rows) {
       const lastSeen = r.lastAccessTs ? Date.parse(r.lastAccessTs) : 0;
-      this._stats.set(r.key, {
+      this._priorStats.set(r.key, {
         kind: r.kind,
         totalDurationMs: r.totalDurationMs ?? 0,
         accessCount: r.accessCount ?? 0,
@@ -694,7 +672,17 @@ export default class ActiveTaskSession {
       }
     }
     const snap = await Snapshot.findOneBy({ id: taskId });
-    this._accumulatedActiveMs = snap?.activeMs ?? 0;
+    this._priorAccumulatedMs = snap?.activeMs ?? 0;
+  }
+
+  private snapshotMeta(): Meta {
+    return {
+      apps: new Map(this._apps),
+      ides: new Map(this._ides),
+      browsers: new Map(this._browsers),
+      tabs: new Map(this._tabs),
+      files: new Map(this._files),
+    };
   }
 
   private safeIcon(path: string): string {
@@ -712,20 +700,16 @@ export default class ActiveTaskSession {
     this._browsers.clear();
     this._tabs.clear();
     this._files.clear();
-    this._stats.clear();
-    this._accumulatedActiveMs = 0;
-    this._sessionStart = Date.now();
+    this._priorStats = new Map();
+    this._priorAccumulatedMs = 0;
+    this._acc = new StatsAccumulator();
+    this._events = [];
+    this._sessionStartMs = Date.now();
     this._focusKey = null;
-    this._focusStart = 0;
-    this._lastActivityMs = 0;
-    this._lastAccruedMs = 0;
     this._lastActiveFilePath = null;
     this._frontmostBrowserType = null;
   }
 
-  /**
-   * Notify the main window so the active-task UI can update without polling.
-   */
   private async broadcastChange(): Promise<void> {
     try {
       let payload: { id: number; name: string } | null = null;
@@ -739,14 +723,12 @@ export default class ActiveTaskSession {
           };
       }
       WindowManager.mainWindow?.webContents.send('active-task-changed', payload);
-      // Refresh the tray so Create/Stop Task enable-state tracks the active task.
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         require('./TrayManager').default.updateTray();
       } catch {
         // best-effort
       }
-      // Light the physical button while a task is active (off otherwise).
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         require('./HID/TimeBuzzerManager').default
@@ -759,4 +741,23 @@ export default class ActiveTaskSession {
       // best-effort
     }
   }
+}
+
+function blankMeta(o: {
+  name?: string;
+  path?: string;
+  url?: string;
+  title?: string;
+  icon?: string;
+  browserType?: string;
+}) {
+  return {
+    name: o.name ?? '',
+    path: o.path ?? '',
+    url: o.url ?? '',
+    title: o.title ?? '',
+    icon: o.icon ?? '',
+    favIconUrl: '',
+    browserType: o.browserType ?? '',
+  };
 }

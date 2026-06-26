@@ -6,6 +6,7 @@ import IDEFileEntity from '../../main/entity/IDEFile';
 import ApplicationEntity from '../../main/entity/Application';
 import FileEntity from '../../main/entity/File';
 import { StoppedTaskBundle } from '../../types/Commands';
+import TrimBar from './TrimBar';
 import styles from './NewTaskDialog.module.scss';
 
 type Props = {
@@ -116,6 +117,10 @@ export default function CommitTaskDialog({
   // undefined = undecided; true = skip the picker and auto-commit; false = show
   // the picker. Driven by the "Artefact Selection" setting.
   const [autoMode, setAutoMode] = useState<boolean | undefined>(undefined);
+  // Timeline trim window (curate the time spent on the task).
+  const [trimStart, setTrimStart] = useState(0);
+  const [trimEnd, setTrimEnd] = useState(0);
+  const [trimBusy, setTrimBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -157,6 +162,8 @@ export default function CommitTaskDialog({
           }
           setSelected(sel);
           setExpanded(exp);
+          setTrimStart(result.sessionStartMs);
+          setTrimEnd(result.sessionEndMs);
         }
       } catch (err) {
         if (!cancelled) setError(String(err));
@@ -240,7 +247,11 @@ export default function CommitTaskDialog({
   }, [bundle, selected]);
 
   // Build the committed payload from a selection set and send it.
-  const commitSelection = async (b: StoppedTaskBundle, sel: Set<Key>) => {
+  const commitSelection = async (
+    b: StoppedTaskBundle,
+    sel: Set<Key>,
+    trim?: { startMs: number; endMs: number }
+  ) => {
     const browsers = b.browsers
       .filter((br) => sel.has(keyBrowser(br)))
       .map((br) => {
@@ -272,15 +283,53 @@ export default function CommitTaskDialog({
       b.taskId,
       browsers,
       ides,
-      applications
+      applications,
+      trim
     );
+  };
+
+  // Live drag: just move the brackets (visual only).
+  const handleTrimPreview = (s: number, e: number) => {
+    setTrimStart(s);
+    setTrimEnd(e);
+  };
+
+  // On release: re-score the session over the kept window and re-prime the
+  // auto-selection so the user sees exactly how the scores change.
+  const handleTrimCommit = async (s: number, e: number) => {
+    if (!bundle || saving) return;
+    setTrimStart(s);
+    setTrimEnd(e);
+    setTrimBusy(true);
+    try {
+      const rescored = await window.electron.ipcRenderer.invoke(
+        'simulate-trim',
+        s,
+        e
+      );
+      if (rescored) {
+        setBundle(rescored);
+        const { sel } = computeAutoSelection(rescored);
+        setSelected(sel);
+      }
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setTrimBusy(false);
+    }
   };
 
   const handleCommit = async () => {
     if (!bundle || saving) return;
     setSaving(true);
     try {
-      await commitSelection(bundle, selected);
+      // Only send a trim window when the user actually narrowed it; otherwise
+      // the full session was already persisted on stop.
+      const trimmed =
+        trimStart > bundle.sessionStartMs + 500 ||
+        trimEnd < bundle.sessionEndMs - 500;
+      const trim = trimmed ? { startMs: trimStart, endMs: trimEnd } : undefined;
+      await commitSelection(bundle, selected, trim);
       setCommitted(true);
       onCommitted();
     } catch (err) {
@@ -328,6 +377,18 @@ export default function CommitTaskDialog({
             ×
           </button>
         </div>
+
+        {bundle && bundle.sessionEndMs > bundle.sessionStartMs && (
+          <TrimBar
+            startMs={bundle.sessionStartMs}
+            endMs={bundle.sessionEndMs}
+            trimStart={trimStart}
+            trimEnd={trimEnd}
+            onPreview={handleTrimPreview}
+            onCommit={handleTrimCommit}
+            busy={trimBusy}
+          />
+        )}
 
         <div className={styles.sectionHeader}>
           <span className={styles.label}>

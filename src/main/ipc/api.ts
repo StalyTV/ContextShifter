@@ -17,7 +17,7 @@ import Settings from '../entity/Settings';
 import { Database } from '../database';
 import StudyManager from '../StudyManager';
 import WindowManager from '../WindowManager';
-import ActiveTaskSession from '../ActiveTaskSession';
+import ActiveTaskSession, { StoppedSession } from '../ActiveTaskSession';
 import TaskRestorer from '../TaskRestorer';
 import BrowserTracker from '../trackers/BrowserTracker';
 import VSCodeTracker from '../trackers/VSCodeTracker';
@@ -35,7 +35,7 @@ import ScoreWeights from '../ScoreWeights';
 import StudyDataCollector from '../StudyDataCollector';
 import { isBlankTab } from '../helpers/isBlankTab';
 import { BrowserType } from 'types/BrowserType';
-import { OpenBrowserTab } from 'types/Commands';
+import { OpenBrowserTab, StoppedTaskBundle } from 'types/Commands';
 
 typedIpcMain.handle('get-snapshot-by-id', async (e, id) => {
   return await SnapshotManager.getInstance().getSnapshotById(id);
@@ -143,10 +143,9 @@ typedIpcMain.handle('get-active-task', async () => {
   return { id: snap.id, name: snap.name };
 });
 
-typedIpcMain.handle('stop-task', async () => {
-  const stopped = await ActiveTaskSession.getInstance().stop();
-  if (!stopped) return null;
-
+async function buildStoppedBundle(
+  stopped: StoppedSession
+): Promise<StoppedTaskBundle> {
   // Per-artefact scores from accumulated usage, computed at the switch moment.
   const tabScore = new Map<string, number>();
   stopped.browsers.forEach((b) =>
@@ -490,14 +489,44 @@ typedIpcMain.handle('stop-task', async () => {
     previousKeys: Array.from(previousKeys),
     trackedKeys: Array.from(trackedKeys),
     autoSelectKeys: Array.from(autoSelect),
+    sessionStartMs: stopped.sessionStartMs,
+    sessionEndMs: stopped.sessionEndMs,
   };
+}
+
+typedIpcMain.handle('stop-task', async () => {
+  const stopped = await ActiveTaskSession.getInstance().stop();
+  if (!stopped) return null;
+  return buildStoppedBundle(stopped);
+});
+
+// Re-score the just-stopped session as if only [startMs, endMs] happened
+// (the end-of-task timeline trim). Does not persist.
+typedIpcMain.handle('simulate-trim', async (e, startMs, endMs) => {
+  const stopped = await ActiveTaskSession.getInstance().scoreWindow(
+    startMs,
+    endMs
+  );
+  if (!stopped) return null;
+  return buildStoppedBundle(stopped);
 });
 
 typedIpcMain.handle(
   'commit-task-artefacts',
-  async (e, taskId, browsers, ides, applications) => {
-    // Capture study data BEFORE committing: commit can prune/rewrite the
-    // ArtifactUsage rows, and we want the scored set as it was at task end.
+  async (e, taskId, browsers, ides, applications, trim) => {
+    // Apply the timeline trim first (if the user curated the time window): this
+    // re-persists ArtifactUsage with stats for the kept window only, so study
+    // data + committed scores reflect the trimmed session. Then drop the
+    // pending timeline.
+    const session = ActiveTaskSession.getInstance();
+    if (trim) {
+      await session.commitTrim(trim.startMs, trim.endMs);
+    } else {
+      session.clearPending();
+    }
+
+    // Capture study data BEFORE committing artefact entities (commit can
+    // prune/rewrite rows); the ArtifactUsage rows now hold the trimmed stats.
     if (await Settings.getIsStudyDataCollectionEnabled()) {
       const snap = await Snapshot.getSnapshotById(taskId);
       await StudyDataCollector.record(taskId, snap?.name ?? `Task ${taskId}`, {
@@ -553,7 +582,10 @@ typedIpcMain.handle('export-study-data', async () => {
 });
 
 typedIpcMain.handle('discard-active-task', async () => {
+  // Covers cancelling the picker after a stop too: drop any pending timeline
+  // (the full session was already persisted at stop).
   await ActiveTaskSession.getInstance().discard();
+  ActiveTaskSession.getInstance().clearPending();
 });
 
 // settings
