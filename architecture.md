@@ -24,8 +24,8 @@ ContextShifter/
 
 Two sibling repositories cooperate with the app over local WebSockets:
 
-- **ContextShifter-browser-extension** — Chromium/Firefox extension that streams open tabs + window state to the main process (`ws://localhost:8084`) and accepts open/close-tab commands. Manifest V3, with a service-worker keep-alive so the connection survives the browser losing focus.
-- **ContextShifter-vscode-extension** — VS Code extension that streams the active editor / open files / workspace folder (`ws://localhost:8086`) and accepts open-files, close-files, and **close-window** commands.
+- **ContextShifter-browser-extension** — Chromium/Firefox extension that streams open tabs + window state to the main process (`ws://localhost:8473`) and accepts open/close-tab commands. Manifest V3, with a service-worker keep-alive so the connection survives the browser losing focus.
+- **ContextShifter-vscode-extension** — VS Code extension that streams the active editor / open files / workspace folder (`ws://localhost:8475`) and accepts open-files, close-files, and **close-window** commands.
 
 The TimeBuzzer dial driver is vendored in-app at `src/main/HID/time-buzzer.js`.
 
@@ -71,8 +71,8 @@ flowchart LR
       CommitDialog[CommitTaskDialog]
     end
 
-    Browser[Browser extension] -->|WebSocket :8084| TR
-    VSCode[VS Code extension] -->|WebSocket :8086| TR
+    Browser[Browser extension] -->|WebSocket :8473| TR
+    VSCode[VS Code extension] -->|WebSocket :8475| TR
     Dial[TimeBuzzer USB] --> HID
 
     TR --> ATS
@@ -162,8 +162,8 @@ Key entities:
 | --- | --- |
 | `WindowTracker.ts` | Wraps the vendored `WindowsActivityTracker` (active-win). Forwards focus changes to `ActiveArtifact`. The poll is guarded against the active-win helper hanging (in-flight guard + timeout) so window tracking can't silently die. |
 | `InteractionTracker.ts` | Global input hook (`uiohook-napi`). Counts clicks + keystrokes → `ActiveTaskSession.onInteraction`; forwards throttled mouse-move/scroll → `onActivity`. Counts only — never key content. Needs macOS **Input Monitoring** permission. |
-| `BrowserTracker.ts` | WebSocket server on `:8084`. Receives tab/window events from the browser extension, exposes the live snapshot, drives `ActiveTaskSession.onBrowserTabChange`, and sends open/close-tab commands. |
-| `VSCodeTracker.ts` | WebSocket server on `:8086`. Receives active-file/open-files/workspace from the VS Code extension, tracks each **window socket by workspace** (so unrelated windows can be closed), and sends open-files / close-files / **close-window**. |
+| `BrowserTracker.ts` | WebSocket server on `:8473`. Receives tab/window events from the browser extension, exposes the live snapshot, drives `ActiveTaskSession.onBrowserTabChange`, and sends open/close-tab commands. |
+| `VSCodeTracker.ts` | WebSocket server on `:8475`. Receives active-file/open-files/workspace from the VS Code extension, tracks each **window socket by workspace** (so unrelated windows can be closed), and sends open-files / close-files / **close-window**. |
 | `FileSystemWatcher.ts` | `@parcel/watcher` wrapper recording `FileSystemEvent`s. Currently dormant (no directories registered). |
 | `ActiveArtifact.ts` | In-memory "what is focused right now" cache. `setCurrentWindow`/`setCurrentFile` both persist to the `Active*` tables **and** forward to `ActiveTaskSession`. |
 
@@ -260,8 +260,8 @@ The renderer never touches the DB or trackers directly — every read/write goes
 
 ## Companion extensions
 
-- **Browser** (`ContextShifter-browser-extension`, MV3): a background service worker holds a WebSocket to `:8084`, streams windows/tabs, and runs open/close-tab commands. A keep-alive (periodic API ping + `chrome.alarms`) prevents the worker being suspended when the browser is unfocused, which would otherwise drop the connection.
-- **VS Code** (`ContextShifter-vscode-extension`): connects to `:8086`, reports the active file / open files / workspace folder (and announces its workspace on connect so the app can address a specific window), and handles open-files, close-files, and **close-window**. Ships its runtime deps (`ws`) inside the VSIX.
+- **Browser** (`ContextShifter-browser-extension`, MV3): a background service worker holds a WebSocket to `:8473`, streams windows/tabs, and runs open/close-tab commands. A keep-alive (periodic API ping + `chrome.alarms`) prevents the worker being suspended when the browser is unfocused, which would otherwise drop the connection.
+- **VS Code** (`ContextShifter-vscode-extension`): connects to `:8475`, reports the active file / open files / workspace folder (and announces its workspace on connect so the app can address a specific window), and handles open-files, close-files, and **close-window**. Ships its runtime deps (`ws`) inside the VSIX.
 
 ---
 

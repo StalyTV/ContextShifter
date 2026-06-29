@@ -25,7 +25,7 @@ import { hashString } from '../helpers/hashString';
 export default class BrowserTracker {
 
   private static _instance: BrowserTracker;
-  private _port = 8084;
+  private _port = 8473;
   private _server: WebSocketServer;
   //browserWindowId, Websocket
   private _wsClients: Map<BrowserType, WebSocket> = new Map();

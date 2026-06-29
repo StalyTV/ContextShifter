@@ -19,7 +19,7 @@ import { hashString } from '../helpers/hashString';
 
 export default class VSCodeTracker {
   private static _instance: VSCodeTracker;
-  private _port = 8086;
+  private _port = 8475;
   private _server: WebSocketServer;
   private _lastUsedSocket: WebSocket | undefined;
   // Per-window socket -> its workspace folder path, so we can address a
