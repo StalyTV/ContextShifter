@@ -4,7 +4,7 @@
  * Written by Remy Egloff <remy.egloff@uzh.ch>, March 2023
  */
 
-import { Menu, Tray } from 'electron';
+import { Menu, Tray, nativeImage } from 'electron';
 import isMac from './helpers/isMac';
 import getAssetPath from './helpers/getAssetPath';
 import ContextShifter from './ContextShifter';
@@ -17,12 +17,18 @@ export default class TrayManager {
 
   public static async init(contextShifter: ContextShifter) {
     this._contextShifterInstance = contextShifter;
-    // ContextShifter dial glyph (blue, transparent background). Not a macOS
-    // "Template" image, so its colour is kept rather than rendered monochrome.
-    const iconPath = isMac
-      ? getAssetPath('trayIcons/mac/ContextShifterTray.png')
-      : getAssetPath('trayIcons/windows/CameraIcon.png');
-    this._tray = new Tray(iconPath);
+    // macOS: a template image (monochrome rounded square with the dial knocked
+    // out) so the menu bar tints it like every other tray icon, adapting to
+    // light/dark. Windows keeps the coloured glyph.
+    if (isMac) {
+      const icon = nativeImage.createFromPath(
+        getAssetPath('trayIcons/mac/ContextShifterTrayTemplate.png')
+      );
+      icon.setTemplateImage(true);
+      this._tray = new Tray(icon);
+    } else {
+      this._tray = new Tray(getAssetPath('trayIcons/windows/CameraIcon.png'));
+    }
 
     const menu = await this.createMenu();
     this._tray.setContextMenu(menu);
