@@ -47,6 +47,53 @@ export function replay(
   return acc.snapshot();
 }
 
+export type TimelineMarker = { t: number; key: string; kind: ArtifactKind };
+export type IdlePeriod = { start: number; end: number };
+export type TimelineAnalysis = {
+  markers: TimelineMarker[];
+  idlePeriods: IdlePeriod[];
+};
+
+/**
+ * Describe the session for the trim bar's backdrop: when each artefact was first
+ * focused, and the stretches of inactivity during which duration scoring freezes
+ * (no activity for longer than the idle timeout — see StatsAccumulator).
+ *
+ * Every event (focus/interaction/activity) counts as activity, mirroring the
+ * accumulator: a focus switch resets the idle clock just like a click does.
+ */
+export function analyzeTimeline(
+  events: TLEvent[],
+  winStart: number,
+  winEnd: number,
+  idleTimeoutMs: number
+): TimelineAnalysis {
+  const markers: TimelineMarker[] = [];
+  const seen = new Set<string>();
+  for (const ev of events) {
+    if (ev.ty !== 'f') continue;
+    if (ev.t < winStart || ev.t > winEnd) continue;
+    if (seen.has(ev.key)) continue;
+    seen.add(ev.key);
+    markers.push({ t: ev.t, key: ev.key, kind: ev.kind });
+  }
+
+  // Idle = any gap between consecutive activity timestamps longer than the idle
+  // timeout. The frozen stretch is [lastActivity + idleTimeout, nextActivity].
+  const times = events
+    .filter((e) => e.t >= winStart && e.t <= winEnd)
+    .map((e) => e.t);
+  const stamps = [winStart, ...times, winEnd].sort((a, b) => a - b);
+  const idlePeriods: IdlePeriod[] = [];
+  for (let i = 1; i < stamps.length; i += 1) {
+    const prev = stamps[i - 1];
+    const cur = stamps[i];
+    const idleStart = prev + idleTimeoutMs;
+    if (cur > idleStart) idlePeriods.push({ start: idleStart, end: cur });
+  }
+  return { markers, idlePeriods };
+}
+
 /**
  * Merge previously-accumulated stats (from earlier sessions of the task) with
  * this session's windowed contribution. Durations/counts add; recency takes the

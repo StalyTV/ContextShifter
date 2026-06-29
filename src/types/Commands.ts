@@ -33,6 +33,21 @@ export type ScoreWeightsDTO = {
   lambda: number;
 };
 
+// One vertical marker on the trim bar: when an artefact was first focused.
+export type TimelineMarkerDTO = {
+  t: number;
+  key: string;
+  kind: 'app' | 'ide' | 'tab' | 'file';
+  // Icon (data URL or favicon URL) used to derive the marker's colour; may be
+  // empty when the artefact has no icon.
+  icon: string;
+  label: string;
+};
+
+// A stretch where duration scoring was frozen (no activity past the idle
+// timeout), drawn as a greyed band on the trim bar.
+export type IdlePeriodDTO = { start: number; end: number };
+
 export type StoppedTaskBundle = {
   taskId: number;
   taskName: string;
@@ -47,6 +62,9 @@ export type StoppedTaskBundle = {
   // Wall-clock span of the just-stopped session — the trim bar's full range.
   sessionStartMs: number;
   sessionEndMs: number;
+  // Trim-bar backdrop: artefact-introduction markers + idle (frozen) bands.
+  markers: TimelineMarkerDTO[];
+  idlePeriods: IdlePeriodDTO[];
 };
 
 export type TrimWindow = { startMs: number; endMs: number };

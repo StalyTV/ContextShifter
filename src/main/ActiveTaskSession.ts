@@ -30,7 +30,15 @@ import KnownApplication from './entity/KnownApplication';
 import NeverCloseBrowserTab from './entity/NeverCloseBrowserTab';
 import { isBlankTab } from './helpers/isBlankTab';
 import StatsAccumulator, { UsageStat } from './scoring/StatsAccumulator';
-import { TLEvent, replay, mergeStats } from './scoring/SessionTimeline';
+import {
+  TLEvent,
+  replay,
+  mergeStats,
+  analyzeTimeline,
+  TimelineMarker,
+  IdlePeriod,
+} from './scoring/SessionTimeline';
+import StaticSettings from './StaticSettings';
 
 const fileIcon = require('extract-file-icon');
 
@@ -71,6 +79,9 @@ export type StoppedSession = {
   /** The current session's wall-clock span — the trim bar's full range. */
   sessionStartMs: number;
   sessionEndMs: number;
+  /** First-introduction markers + idle stretches, for the trim bar backdrop. */
+  markers: TimelineMarker[];
+  idlePeriods: IdlePeriod[];
 };
 
 type Meta = {
@@ -524,6 +535,15 @@ export default class ActiveTaskSession {
       ArtifactScorer.selectAboveThreshold(scores)
     );
 
+    // The timeline backdrop spans the whole session (independent of any trim
+    // window) so the brackets slide over a fixed set of markers / idle bands.
+    const { markers, idlePeriods } = analyzeTimeline(
+      p.events,
+      p.sessionStartMs,
+      p.sessionEndMs,
+      StaticSettings.DURATION_IDLE_TIMEOUT_MS
+    );
+
     return {
       taskId: p.taskId,
       taskName: p.taskName,
@@ -536,6 +556,8 @@ export default class ActiveTaskSession {
       stopMomentMs: p.sessionEndMs,
       sessionStartMs: p.sessionStartMs,
       sessionEndMs: p.sessionEndMs,
+      markers,
+      idlePeriods,
     };
   }
 
@@ -614,6 +636,14 @@ export default class ActiveTaskSession {
       toSave.push(row);
     }
     if (toSave.length > 0) await ArtifactUsage.save(toSave);
+
+    // Reconcile: drop rows for artefacts that fall outside the persisted window.
+    // `merged` always contains every prior-activation key (mergeStats seeds from
+    // prior), so any existing row absent from `merged` was introduced only
+    // during the now-trimmed portion of this session and must not survive.
+    const mergedKeys = new Set(merged.keys());
+    const staleRows = existingRows.filter((r) => !mergedKeys.has(r.key));
+    if (staleRows.length > 0) await ArtifactUsage.remove(staleRows);
 
     const snap = await Snapshot.findOneBy({ id: taskId });
     if (snap) {

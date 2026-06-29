@@ -480,6 +480,52 @@ async function buildStoppedBundle(
     })
   );
 
+  // Resolve each timeline marker to an icon (for its colour) + a short label.
+  // Tabs use their browser's app icon (a data URL, so the renderer can sample
+  // it without tainting the canvas, unlike a remote favicon).
+  const appIconByPath = new Map(stopped.apps.map((a) => [a.path, a]));
+  const ideIconByPath = new Map(stopped.ides.map((i) => [i.path, i]));
+  const browserIconByType = new Map<BrowserType, string>();
+  const tabMetaByUrl = new Map<string, { title: string; type: BrowserType }>();
+  stopped.browsers.forEach((b) => {
+    const live = browserList.find((x) => x.type === b.type);
+    browserIconByType.set(b.type, live?.icon ?? b.app.icon ?? '');
+    b.tabs.forEach((t) =>
+      tabMetaByUrl.set(t.url, { title: t.title, type: b.type })
+    );
+  });
+  const hostOf = (url: string): string => {
+    try {
+      return new URL(url).hostname.replace(/^www\./, '');
+    } catch {
+      return url;
+    }
+  };
+  const markers = stopped.markers.map((m) => {
+    let icon = '';
+    let label = m.key;
+    if (m.kind === 'app') {
+      const path = m.key.slice('app:'.length);
+      const a = appIconByPath.get(path);
+      icon = a?.icon ?? '';
+      label = a?.name ?? (path.split('/').pop() || path);
+    } else if (m.kind === 'ide') {
+      const path = m.key.slice('ide:'.length);
+      const i = ideIconByPath.get(path);
+      icon = i?.icon ?? '';
+      label = i?.name ?? (path.split('/').pop() || path);
+    } else if (m.kind === 'tab') {
+      const url = m.key.slice('tab:'.length);
+      const meta = tabMetaByUrl.get(url);
+      icon = meta ? browserIconByType.get(meta.type) ?? '' : '';
+      label = meta?.title || hostOf(url);
+    } else {
+      const path = m.key.slice('file:'.length);
+      label = path.split('/').pop() || path;
+    }
+    return { t: m.t, key: m.key, kind: m.kind, icon, label };
+  });
+
   return {
     taskId: stopped.taskId,
     taskName: stopped.taskName,
@@ -491,6 +537,8 @@ async function buildStoppedBundle(
     autoSelectKeys: Array.from(autoSelect),
     sessionStartMs: stopped.sessionStartMs,
     sessionEndMs: stopped.sessionEndMs,
+    markers,
+    idlePeriods: stopped.idlePeriods,
   };
 }
 

@@ -393,6 +393,8 @@ export default function CommitTaskDialog({
             endMs={bundle.sessionEndMs}
             trimStart={trimStart}
             trimEnd={trimEnd}
+            markers={bundle.markers}
+            idlePeriods={bundle.idlePeriods}
             onPreview={handleTrimPreview}
             onCommit={handleTrimCommit}
             busy={trimBusy}

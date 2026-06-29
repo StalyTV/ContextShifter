@@ -1,4 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { TimelineMarkerDTO, IdlePeriodDTO } from '../../types/Commands';
+import dominantColor from './dominantColor';
 import styles from './TrimBar.module.scss';
 
 type Props = {
@@ -6,6 +8,10 @@ type Props = {
   endMs: number;
   trimStart: number;
   trimEnd: number;
+  /** Artefact-introduction markers (vertical lines, tinted by icon colour). */
+  markers?: TimelineMarkerDTO[];
+  /** Idle stretches where duration scoring was frozen (greyed bands). */
+  idlePeriods?: IdlePeriodDTO[];
   /** Live while dragging (visual only). */
   onPreview: (start: number, end: number) => void;
   /** On release — recompute the scores for the kept window. */
@@ -35,12 +41,17 @@ const MIN_WINDOW_MS = 1000;
 /**
  * A video-editor-style trim bar: drag the bracket handles to keep only part of
  * the session. Reports the window live (onPreview) and on release (onCommit).
+ * The backdrop shows where each artefact was first introduced (vertical lines,
+ * tinted by the icon's dominant colour) and idle stretches where duration
+ * scoring froze (greyed bands).
  */
 export default function TrimBar({
   startMs,
   endMs,
   trimStart,
   trimEnd,
+  markers,
+  idlePeriods,
   onPreview,
   onCommit,
   busy,
@@ -50,10 +61,31 @@ export default function TrimBar({
   const dragging = useRef<null | 'start' | 'end'>(null);
   // Latest previewed window, so the mouseup handler commits the final value.
   const latest = useRef({ start: trimStart, end: trimEnd });
+  // Resolved dominant colour per marker key (async via the icon image).
+  const [colors, setColors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!dragging.current) latest.current = { start: trimStart, end: trimEnd };
   }, [trimStart, trimEnd]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (markers ?? []).forEach((m) => {
+      dominantColor(m.icon)
+        .then((c) => {
+          if (!cancelled) {
+            setColors((prev) =>
+              prev[m.key] === c ? prev : { ...prev, [m.key]: c }
+            );
+          }
+          return c;
+        })
+        .catch(() => undefined);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [markers]);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -87,8 +119,9 @@ export default function TrimBar({
     };
   }, [startMs, endMs, total, onPreview, onCommit]);
 
-  const leftPct = ((trimStart - startMs) / total) * 100;
-  const rightPct = ((trimEnd - startMs) / total) * 100;
+  const pct = (t: number) => ((t - startMs) / total) * 100;
+  const leftPct = pct(trimStart);
+  const rightPct = pct(trimEnd);
   const trimmed = trimStart > startMs + 500 || trimEnd < endMs - 500;
 
   return (
@@ -103,10 +136,42 @@ export default function TrimBar({
       </div>
       <div ref={barRef} className={styles.bar}>
         <div className={styles.trackDim} />
+
+        {/* Idle (frozen-scoring) bands. */}
+        {(idlePeriods ?? []).map((p, i) => {
+          const l = Math.max(0, pct(p.start));
+          const r = Math.min(100, pct(p.end));
+          if (r <= l) return null;
+          return (
+            <div
+              // eslint-disable-next-line react/no-array-index-key
+              key={`idle-${i}`}
+              className={styles.idleBand}
+              style={{ left: `${l}%`, width: `${r - l}%` }}
+              title={`Inactive ${fmtDur(p.end - p.start)} — scoring frozen`}
+            />
+          );
+        })}
+
         <div
           className={styles.keptRegion}
           style={{ left: `${leftPct}%`, right: `${100 - rightPct}%` }}
         />
+
+        {/* Artefact-introduction markers. */}
+        {(markers ?? []).map((m) => {
+          const within = m.t >= trimStart && m.t <= trimEnd;
+          const color = colors[m.key] ?? '#8a8a8a';
+          return (
+            <div
+              key={`mark-${m.key}-${m.t}`}
+              className={`${styles.marker} ${within ? '' : styles.markerOut}`}
+              style={{ left: `${pct(m.t)}%`, background: color }}
+              title={`${m.label} · first seen ${fmtClock(m.t)}`}
+            />
+          );
+        })}
+
         <div
           className={`${styles.handle} ${styles.handleStart}`}
           style={{ left: `${leftPct}%` }}
