@@ -55,15 +55,18 @@ app.whenReady().then(async () => {
         const c = document.createElement('canvas');
         c.width = size; c.height = size;
         const ctx = c.getContext('2d');
-        // Rounded square, full template colour (black), small padding.
-        const pad = Math.max(1, Math.round(size * 0.06));
-        const r = Math.round(size * 0.24);
+        // Rounded square, full template colour (black). Tiny padding so the
+        // square nearly fills the canvas (~10% larger than the prior 0.88).
+        const pad = size * 0.016;
+        const sq = size - 2 * pad;
+        const r = sq * 0.27;
         ctx.fillStyle = '#000';
-        roundRect(ctx, pad, pad, size - 2 * pad, size - 2 * pad, r);
+        roundRect(ctx, pad, pad, sq, sq, r);
         ctx.fill();
         // Knock out the dial (use its alpha to erase), inset inside the square.
-        const ds = Math.round(size * 0.60);
-        const off = Math.round((size - ds) / 2);
+        // 0.72 of the canvas — ~20% larger than the prior 0.60.
+        const ds = size * 0.72;
+        const off = (size - ds) / 2;
         ctx.globalCompositeOperation = 'destination-out';
         ctx.drawImage(img, off, off, ds, ds);
         ctx.globalCompositeOperation = 'source-over';
