@@ -157,13 +157,12 @@ export default class ScoreWeightsManager {
       const totalSessionMs = snap.activeMs ?? 0;
       const lastAccessMsOf = (r: ArtifactUsage) =>
         r.lastAccessTs ? Date.parse(r.lastAccessTs) : 0;
-      const maxLastAccess = rows.reduce(
-        (m, r) => Math.max(m, lastAccessMsOf(r) || 0),
+      // Recency decays over the task's total active time (sum of idle-capped
+      // durations), measured back from that same total — matching live scoring.
+      const nowActiveMs = rows.reduce(
+        (s, r) => s + (r.totalDurationMs ?? 0),
         0
       );
-      const refMs = snap.lastStopTs
-        ? Date.parse(snap.lastStopTs)
-        : maxLastAccess || Date.now();
 
       const totalInteractions = rows
         .filter((r) => !isNeverClose(r))
@@ -180,10 +179,11 @@ export default class ScoreWeightsManager {
             totalDurationMs: r.totalDurationMs ?? 0,
             accessCount: r.accessCount ?? 0,
             lastAccessMs: Number.isNaN(lastAccessMs) ? 0 : lastAccessMs,
+            lastAccessActiveMs: r.lastAccessActiveMs ?? 0,
             interactionShare,
           },
           totalSessionMs,
-          Number.isNaN(refMs) ? Date.now() : refMs
+          nowActiveMs
         );
       }
       // eslint-disable-next-line no-await-in-loop

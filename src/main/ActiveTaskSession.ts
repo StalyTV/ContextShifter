@@ -461,7 +461,7 @@ export default class ActiveTaskSession {
     const merged = mergeStats(p.priorStats, contribution);
     const activeMs = p.priorAccumulatedMs + Math.max(0, winEnd - winStart);
 
-    const scores = await this.scoreStats(merged, p.meta, activeMs, winEnd);
+    const scores = await this.scoreStats(merged, p.meta, activeMs);
 
     if (persist) {
       await this.persist(p.taskId, merged, scores, p.meta, activeMs, winEnd);
@@ -477,13 +477,17 @@ export default class ActiveTaskSession {
   private async scoreStats(
     merged: Map<string, UsageStat>,
     meta: Meta,
-    activeMs: number,
-    nowMs: number
+    activeMs: number
   ): Promise<Map<string, number>> {
     const isNeverCloseKey = await this.buildNeverCloseKeyPredicate(meta);
     let totalInteractions = 0;
+    // The recency reference is the task's total active-time elapsed = the sum of
+    // all (idle-capped) durations. Decaying back from here means idle time and
+    // gaps between sessions never age recency.
+    let nowActiveMs = 0;
     for (const [key, stat] of merged) {
       if (!isNeverCloseKey(key, stat)) totalInteractions += stat.interactionCount;
+      nowActiveMs += stat.totalDurationMs;
     }
     const scores = new Map<string, number>();
     for (const [key, stat] of merged) {
@@ -498,10 +502,11 @@ export default class ActiveTaskSession {
             totalDurationMs: stat.totalDurationMs,
             accessCount: stat.accessCount,
             lastAccessMs: stat.lastAccessMs,
+            lastAccessActiveMs: stat.lastAccessActiveMs,
             interactionShare,
           },
           activeMs,
-          nowMs
+          nowActiveMs
         )
       );
     }
@@ -632,6 +637,7 @@ export default class ActiveTaskSession {
       row.lastAccessTs = stat.lastAccessMs
         ? new Date(stat.lastAccessMs).toISOString()
         : '';
+      row.lastAccessActiveMs = stat.lastAccessActiveMs ?? 0;
       row.score = scores.get(key) ?? 0;
       toSave.push(row);
     }
@@ -663,6 +669,7 @@ export default class ActiveTaskSession {
         accessCount: r.accessCount ?? 0,
         interactionCount: r.interactionCount ?? 0,
         lastAccessMs: Number.isNaN(lastSeen) ? 0 : lastSeen,
+        lastAccessActiveMs: r.lastAccessActiveMs ?? 0,
       });
       if (r.kind === 'app') {
         this._apps.set(r.path, {

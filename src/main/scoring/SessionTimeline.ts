@@ -104,11 +104,21 @@ export function mergeStats(
   contribution: Map<string, UsageStat>
 ): Map<string, UsageStat> {
   const out = new Map<string, UsageStat>();
-  for (const [k, v] of prior) out.set(k, { ...v });
+  // The task's cumulative active time before this session = sum of prior
+  // durations (the active clock equals the sum of all durations). Prior recency
+  // offsets are already on this cumulative clock; the contribution's offsets are
+  // session-relative (start at 0), so we shift them up by this amount to land on
+  // the same continuous, idle-aware clock. Gaps between sessions add nothing.
+  let priorActiveMs = 0;
+  for (const [k, v] of prior) {
+    out.set(k, { ...v });
+    priorActiveMs += v.totalDurationMs;
+  }
   for (const [k, c] of contribution) {
+    const cActive = c.lastAccessActiveMs + priorActiveMs;
     const p = out.get(k);
     if (!p) {
-      out.set(k, { ...c });
+      out.set(k, { ...c, lastAccessActiveMs: cActive });
     } else {
       out.set(k, {
         kind: c.kind || p.kind,
@@ -116,6 +126,7 @@ export function mergeStats(
         accessCount: p.accessCount + c.accessCount,
         interactionCount: p.interactionCount + c.interactionCount,
         lastAccessMs: Math.max(p.lastAccessMs, c.lastAccessMs),
+        lastAccessActiveMs: Math.max(p.lastAccessActiveMs, cActive),
       });
     }
   }

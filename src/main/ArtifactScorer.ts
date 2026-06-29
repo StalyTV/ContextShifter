@@ -11,8 +11,9 @@
  * where
  *   normalized_duration = total foreground focus time on a / total session time
  *   access_count        = distinct focus switches to a (log-dampened)
- *   recency_decay       = e^(-lambda * minutes_since_last_access), measured at
- *                         the task-switch moment.
+ *   recency_decay       = e^(-lambda * active_minutes_since_last_access),
+ *                         measured on the task's active-time clock so idle
+ *                         stretches and gaps between sessions don't age recency.
  *
  * Weights / lambda / selection threshold live in StaticSettings so they can be
  * tuned against the Study 1 ground truth.
@@ -23,8 +24,10 @@ import StaticSettings from './StaticSettings';
 export type ScoreInput = {
   totalDurationMs: number;
   accessCount: number;
-  /** Epoch ms of the last interaction; 0/undefined means "never". */
+  /** Epoch ms of the last access; 0 means "never" (recency guard only). */
   lastAccessMs: number;
+  /** Last-access position on the task's cumulative active-time clock (ms). */
+  lastAccessActiveMs: number;
   /**
    * Share of total interactions (clicks + keystrokes) this artefact received,
    * relative to all tracked non-never-close artefacts. Already in [0,1].
@@ -37,12 +40,13 @@ export default class ArtifactScorer {
   /**
    * Compute the weighted linear score for one artefact.
    * @param totalSessionMs accumulated active time for the task (denominator)
-   * @param nowMs the task-switch moment used for recency decay
+   * @param nowActiveMs the task's total active-time elapsed — the reference the
+   *   recency decay is measured back from (NOT wall-clock).
    */
   public static score(
     input: ScoreInput,
     totalSessionMs: number,
-    nowMs: number
+    nowActiveMs: number
   ): number {
     const w1 = StaticSettings.SCORE_WEIGHT_DURATION;
     const w2 = StaticSettings.SCORE_WEIGHT_FREQUENCY;
@@ -55,9 +59,15 @@ export default class ArtifactScorer {
         ? Math.min(1, input.totalDurationMs / totalSessionMs)
         : 0;
     const frequency = Math.log(1 + Math.max(0, input.accessCount));
+    // Decay over ACTIVE time since last access (idle / between-session gaps add
+    // nothing). Guard with the epoch timestamp: 0 means the artefact never
+    // qualified for recency, so it scores 0 rather than e^0 = 1.
     const recency =
       input.lastAccessMs > 0
-        ? Math.exp((-lambda * Math.max(0, nowMs - input.lastAccessMs)) / 60000)
+        ? Math.exp(
+            (-lambda * Math.max(0, nowActiveMs - input.lastAccessActiveMs)) /
+              60000
+          )
         : 0;
     // Already normalized to [0,1] by the caller (share of total interactions).
     const interaction = Math.min(1, Math.max(0, input.interactionShare ?? 0));

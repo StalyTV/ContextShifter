@@ -49,6 +49,8 @@ type ArtefactRow = {
   /** This artefact's share of the task's total interactions, [0,1]. */
   interactionShare: number;
   lastAccessTs: string;
+  /** Last-access offset on the task's active-time clock (recency reference). */
+  lastAccessActiveMs: number;
   score: number;
   selected: boolean;
   /** Stable anonymous id (set only when anonymization is enabled). */
@@ -76,6 +78,7 @@ function anonymizeArtefact(r: ArtefactRow): ArtefactRow {
     interactionCount: r.interactionCount,
     interactionShare: r.interactionShare,
     lastAccessTs: r.lastAccessTs,
+    lastAccessActiveMs: r.lastAccessActiveMs,
     score: r.score,
     selected: r.selected,
     anonId,
@@ -171,6 +174,7 @@ export default class StudyDataCollector {
               ? (r.interactionCount ?? 0) / totalInteractions
               : 0,
           lastAccessTs: r.lastAccessTs ?? '',
+          lastAccessActiveMs: r.lastAccessActiveMs ?? 0,
           score: r.score ?? 0,
           selected: isSelected(r),
         }))

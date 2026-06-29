@@ -73,6 +73,11 @@ export default class ArtifactUsage extends BaseEntity {
   @Column({ type: 'varchar', nullable: true })
   lastAccessTs!: string;
 
+  // Last-access position on the task's cumulative active-time clock (ms). Used
+  // for the recency decay so idle time / between-session gaps don't age it.
+  @Column({ type: 'integer', default: 0 })
+  lastAccessActiveMs!: number;
+
   // last computed score (cached for analysis / display)
   @Column({ type: 'double', default: 0 })
   score!: number;
