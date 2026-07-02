@@ -45,6 +45,14 @@ export default class Browser extends BaseEntity {
   @Column({ type: 'double', nullable: false, default: 0 })
   public relevance!: number;
 
+  // Profile this window belongs to (transient — set on the live snapshot so the
+  // restorer can target/close the right profile). Not part of the committed set.
+  @Column({ type: 'varchar', nullable: true })
+  profileId!: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  profileEmail!: string;
+
   @ManyToOne(() => Snapshot, (snapshot) => snapshot.applications, {
     onDelete: 'CASCADE',
   })

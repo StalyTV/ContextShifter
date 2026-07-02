@@ -78,6 +78,8 @@ export interface RuntimeInfo {
   extensionId: string
   /** random id established when the browser extension is installed in the browser */
   installationId: string
+  /** Identifies the browser *profile* this instance runs in (see the extension's profile.ts). */
+  profile?: { id: string; email: string }
 }
 
 export interface BookmarkingRequest {

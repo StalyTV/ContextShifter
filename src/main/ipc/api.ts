@@ -211,9 +211,18 @@ async function buildStoppedBundle(
 
     // Union of tabs from: tracked (with live hydration), previous-committed.
     const byUrl = new Map<string, BrowserTabEntity>();
+    // Which profile each currently-open URL lives in (for tabs the live
+    // snapshot knows about; used to backfill profile onto tracked-only tabs).
+    const liveProfileByUrl = new Map<string, { id: string; email: string }>();
     // Live tabs first so we have favicons.
     liveWindows.forEach((w) =>
       (w.browserTabs ?? []).forEach((t) => {
+        if (t.profileId && !liveProfileByUrl.has(t.url)) {
+          liveProfileByUrl.set(t.url, {
+            id: t.profileId,
+            email: t.profileEmail,
+          });
+        }
         if (!byUrl.has(t.url)) byUrl.set(t.url, t);
       })
     );
@@ -247,6 +256,9 @@ async function buildStoppedBundle(
         t.isActive = false;
         t.isSelected = true;
         t.relevance = 0;
+        // Preserve the profile this tab was previously committed under.
+        t.profileId = pt.profileId;
+        t.profileEmail = pt.profileEmail;
         byUrl.set(pt.url, t);
       }
     });
@@ -254,9 +266,17 @@ async function buildStoppedBundle(
     b.browserTabs = Array.from(byUrl.values()).filter(
       (t) => !isBlankTab(t.url)
     );
-    // Attach per-tab scores; the browser row's score is its best tab.
+    // Attach per-tab scores; the browser row's score is its best tab. Backfill
+    // the profile from the live snapshot for any tab that doesn't have one yet.
     b.browserTabs.forEach((t) => {
       t.relevance = tabScore.get(t.url) ?? t.relevance ?? 0;
+      if (!t.profileId) {
+        const p = liveProfileByUrl.get(t.url);
+        if (p) {
+          t.profileId = p.id;
+          t.profileEmail = p.email;
+        }
+      }
     });
     b.relevance = b.browserTabs.reduce(
       (m, t) => Math.max(m, t.relevance ?? 0),

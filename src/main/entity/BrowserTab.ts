@@ -33,6 +33,16 @@ export default class BrowserTab extends BaseEntity {
   @Column({ type: 'double', nullable: false, default: 0 })
   public relevance!: number;
 
+  // Which browser *profile* this tab was tracked in, so it can be reopened in
+  // that profile (not merged into one window). `profileId` is the extension's
+  // stable per-profile id; `profileEmail` (Chrome, signed-in) lets the app map
+  // to Chrome's --profile-directory for launching a closed profile.
+  @Column({ type: 'varchar', nullable: true })
+  profileId!: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  profileEmail!: string;
+
   @ManyToOne(() => Browser, (browser) => browser.browserTabs, {
     onDelete: 'CASCADE'
   })

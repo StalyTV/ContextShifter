@@ -39,6 +39,10 @@ import BrowserEntity from './entity/Browser';
 import { BrowserType } from 'types/BrowserType';
 import { CloseTabClientRequest } from '../types/context-browser-extension-types/types';
 import {
+  resolveProfileDirectory,
+  launchChromeProfile,
+} from './helpers/ChromeProfiles';
+import {
   openArtifact,
   openFiles,
   closeApplication,
@@ -237,24 +241,68 @@ export default class TaskRestorer {
       }
     }
 
-    // Browser tabs: group the task's tabs by browser type and ask the
-    // extension to (re)open them. No-op if the extension isn't connected.
-    const urlsByType = new Map<BrowserType, string[]>();
+    // Browser tabs: group the task's tabs by (browser type, profile) so each
+    // profile's tabs reopen in *that* profile — not merged into one window.
+    type TabGroup = {
+      type: BrowserType;
+      profileId: string;
+      profileEmail: string;
+      urls: string[];
+    };
+    const groups = new Map<string, TabGroup>();
     for (const b of taskBrowsers) {
-      const urls = (b.browserTabs ?? [])
-        .filter((t) => t.isSelected !== false && !!t.url)
-        .map((t) => t.url);
-      if (urls.length === 0) continue;
-      const existing = urlsByType.get(b.type) ?? [];
-      urlsByType.set(b.type, existing.concat(urls));
-    }
-    urlsByType.forEach((urls, type) => {
-      try {
-        BrowserTracker.getInstance().tabOpeningRequest(urls, type);
-      } catch (err) {
-        error(`[TaskRestorer] Failed to open tabs in ${type}`, err);
+      for (const t of b.browserTabs ?? []) {
+        if (t.isSelected === false || !t.url) continue;
+        const profileId = t.profileId ?? '';
+        const key = `${b.type}::${profileId}`;
+        const g =
+          groups.get(key) ??
+          { type: b.type, profileId, profileEmail: t.profileEmail ?? '', urls: [] };
+        if (!g.profileEmail && t.profileEmail) g.profileEmail = t.profileEmail;
+        g.urls.push(t.url);
+        groups.set(key, g);
       }
-    });
+    }
+
+    for (const g of groups.values()) {
+      try {
+        this.openTabGroup(g.type, g.profileId, g.profileEmail, g.urls);
+      } catch (err) {
+        error(`[TaskRestorer] Failed to open tabs in ${g.type}`, err);
+      }
+    }
+  }
+
+  /**
+   * Open one (type, profile) group's tabs. If the profile's extension is
+   * connected, route through it (opens in the existing window, as before). If
+   * not — Chrome closed or that profile not open — launch the profile directly
+   * via its `--profile-directory` so Chrome opens it without the profile picker.
+   */
+  private static openTabGroup(
+    type: BrowserType,
+    profileId: string,
+    profileEmail: string,
+    urls: string[]
+  ): void {
+    const tracker = BrowserTracker.getInstance();
+
+    // 1) Profile's window already open -> reuse it (unchanged behaviour).
+    const sent = tracker.tabOpeningRequest(
+      urls,
+      type,
+      profileId || undefined
+    );
+    if (sent) return;
+
+    // 2) Chrome + a known profile -> launch that profile directly (no picker).
+    if (type === 'chrome') {
+      const directory = resolveProfileDirectory(profileEmail);
+      if (directory && launchChromeProfile(directory, urls)) return;
+    }
+
+    // 3) Fallback: any connected window of this type, else nothing we can do.
+    tracker.tabOpeningRequest(urls, type);
   }
 
   // ---------------- CLOSE ----------------
@@ -396,24 +444,32 @@ export default class TaskRestorer {
 
     liveBrowsers.forEach((windows, type) => {
       const keepUrls = keepUrlsByType.get(type) ?? new Set<string>();
-      const toClose: CloseTabClientRequest[] = [];
+      // Group the tabs to close by the profile they live in, so each profile's
+      // own connection closes its own tabs.
+      const byProfile = new Map<string, CloseTabClientRequest[]>();
       windows.forEach((win) => {
+        const profileId = win.profileId ?? '';
         (win.browserTabs ?? []).forEach((tab) => {
           if (tab.url && !keepUrls.has(tab.url) && !neverCloseUrls.has(tab.url)) {
-            toClose.push({ url: tab.url, windowId: win.windowId });
+            const list = byProfile.get(profileId) ?? [];
+            list.push({ url: tab.url, windowId: win.windowId });
+            byProfile.set(profileId, list);
           }
         });
       });
-      if (toClose.length > 0) {
+      byProfile.forEach((toClose, profileId) => {
+        if (toClose.length === 0) return;
         try {
-          info(
-            `[TaskRestorer] Closing ${toClose.length} tab(s) in ${type}`
+          info(`[TaskRestorer] Closing ${toClose.length} tab(s) in ${type}`);
+          BrowserTracker.getInstance().sendTabClosingRequest(
+            type,
+            toClose,
+            profileId || undefined
           );
-          BrowserTracker.getInstance().sendTabClosingRequest(type, toClose);
         } catch (err) {
           error(`[TaskRestorer] Failed to close tabs in ${type}`, err);
         }
-      }
+      });
     });
   }
 

@@ -21,16 +21,32 @@ import BrowserTab from '../entity/BrowserTab';
 import { BrowserType } from 'types/BrowserType';
 import { hashString } from '../helpers/hashString';
 
+/** Identifies a browser profile. `id` is the extension's stable per-profile id. */
+export type ProfileInfo = { id: string; email: string };
+
+type ClientEntry = {
+  socket: WebSocket;
+  browserType: BrowserType;
+  profile: ProfileInfo;
+};
+
+type WindowEntry = {
+  window: Windows.Window;
+  browserType: BrowserType;
+  profile: ProfileInfo;
+};
 
 export default class BrowserTracker {
 
   private static _instance: BrowserTracker;
   private _port = 8473;
   private _server: WebSocketServer;
-  //browserWindowId, Websocket
-  private _wsClients: Map<BrowserType, WebSocket> = new Map();
-  //map BrowserWindow ID to tab
-  private _openWindows: Map<number, Windows.Window> = new Map();
+  // One connection per (browserType, profile). Each Chrome profile runs its own
+  // extension instance, so "work" and "university" connect separately.
+  private _clients: Map<string, ClientEntry> = new Map();
+  // Open browser windows, keyed by (profileId, windowId) so ids can't collide
+  // across profiles.
+  private _openWindows: Map<string, WindowEntry> = new Map();
   private _connectionListeners: Map<BrowserType, Array<() => void>> = new Map([
     ['chrome', []],
     ['firefox', []],
@@ -48,6 +64,21 @@ export default class BrowserTracker {
     return this._instance || (this._instance = new this());
   }
 
+  private static profileOf(runtimeInfo: RuntimeInfo): ProfileInfo {
+    return {
+      id: runtimeInfo.profile?.id ?? '',
+      email: runtimeInfo.profile?.email ?? '',
+    };
+  }
+
+  private static clientKey(browserType: BrowserType, profileId: string): string {
+    return `${browserType}::${profileId}`;
+  }
+
+  private static winKey(profileId: string, windowId: number): string {
+    return `${profileId}::${windowId}`;
+  }
+
   public subscribeToConnection(browserType: BrowserType, fn: () => void) {
     const subscribers = this._connectionListeners.get(browserType);
     if (subscribers) {
@@ -55,9 +86,26 @@ export default class BrowserTracker {
     }
   }
 
-  public isActiveBrowserAddon(browserName: string): boolean{
-    return this._wsClients.has(this.getBrowserTypeFromWindowTitle(browserName))
+  public isActiveBrowserAddon(browserName: string): boolean {
+    const type = this.getBrowserTypeFromWindowTitle(browserName);
+    for (const entry of this._clients.values()) {
+      if (entry.browserType === type) return true;
+    }
+    return false;
+  }
 
+  /** Distinct profiles with an open socket for the given browser type. */
+  public getConnectedProfiles(browserType: BrowserType): ProfileInfo[] {
+    const out: ProfileInfo[] = [];
+    const seen = new Set<string>();
+    for (const entry of this._clients.values()) {
+      if (entry.browserType !== browserType) continue;
+      if (entry.socket.readyState !== WebSocket.OPEN) continue;
+      if (seen.has(entry.profile.id)) continue;
+      seen.add(entry.profile.id);
+      out.push(entry.profile);
+    }
+    return out;
   }
 
   public getSnapshotInformation() {
@@ -68,13 +116,15 @@ export default class BrowserTracker {
       ['safari', []]
     ]);
 
-
-    for (const [windowId, window] of this._openWindows) {
+    for (const entry of this._openWindows.values()) {
+      const { window, browserType, profile } = entry;
       const browserEntity = new Browser();
       browserEntity.browserTabs = [];
-      browserEntity.windowId = windowId;
-      browserEntity.type = this.getBrowserTypeFromWindowTitle(<string>window.title);
+      browserEntity.windowId = window.id;
+      browserEntity.type = browserType;
       browserEntity.isSelected = window.focused;
+      browserEntity.profileId = profile.id;
+      browserEntity.profileEmail = profile.email;
 
       if (window.tabs != undefined) {
         for (const tab of window.tabs) {
@@ -84,63 +134,95 @@ export default class BrowserTracker {
           tabEntity.favIconUrl = <string>tab.favIconUrl;
           tabEntity.index = tab.index;
           tabEntity.isActive = tab.active;
+          tabEntity.profileId = profile.id;
+          tabEntity.profileEmail = profile.email;
 
           browserEntity.browserTabs.push(tabEntity);
         }
       }
-      browsers.get(browserEntity.type)!.push(browserEntity);
+      browsers.get(browserType)!.push(browserEntity);
     }
     return browsers;
   }
 
+  /**
+   * Ask the extension to (re)open `urls`. When `profileId` is given the request
+   * is routed to that profile's connection; otherwise any open connection of
+   * the browser type is used. Returns true if a request was actually sent.
+   */
   public tabOpeningRequest(
     urls: string[],
     browserType: BrowserType,
+    profileId?: string,
     windowId?: number,
     label?: string
-  ) {
+  ): boolean {
     const data: OpenTabClientRequest = { urls, label, windowId };
-
-    const connection = this._wsClients.get(browserType);
-
+    const connection = this.clientSocket(browserType, profileId);
     if (connection && connection.readyState === WebSocket.OPEN) {
       connection.send(JSON.stringify({ endpoint: 'open-tabs', data }));
+      return true;
     }
-
+    return false;
   }
 
   public sendTabClosingRequest(
     browserType: BrowserType,
-    data: CloseTabClientRequest[]
+    data: CloseTabClientRequest[],
+    profileId?: string
   ) {
-    const connection = this._wsClients.get(browserType);
-    if (connection && connection.readyState === WebSocket.OPEN) {
-      connection.send(JSON.stringify({ endpoint: 'close-tabs', data }));
+    if (profileId !== undefined) {
+      const connection = this.clientSocket(browserType, profileId);
+      if (connection && connection.readyState === WebSocket.OPEN) {
+        connection.send(JSON.stringify({ endpoint: 'close-tabs', data }));
+      }
+      return;
     }
-  }
-
-  public isSocketOpen(browserType?: BrowserType): boolean {
-    if (!browserType) {
-      return Array.from(this._wsClients.values()).some(
-        (connection) => connection.readyState === WebSocket.OPEN
-      );
-    } else {
-      const socketOfBrowser = this._wsClients.get(browserType);
-      if (socketOfBrowser) {
-        return socketOfBrowser.readyState === WebSocket.OPEN;
-      } else {
-        return false;
+    // No profile given: broadcast to every connection of this browser type.
+    for (const entry of this._clients.values()) {
+      if (entry.browserType !== browserType) continue;
+      if (entry.socket.readyState === WebSocket.OPEN) {
+        entry.socket.send(JSON.stringify({ endpoint: 'close-tabs', data }));
       }
     }
   }
 
+  /** Socket for (type, profile). Falls back to any open socket of the type. */
+  private clientSocket(
+    browserType: BrowserType,
+    profileId?: string
+  ): WebSocket | undefined {
+    if (profileId !== undefined) {
+      const exact = this._clients.get(
+        BrowserTracker.clientKey(browserType, profileId)
+      );
+      if (exact) return exact.socket;
+    }
+    for (const entry of this._clients.values()) {
+      if (
+        entry.browserType === browserType &&
+        entry.socket.readyState === WebSocket.OPEN
+      ) {
+        return entry.socket;
+      }
+    }
+    return undefined;
+  }
+
+  public isSocketOpen(browserType?: BrowserType): boolean {
+    for (const entry of this._clients.values()) {
+      if (browserType && entry.browserType !== browserType) continue;
+      if (entry.socket.readyState === WebSocket.OPEN) return true;
+    }
+    return false;
+  }
+
   public getOpenTabsForAnalysis(): string[] {
     const allURLs: string[] = [];
-    this._openWindows.forEach((win) => {
-      win.tabs?.forEach((tab) => {
+    this._openWindows.forEach((entry) => {
+      entry.window.tabs?.forEach((tab) => {
         if (tab.url) {
-          const hashedURL = hashString(tab.url);
-          allURLs.push(hashedURL);
+          allURLs.push(hashString(tab.url));
         }
       });
     });
@@ -150,11 +232,7 @@ export default class BrowserTracker {
   private initEventListeners() {
     const self = this;
 
-    // initial connection made after a client requested protocol upgrade
     this._server.on('connection', function(socket) {
-      let runtimeInfo: RuntimeInfo | undefined;
-
-      // actually establishing the socket
       socket.on('open', function() {
         debug('[BrowserTracker] Socket opened');
       });
@@ -163,7 +241,6 @@ export default class BrowserTracker {
         debug('[BrowserTracker] Socket error', error);
       });
 
-      // new browser window has been created
       socket.on('message', async function(msg: string) {
         const obj = JSON.parse(msg) as {
           endpoint: ServerEndpoints;
@@ -172,87 +249,104 @@ export default class BrowserTracker {
 
         if (obj.endpoint === 'event') {
           const data = obj.data as BrowserEvent;
-          debug(
-            `[BrowserTracker] "event" msg received of type "${data.type}" from "${data.runtimeInfo.browserInfo.name}"`
+          const runtimeInfo = data.runtimeInfo as RuntimeInfo;
+          const browserType = self.getBrowserTypeFromWindowTitle(
+            runtimeInfo.browserInfo.name
           );
-          runtimeInfo = data.runtimeInfo as RuntimeInfo;
-          const browserType = self.getBrowserTypeFromWindowTitle(runtimeInfo.browserInfo.name);
-          self._wsClients.set(browserType, socket);
-
+          const profile = BrowserTracker.profileOf(runtimeInfo);
+          self.registerClient(browserType, profile, socket);
           self.notifyConnectionListeners(browserType);
-
-          await self.handleEvent(data);
-
+          await self.handleEvent(data, browserType, profile);
         } else if (obj.endpoint === 'sequence') {
           const data = obj.data as WebNavigationSequenceUpdate;
-          runtimeInfo = data.runtimeInfo as RuntimeInfo;
-          const browserType = self.getBrowserTypeFromWindowTitle(runtimeInfo.browserInfo.name);
-          self._wsClients.set(browserType, socket);
+          const runtimeInfo = data.runtimeInfo as RuntimeInfo;
+          const browserType = self.getBrowserTypeFromWindowTitle(
+            runtimeInfo.browserInfo.name
+          );
+          const profile = BrowserTracker.profileOf(runtimeInfo);
+          self.registerClient(browserType, profile, socket);
           self.notifyConnectionListeners(browserType);
-
         } else if (obj.endpoint === 'navigation') {
           self.handleNavigation(obj.data as WebNavigationDetail);
         }
-
       });
 
-      // When a socket closes, or disconnects, remove it from the array.
       socket.on('close', function() {
-        let browserToRemove: BrowserType | undefined;
-        for (let [type, storedSocket] of self._wsClients.entries()) {
-          if (storedSocket === socket) {
-            browserToRemove = type;
+        // Drop the client entry and every window it owned.
+        let closed: ClientEntry | undefined;
+        for (const [key, entry] of self._clients.entries()) {
+          if (entry.socket === socket) {
+            closed = entry;
+            self._clients.delete(key);
           }
         }
-        if (browserToRemove) {
-          self._wsClients.delete(browserToRemove);
+        if (closed) {
+          for (const [key, entry] of self._openWindows.entries()) {
+            if (
+              entry.profile.id === closed.profile.id &&
+              entry.browserType === closed.browserType
+            ) {
+              self._openWindows.delete(key);
+            }
+          }
         }
         debug('[BrowserTracker] Socket closed');
       });
     });
   }
 
-  private async handleEvent(data: BrowserEvent) {
-    //get all stored windows for one browserType
-    const keysForWindowsToCleanUp = [];
-    for (const [key, window] of this._openWindows.entries()) {
-      if (window.title == data.runtimeInfo.browserInfo.name) {
-        keysForWindowsToCleanUp.push(key);
+  private registerClient(
+    browserType: BrowserType,
+    profile: ProfileInfo,
+    socket: WebSocket
+  ) {
+    const key = BrowserTracker.clientKey(browserType, profile.id);
+    // If this profile reconnected on a new socket, drop the stale entry.
+    const prev = this._clients.get(key);
+    if (prev && prev.socket !== socket) {
+      try {
+        prev.socket.terminate();
+      } catch {
+        // ignore
       }
     }
-    //remove all the windows for one browserType
-    for (const key of keysForWindowsToCleanUp) {
-      this._openWindows.delete(key);
+    this._clients.set(key, { socket, browserType, profile });
+  }
+
+  private async handleEvent(
+    data: BrowserEvent,
+    browserType: BrowserType,
+    profile: ProfileInfo
+  ) {
+    // Replace this profile's windows (only this profile's, so other profiles'
+    // windows survive).
+    for (const [key, entry] of this._openWindows.entries()) {
+      if (entry.profile.id === profile.id && entry.browserType === browserType) {
+        this._openWindows.delete(key);
+      }
     }
 
-    //store the new windows
     data.windows.forEach((win) => {
-      {
-        //title is used for browserType
-        win.title = data.runtimeInfo.browserInfo.name;
-
-        if (!win.incognito && win.tabs && win.id) {
-          //if a window doesn't have any tabs, it shouldn't be considered
-          if (win.tabs.length > 0) {
-            this._openWindows.set(win.id, win);
-          }
-        }
+      win.title = data.runtimeInfo.browserInfo.name; // used for browser type
+      if (!win.incognito && win.tabs && win.id && win.tabs.length > 0) {
+        this._openWindows.set(BrowserTracker.winKey(profile.id, win.id), {
+          window: win,
+          browserType,
+          profile,
+        });
       }
     });
 
     // Feed the current active tab into the active-task session so browser-tab
     // focus time is scored even when active-win can't read the URL on macOS.
     try {
-      const type = this.getBrowserTypeFromWindowTitle(
-        data.runtimeInfo.browserInfo.name
-      );
-      const active = this.getActiveTab(type);
+      const active = this.getActiveTab(browserType);
       if (active) {
         // Lazy require avoids an import cycle with ActiveTaskSession.
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const ActiveTaskSession = require('../ActiveTaskSession').default;
         ActiveTaskSession.getInstance().onBrowserTabChange(
-          type,
+          browserType,
           active.url,
           active.title
         );
@@ -270,18 +364,17 @@ export default class BrowserTracker {
     type: BrowserType
   ): { url: string; title: string } | null {
     let fallback: { url: string; title: string } | null = null;
-    for (const [, win] of this._openWindows) {
-      if (this.getBrowserTypeFromWindowTitle(<string>win.title) !== type) {
-        continue;
-      }
+    for (const entry of this._openWindows.values()) {
+      if (entry.browserType !== type) continue;
+      const win = entry.window;
       const active = (win.tabs ?? []).find((t) => t.active);
       if (active?.url) {
-        const entry = {
+        const item = {
           url: <string>active.url,
           title: <string>(active.title ?? ''),
         };
-        if (win.focused) return entry;
-        if (!fallback) fallback = entry;
+        if (win.focused) return item;
+        if (!fallback) fallback = item;
       }
     }
     return fallback;
@@ -303,7 +396,7 @@ export default class BrowserTracker {
     }
   }
 
-  private getBrowserTypeFromWindowTitle(windowTitle: string) {
+  private getBrowserTypeFromWindowTitle(windowTitle: string): BrowserType {
     if (windowTitle.includes('Edge')) {
       return 'edge';
     } else if (windowTitle.includes('Firefox')) {
@@ -314,6 +407,4 @@ export default class BrowserTracker {
       return 'safari';
     }
   }
-
-
 }

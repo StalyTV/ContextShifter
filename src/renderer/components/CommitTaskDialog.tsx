@@ -495,6 +495,7 @@ export default function CommitTaskDialog({
                               </div>
                               <div className={styles.sub}>
                                 {hostFromUrl(t.url)}
+                                {t.profileEmail ? ` · ${t.profileEmail}` : ''}
                               </div>
                             </div>
                             <ScoreBadge value={t.relevance} />

@@ -300,6 +300,8 @@ export default class SnapshotManager {
             isActive: t.isActive ?? false,
             isSelected: t.isSelected ?? true,
             relevance: t.relevance ?? 0,
+            profileId: t.profileId,
+            profileEmail: t.profileEmail,
           })
         );
         return e;
