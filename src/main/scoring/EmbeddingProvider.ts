@@ -2,9 +2,9 @@
  * EmbeddingProvider
  * -----------------
  * Local, on-device sentence embeddings for semantic artefact relevance. Loads a
- * small model (all-MiniLM-L6-v2, 384-dim) via Transformers.js on the WASM
- * backend — no native module to rebuild for Electron's ABI, no data leaves the
- * machine, offline after the first model download.
+ * small model (all-MiniLM-L6-v2, 384-dim) via Transformers.js (onnxruntime-node,
+ * an N-API native module that loads in Electron without a rebuild). No data
+ * leaves the machine; offline after the first ~90 MB model download.
  *
  * Everything here is best-effort: if the model isn't ready (still downloading,
  * failed to load, or disabled) `embed()` returns null and the scorer treats
@@ -70,10 +70,14 @@ export default class EmbeddingProvider {
       env.cacheDir = join(app.getPath('userData'), 'models');
       env.allowRemoteModels = true;
       const model = StaticSettings.SEMANTIC_MODEL;
-      info(`[EmbeddingProvider] loading "${model}" (wasm)…`);
-      this._extractor = (await pipeline('feature-extraction', model, {
-        device: 'wasm',
-      })) as unknown as Extractor;
+      info(`[EmbeddingProvider] loading "${model}"…`);
+      // Default device = onnxruntime-node (N-API native, Electron-compatible).
+      // NOTE: 'wasm' is NOT a valid device in @huggingface/transformers v4
+      // (only cpu/webgpu/coreml) — passing it throws before the model loads.
+      this._extractor = (await pipeline(
+        'feature-extraction',
+        model
+      )) as unknown as Extractor;
       info('[EmbeddingProvider] model ready');
     } catch (err) {
       this._failed = true;
@@ -112,6 +116,9 @@ export default class EmbeddingProvider {
         missIdx.forEach((origIdx, k) => {
           this._cache.set(texts[origIdx], vecs[k]);
         });
+        info(
+          `[EmbeddingProvider] embedded ${missTexts.length} artefact text(s)`
+        );
       } catch (err) {
         warn(`[EmbeddingProvider] embed failed: ${String(err)}`);
         return null;
