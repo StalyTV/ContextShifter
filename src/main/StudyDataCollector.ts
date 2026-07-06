@@ -51,6 +51,9 @@ type ArtefactRow = {
   lastAccessTs: string;
   /** Last-access offset on the task's active-time clock (recency reference). */
   lastAccessActiveMs: number;
+  /** Normalized semantic relevance [0,1] and the raw cosine it came from. */
+  semanticSimilarity: number;
+  semanticCosine: number | null;
   score: number;
   selected: boolean;
   /** Stable anonymous id (set only when anonymization is enabled). */
@@ -79,6 +82,8 @@ function anonymizeArtefact(r: ArtefactRow): ArtefactRow {
     interactionShare: r.interactionShare,
     lastAccessTs: r.lastAccessTs,
     lastAccessActiveMs: r.lastAccessActiveMs,
+    semanticSimilarity: r.semanticSimilarity,
+    semanticCosine: r.semanticCosine,
     score: r.score,
     selected: r.selected,
     anonId,
@@ -175,6 +180,8 @@ export default class StudyDataCollector {
               : 0,
           lastAccessTs: r.lastAccessTs ?? '',
           lastAccessActiveMs: r.lastAccessActiveMs ?? 0,
+          semanticSimilarity: r.semanticSimilarity ?? 1,
+          semanticCosine: r.semanticCosine ?? null,
           score: r.score ?? 0,
           selected: isSelected(r),
         }))

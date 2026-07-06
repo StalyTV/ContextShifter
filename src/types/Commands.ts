@@ -31,6 +31,8 @@ export type ScoreWeightsDTO = {
   recency: number;
   interaction: number;
   lambda: number;
+  // Semantic influence α (multiplicative): 0 = off, 1 = full multiply.
+  semantic: number;
 };
 
 // One vertical marker on the trim bar: when an artefact was first focused.

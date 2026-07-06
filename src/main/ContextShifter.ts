@@ -98,6 +98,10 @@ export default class ContextShifter {
     ActiveArtifact.startIdleCheck();
     Exporter.startBackupLoop();
     StudyManager.startOpenArtifactsSampling();
+    // Warm the local embedding model in the background (no-op unless semantic
+    // relevance is enabled).
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require('./scoring/EmbeddingProvider').default.getInstance().warmup();
   }
 
   public async stopTrackers() {

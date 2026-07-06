@@ -43,6 +43,21 @@ export default class StaticSettings {
   // Auto-select artefacts scoring at least this fraction of the top score.
   public static SCORE_SELECT_THRESHOLD = 0.5;
 
+  // --- Semantic relevance (multiplicative modifier on the behavioral score) ---
+  // final = behavioral * ((1 - influence) + influence * normalizedSemantic).
+  // influence = 0 -> semantic off (factor 1); 1 -> full multiply. Tunable while
+  // calibrating; kept low by default so semantic is collected before it drives.
+  public static SCORE_SEMANTIC_INFLUENCE = 0;
+  // Local embedding backend: 'transformers' (on-device WASM) or 'off'.
+  public static SEMANTIC_BACKEND: 'transformers' | 'off' = 'transformers';
+  public static SEMANTIC_MODEL = 'Xenova/all-MiniLM-L6-v2';
+  // Cosine -> [0,1] mapping: sigmoid((cos - midpoint) / temperature). MiniLM
+  // cosines are compressed (unrelated ~0.1-0.3, related ~0.4-0.7), so map them
+  // through a calibratable curve. Raw cosine is also logged in the study export
+  // so the midpoint can be chosen from real data.
+  public static SEMANTIC_MIDPOINT = 0.4;
+  public static SEMANTIC_TEMPERATURE = 0.12;
+
   public static appsWithNoFiles = ['Notes', 'Music'];
 
   public static shouldAppHaveFiles(appName: string): boolean {

@@ -25,11 +25,13 @@ import { BrowserType } from 'types/BrowserType';
 import WindowManager from './WindowManager';
 import Snapshot from './entity/Snapshot';
 import ArtifactUsage, { ArtifactKind } from './entity/ArtifactUsage';
-import ArtifactScorer from './ArtifactScorer';
+import ArtifactScorer, { ScoreInput } from './ArtifactScorer';
 import KnownApplication from './entity/KnownApplication';
 import NeverCloseBrowserTab from './entity/NeverCloseBrowserTab';
 import { isBlankTab } from './helpers/isBlankTab';
 import StatsAccumulator, { UsageStat } from './scoring/StatsAccumulator';
+import artefactText from './scoring/artefactText';
+import SemanticScorer, { SemanticInput } from './scoring/SemanticScorer';
 import {
   TLEvent,
   replay,
@@ -92,6 +94,15 @@ type Meta = {
   files: Map<string, TrackedFile>;
 };
 
+/** Per-artefact scoring output: final score + semantic detail for persistence. */
+type ScoredKey = {
+  score: number;
+  semanticSimilarity: number;
+  semanticCosine: number | null;
+  embedding: number[] | null;
+  text: string;
+};
+
 type PendingSession = {
   taskId: number;
   taskName: string;
@@ -145,6 +156,10 @@ export default class ActiveTaskSession {
   // Accumulated stats from previous sessions (loaded; never mutated in place).
   private _priorStats: Map<string, UsageStat> = new Map();
   private _priorAccumulatedMs = 0;
+  // Persisted embeddings per artefact key (+ the text they were computed from),
+  // reused so semantic scoring only re-embeds when an artefact's text changes.
+  private _priorEmbeddings: Map<string, { text: string; embedding: number[] }> =
+    new Map();
 
   // This session's live contribution + the raw event timeline driving it.
   private _acc: StatsAccumulator = new StatsAccumulator();
@@ -461,10 +476,12 @@ export default class ActiveTaskSession {
     const merged = mergeStats(p.priorStats, contribution);
     const activeMs = p.priorAccumulatedMs + Math.max(0, winEnd - winStart);
 
-    const scores = await this.scoreStats(merged, p.meta, activeMs);
+    const scored = await this.scoreStats(merged, p.meta, activeMs);
+    const scores = new Map<string, number>();
+    for (const [k, v] of scored) scores.set(k, v.score);
 
     if (persist) {
-      await this.persist(p.taskId, merged, scores, p.meta, activeMs, winEnd);
+      await this.persist(p.taskId, merged, scored, p.meta, activeMs, winEnd);
     }
 
     const stopped = this.buildStoppedSession(p, scores);
@@ -473,12 +490,18 @@ export default class ActiveTaskSession {
     return stopped;
   }
 
-  /** key -> score for the merged stats, including never-close-aware interaction share. */
+  /**
+   * Score the merged stats. Two passes: (1) the behavioral score
+   * (duration/frequency/recency), then (2) the semantic multiplier — each
+   * artefact's content similarity to a behavioral-weighted centroid of the
+   * task. Returns the final score plus the semantic details + embedding so they
+   * can be persisted / exported.
+   */
   private async scoreStats(
     merged: Map<string, UsageStat>,
     meta: Meta,
     activeMs: number
-  ): Promise<Map<string, number>> {
+  ): Promise<Map<string, ScoredKey>> {
     const isNeverCloseKey = await this.buildNeverCloseKeyPredicate(meta);
     let totalInteractions = 0;
     // The recency reference is the task's total active-time elapsed = the sum of
@@ -489,28 +512,71 @@ export default class ActiveTaskSession {
       if (!isNeverCloseKey(key, stat)) totalInteractions += stat.interactionCount;
       nowActiveMs += stat.totalDurationMs;
     }
-    const scores = new Map<string, number>();
+
+    // Pass 1: behavioral inputs + score + the text to embed.
+    const inputs = new Map<string, ScoreInput>();
+    const texts = new Map<string, string>();
+    const behavioral = new Map<string, number>();
     for (const [key, stat] of merged) {
       const interactionShare =
         isNeverCloseKey(key, stat) || totalInteractions <= 0
           ? 0
           : stat.interactionCount / totalInteractions;
-      scores.set(
+      const input: ScoreInput = {
+        totalDurationMs: stat.totalDurationMs,
+        accessCount: stat.accessCount,
+        lastAccessMs: stat.lastAccessMs,
+        lastAccessActiveMs: stat.lastAccessActiveMs,
+        interactionShare,
+      };
+      inputs.set(key, input);
+      behavioral.set(
         key,
-        ArtifactScorer.score(
-          {
-            totalDurationMs: stat.totalDurationMs,
-            accessCount: stat.accessCount,
-            lastAccessMs: stat.lastAccessMs,
-            lastAccessActiveMs: stat.lastAccessActiveMs,
-            interactionShare,
-          },
-          activeMs,
-          nowActiveMs
-        )
+        ArtifactScorer.behavioralScore(input, activeMs, nowActiveMs)
+      );
+      const m = this.metaForKey(key, stat.kind, meta);
+      texts.set(
+        key,
+        artefactText({
+          kind: stat.kind,
+          name: m.name,
+          path: m.path,
+          url: m.url,
+          title: m.title,
+        })
       );
     }
-    return scores;
+
+    // Pass 2: semantic similarity, weighted by the behavioral score. Reuses a
+    // persisted embedding when the artefact's text is unchanged.
+    const semInputs: SemanticInput[] = [];
+    for (const [key] of merged) {
+      const text = texts.get(key) ?? '';
+      const cached = this._priorEmbeddings.get(key);
+      semInputs.push({
+        key,
+        text,
+        weight: behavioral.get(key) ?? 0,
+        cachedEmbedding:
+          cached && cached.text === text ? cached.embedding : null,
+      });
+    }
+    const semantic = await SemanticScorer.similarities(semInputs);
+
+    // Combine: final = behavioral * semantic factor.
+    const out = new Map<string, ScoredKey>();
+    for (const [key, input] of inputs) {
+      const sem = semantic.get(key);
+      input.semanticSimilarity = sem?.similarity ?? 1;
+      out.set(key, {
+        score: ArtifactScorer.score(input, activeMs, nowActiveMs),
+        semanticSimilarity: sem?.similarity ?? 1,
+        semanticCosine: sem?.cosine ?? null,
+        embedding: sem?.embedding ?? null,
+        text: texts.get(key) ?? '',
+      });
+    }
+    return out;
   }
 
   private buildStoppedSession(
@@ -609,7 +675,7 @@ export default class ActiveTaskSession {
   private async persist(
     taskId: number,
     merged: Map<string, UsageStat>,
-    scores: Map<string, number>,
+    scored: Map<string, ScoredKey>,
     meta: Meta,
     activeMs: number,
     nowMs: number
@@ -638,7 +704,19 @@ export default class ActiveTaskSession {
         ? new Date(stat.lastAccessMs).toISOString()
         : '';
       row.lastAccessActiveMs = stat.lastAccessActiveMs ?? 0;
-      row.score = scores.get(key) ?? 0;
+      const sk = scored.get(key);
+      row.score = sk?.score ?? 0;
+      row.semanticSimilarity = sk?.semanticSimilarity ?? 1;
+      row.semanticCosine = sk?.semanticCosine ?? null!;
+      if (sk?.embedding) {
+        row.embedding = JSON.stringify(sk.embedding);
+        row.embeddedText = sk.text;
+        // Keep the in-memory cache in sync for the rest of this session.
+        this._priorEmbeddings.set(key, {
+          text: sk.text,
+          embedding: sk.embedding,
+        });
+      }
       toSave.push(row);
     }
     if (toSave.length > 0) await ArtifactUsage.save(toSave);
@@ -671,6 +749,16 @@ export default class ActiveTaskSession {
         lastAccessMs: Number.isNaN(lastSeen) ? 0 : lastSeen,
         lastAccessActiveMs: r.lastAccessActiveMs ?? 0,
       });
+      if (r.embedding && r.embeddedText) {
+        try {
+          const vec = JSON.parse(r.embedding) as number[];
+          if (Array.isArray(vec) && vec.length > 0) {
+            this._priorEmbeddings.set(r.key, { text: r.embeddedText, embedding: vec });
+          }
+        } catch {
+          // ignore malformed cached embedding
+        }
+      }
       if (r.kind === 'app') {
         this._apps.set(r.path, {
           name: r.name ?? r.path,
@@ -738,6 +826,7 @@ export default class ActiveTaskSession {
     this._tabs.clear();
     this._files.clear();
     this._priorStats = new Map();
+    this._priorEmbeddings = new Map();
     this._priorAccumulatedMs = 0;
     this._acc = new StatsAccumulator();
     this._events = [];

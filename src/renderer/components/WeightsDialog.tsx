@@ -20,6 +20,11 @@ const FIELDS: Array<{
     hint: 'share of clicks + keystrokes',
   },
   { key: 'lambda', label: 'Lambda — λ', hint: 'recency decay rate per minute' },
+  {
+    key: 'semantic',
+    label: 'Semantic — α',
+    hint: '0..1, multiplies score by content relevance (0 = off)',
+  },
 ];
 
 /**

@@ -78,6 +78,23 @@ export default class ArtifactUsage extends BaseEntity {
   @Column({ type: 'integer', default: 0 })
   lastAccessActiveMs!: number;
 
+  // --- semantic relevance (content embedding + similarity to task theme) ---
+  // Cached embedding (JSON array of floats) and the text it was computed from,
+  // so it's only recomputed when the artefact's text changes.
+  @Column({ type: 'text', nullable: true })
+  embedding!: string;
+
+  @Column({ type: 'text', nullable: true })
+  embeddedText!: string;
+
+  // Normalized semantic relevance [0,1] and the raw cosine it came from (logged
+  // so the cosine->[0,1] mapping can be calibrated from real data).
+  @Column({ type: 'double', default: 1 })
+  semanticSimilarity!: number;
+
+  @Column({ type: 'double', nullable: true })
+  semanticCosine!: number;
+
   // last computed score (cached for analysis / display)
   @Column({ type: 'double', default: 0 })
   score!: number;
