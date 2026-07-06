@@ -33,6 +33,10 @@ export default class BrowserTab extends BaseEntity {
   @Column({ type: 'double', nullable: false, default: 0 })
   public relevance!: number;
 
+  // Semantic relevance [0,1] (transient — surfaced in the picker for testing).
+  @Column({ type: 'double', nullable: true })
+  public semanticRelevance!: number;
+
   // Which browser *profile* this tab was tracked in, so it can be reopened in
   // that profile (not merged into one window). `profileId` is the extension's
   // stable per-profile id; `profileEmail` (Chrome, signed-in) lets the app map

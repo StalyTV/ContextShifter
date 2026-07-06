@@ -51,6 +51,7 @@ export type TrackedApp = {
   title: string;
   lastSeen: number;
   score?: number;
+  semanticScore?: number;
 };
 
 export type TrackedTab = {
@@ -59,12 +60,14 @@ export type TrackedTab = {
   browserType: BrowserType;
   lastSeen: number;
   score?: number;
+  semanticScore?: number;
 };
 
 export type TrackedFile = {
   path: string;
   lastSeen: number;
   score?: number;
+  semanticScore?: number;
 };
 
 export type StoppedSession = {
@@ -478,13 +481,20 @@ export default class ActiveTaskSession {
 
     const scored = await this.scoreStats(merged, p.meta, activeMs);
     const scores = new Map<string, number>();
-    for (const [k, v] of scored) scores.set(k, v.score);
+    const semantic = new Map<string, number>();
+    // Only surface semantic scores when semantic is actually active (influence
+    // > 0); when off, every similarity is a neutral 1 and would be noise.
+    const showSemantic = StaticSettings.SCORE_SEMANTIC_INFLUENCE > 0;
+    for (const [k, v] of scored) {
+      scores.set(k, v.score);
+      if (showSemantic) semantic.set(k, v.semanticSimilarity);
+    }
 
     if (persist) {
       await this.persist(p.taskId, merged, scored, p.meta, activeMs, winEnd);
     }
 
-    const stopped = this.buildStoppedSession(p, scores);
+    const stopped = this.buildStoppedSession(p, scores, semantic);
     stopped.accumulatedActiveMs = activeMs;
     stopped.stopMomentMs = winEnd;
     return stopped;
@@ -581,25 +591,42 @@ export default class ActiveTaskSession {
 
   private buildStoppedSession(
     p: PendingSession,
-    scores: Map<string, number>
+    scores: Map<string, number>,
+    semantic: Map<string, number>
   ): StoppedSession {
     const { meta } = p;
     const apps = Array.from(meta.apps.values())
-      .map((a) => ({ ...a, score: scores.get(appKey(a.path)) ?? 0 }))
+      .map((a) => ({
+        ...a,
+        score: scores.get(appKey(a.path)) ?? 0,
+        semanticScore: semantic.get(appKey(a.path)),
+      }))
       .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
     const ides = Array.from(meta.ides.values())
-      .map((i) => ({ ...i, score: scores.get(ideKey(i.path)) ?? 0 }))
+      .map((i) => ({
+        ...i,
+        score: scores.get(ideKey(i.path)) ?? 0,
+        semanticScore: semantic.get(ideKey(i.path)),
+      }))
       .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
     const browsers = Array.from(meta.browsers.entries()).map(([type, app]) => ({
       type,
       app,
       tabs: Array.from(meta.tabs.values())
         .filter((t) => t.browserType === type)
-        .map((t) => ({ ...t, score: scores.get(tabKey(t.url)) ?? 0 }))
+        .map((t) => ({
+          ...t,
+          score: scores.get(tabKey(t.url)) ?? 0,
+          semanticScore: semantic.get(tabKey(t.url)),
+        }))
         .sort((a, b) => (b.score ?? 0) - (a.score ?? 0)),
     }));
     const files = Array.from(meta.files.values())
-      .map((f) => ({ ...f, score: scores.get(fileKey(f.path)) ?? 0 }))
+      .map((f) => ({
+        ...f,
+        score: scores.get(fileKey(f.path)) ?? 0,
+        semanticScore: semantic.get(fileKey(f.path)),
+      }))
       .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
     const autoSelectKeys = Array.from(

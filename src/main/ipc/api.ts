@@ -148,15 +148,31 @@ async function buildStoppedBundle(
 ): Promise<StoppedTaskBundle> {
   // Per-artefact scores from accumulated usage, computed at the switch moment.
   const tabScore = new Map<string, number>();
+  const tabSemantic = new Map<string, number>();
   stopped.browsers.forEach((b) =>
-    b.tabs.forEach((t) => tabScore.set(t.url, t.score ?? 0))
+    b.tabs.forEach((t) => {
+      tabScore.set(t.url, t.score ?? 0);
+      if (t.semanticScore != null) tabSemantic.set(t.url, t.semanticScore);
+    })
   );
   const fileScore = new Map<string, number>();
-  stopped.files.forEach((f) => fileScore.set(f.path, f.score ?? 0));
+  const fileSemantic = new Map<string, number>();
+  stopped.files.forEach((f) => {
+    fileScore.set(f.path, f.score ?? 0);
+    if (f.semanticScore != null) fileSemantic.set(f.path, f.semanticScore);
+  });
   const appScore = new Map<string, number>();
-  stopped.apps.forEach((a) => appScore.set(a.path, a.score ?? 0));
+  const appSemantic = new Map<string, number>();
+  stopped.apps.forEach((a) => {
+    appScore.set(a.path, a.score ?? 0);
+    if (a.semanticScore != null) appSemantic.set(a.path, a.semanticScore);
+  });
   const ideScore = new Map<string, number>();
-  stopped.ides.forEach((i) => ideScore.set(i.path, i.score ?? 0));
+  const ideSemantic = new Map<string, number>();
+  stopped.ides.forEach((i) => {
+    ideScore.set(i.path, i.score ?? 0);
+    if (i.semanticScore != null) ideSemantic.set(i.path, i.semanticScore);
+  });
 
   // Load whatever was previously committed to this task so we can pre-check
   // those rows on the picker (lets the user resume the same set easily).
@@ -270,6 +286,8 @@ async function buildStoppedBundle(
     // the profile from the live snapshot for any tab that doesn't have one yet.
     b.browserTabs.forEach((t) => {
       t.relevance = tabScore.get(t.url) ?? t.relevance ?? 0;
+      const sem = tabSemantic.get(t.url);
+      if (sem != null) t.semanticRelevance = sem;
       if (!t.profileId) {
         const p = liveProfileByUrl.get(t.url);
         if (p) {
@@ -282,6 +300,14 @@ async function buildStoppedBundle(
       (m, t) => Math.max(m, t.relevance ?? 0),
       0
     );
+    // Browser row's semantic = its best tab's (undefined if none computed).
+    b.semanticRelevance = b.browserTabs.reduce<number | undefined>(
+      (m, t) =>
+        t.semanticRelevance != null
+          ? Math.max(m ?? 0, t.semanticRelevance)
+          : m,
+      undefined
+    ) as number;
     browserList.push(b);
   }
 
@@ -391,11 +417,15 @@ async function buildStoppedBundle(
     // its own (no-file focus) score.
     i.ideFiles.forEach((f) => {
       f.relevance = fileScore.get(f.path) ?? f.relevance ?? 0;
+      const sem = fileSemantic.get(f.path);
+      if (sem != null) f.semanticRelevance = sem;
     });
     i.relevance = i.ideFiles.reduce(
       (m, f) => Math.max(m, f.relevance ?? 0),
       ideScore.get(i.path) ?? 0
     );
+    const ideSem = ideSemantic.get(i.path);
+    if (ideSem != null) i.semanticRelevance = ideSem;
     ideList.push(i);
   }
   trackedIdeKeys.forEach((k) => trackedKeys.add(k));
@@ -416,6 +446,8 @@ async function buildStoppedBundle(
     a.title = tracked?.title ?? prevApp?.title ?? a.name;
     a.isSelected = true;
     a.relevance = appScore.get(path) ?? 0;
+    const appSem = appSemantic.get(path);
+    if (appSem != null) a.semanticRelevance = appSem;
     // Carry previously-committed files (we don't track app files live).
     a.files = (prevApp?.files ?? []).map((f) => {
       const fe = new FileEntity();

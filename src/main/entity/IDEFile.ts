@@ -33,6 +33,9 @@ export default class IDEFile extends BaseEntity {
   @Column({ type: 'double', nullable: false, default: 0 })
   public relevance!: number;
 
+  @Column({ type: 'double', nullable: true })
+  public semanticRelevance!: number;
+
   @ManyToOne(() => IDE, (ide) => ide.ideFiles, {
     onDelete: 'CASCADE',
   })

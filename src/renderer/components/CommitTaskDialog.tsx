@@ -100,6 +100,22 @@ function ScoreBadge({ value }: { value?: number }) {
   );
 }
 
+// Semantic relevance [0,1], shown next to the score only when semantic scoring
+// is active (the value is set in that case, including small values for
+// off-topic artefacts). Purple to distinguish it from the relevance score.
+function SemBadge({ value }: { value?: number }) {
+  if (value == null) return null;
+  return (
+    <span
+      className={styles.score}
+      title="Semantic relevance (content similarity to the task)"
+      style={{ background: 'rgba(147, 112, 219, 0.22)', color: '#9370db' }}
+    >
+      S {value.toFixed(2)}
+    </span>
+  );
+}
+
 export default function CommitTaskDialog({
   bundle: initialBundle,
   onClose,
@@ -454,6 +470,7 @@ export default function CommitTaskDialog({
                         </div>
                       </div>
                       <ScoreBadge value={b.relevance} />
+                      <SemBadge value={b.semanticRelevance} />
                       {tabs.length > 0 && (
                         <button
                           type="button"
@@ -499,6 +516,7 @@ export default function CommitTaskDialog({
                               </div>
                             </div>
                             <ScoreBadge value={t.relevance} />
+                      <SemBadge value={t.semanticRelevance} />
                           </div>
                         );
                       })}
@@ -538,6 +556,7 @@ export default function CommitTaskDialog({
                         </div>
                       </div>
                       <ScoreBadge value={i.relevance} />
+                      <SemBadge value={i.semanticRelevance} />
                       {(files.length > 0 || i.workspacePath) && (
                         <button
                           type="button"
@@ -598,6 +617,7 @@ export default function CommitTaskDialog({
                                 <div className={styles.sub}>{f.path}</div>
                               </div>
                               <ScoreBadge value={f.relevance} />
+                      <SemBadge value={f.semanticRelevance} />
                             </div>
                           );
                         })}
@@ -637,6 +657,7 @@ export default function CommitTaskDialog({
                         )}
                       </div>
                       <ScoreBadge value={a.relevance} />
+                      <SemBadge value={a.semanticRelevance} />
                       {files.length > 0 && (
                         <button
                           type="button"

@@ -45,6 +45,10 @@ export default class Browser extends BaseEntity {
   @Column({ type: 'double', nullable: false, default: 0 })
   public relevance!: number;
 
+  // Semantic relevance [0,1] (transient — surfaced in the picker for testing).
+  @Column({ type: 'double', nullable: true })
+  public semanticRelevance!: number;
+
   // Profile this window belongs to (transient — set on the live snapshot so the
   // restorer can target/close the right profile). Not part of the committed set.
   @Column({ type: 'varchar', nullable: true })
