@@ -276,9 +276,10 @@ async function buildStoppedBundle(
 
     // Union of tabs from: tracked (with live hydration), previous-committed.
     const byUrl = new Map<string, BrowserTabEntity>();
-    // Which profile each currently-open URL lives in (for tabs the live
-    // snapshot knows about; used to backfill profile onto tracked-only tabs).
+    // Which profile / tab group each currently-open URL lives in (used to
+    // backfill onto tracked-only tabs).
     const liveProfileByUrl = new Map<string, { id: string; email: string }>();
+    const liveGroupByUrl = new Map<string, { title: string; color: string }>();
     // Live tabs first so we have favicons.
     liveWindows.forEach((w) =>
       (w.browserTabs ?? []).forEach((t) => {
@@ -286,6 +287,12 @@ async function buildStoppedBundle(
           liveProfileByUrl.set(t.url, {
             id: t.profileId,
             email: t.profileEmail,
+          });
+        }
+        if (t.groupTitle && !liveGroupByUrl.has(t.url)) {
+          liveGroupByUrl.set(t.url, {
+            title: t.groupTitle,
+            color: t.groupColor,
           });
         }
         if (!byUrl.has(t.url)) byUrl.set(t.url, t);
@@ -321,9 +328,11 @@ async function buildStoppedBundle(
         t.isActive = false;
         t.isSelected = true;
         t.relevance = 0;
-        // Preserve the profile this tab was previously committed under.
+        // Preserve the profile + tab group this tab was committed under.
         t.profileId = pt.profileId;
         t.profileEmail = pt.profileEmail;
+        t.groupTitle = pt.groupTitle;
+        t.groupColor = pt.groupColor;
         byUrl.set(pt.url, t);
       }
     });
@@ -342,6 +351,13 @@ async function buildStoppedBundle(
         if (p) {
           t.profileId = p.id;
           t.profileEmail = p.email;
+        }
+      }
+      if (!t.groupTitle) {
+        const g = liveGroupByUrl.get(t.url);
+        if (g) {
+          t.groupTitle = g.title;
+          t.groupColor = g.color;
         }
       }
     });

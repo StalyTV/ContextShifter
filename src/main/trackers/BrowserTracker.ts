@@ -47,6 +47,11 @@ export default class BrowserTracker {
   // Open browser windows, keyed by (profileId, windowId) so ids can't collide
   // across profiles.
   private _openWindows: Map<string, WindowEntry> = new Map();
+  // Chrome tab groups per profile: profileId -> (groupId -> {title, color}).
+  private _groupsByProfile: Map<
+    string,
+    Map<number, { title: string; color: string }>
+  > = new Map();
   private _connectionListeners: Map<BrowserType, Array<() => void>> = new Map([
     ['chrome', []],
     ['firefox', []],
@@ -126,6 +131,7 @@ export default class BrowserTracker {
       browserEntity.profileId = profile.id;
       browserEntity.profileEmail = profile.email;
 
+      const groupMap = this._groupsByProfile.get(profile.id);
       if (window.tabs != undefined) {
         for (const tab of window.tabs) {
           const tabEntity = new BrowserTab();
@@ -136,6 +142,16 @@ export default class BrowserTracker {
           tabEntity.isActive = tab.active;
           tabEntity.profileId = profile.id;
           tabEntity.profileEmail = profile.email;
+          // Attach tab-group info (Chrome). groupId is -1 for ungrouped tabs.
+          const groupId = (tab as unknown as { groupId?: number }).groupId;
+          const group =
+            groupId != null && groupId >= 0
+              ? groupMap?.get(groupId)
+              : undefined;
+          if (group && group.title) {
+            tabEntity.groupTitle = group.title;
+            tabEntity.groupColor = group.color;
+          }
 
           browserEntity.browserTabs.push(tabEntity);
         }
@@ -161,6 +177,26 @@ export default class BrowserTracker {
     const connection = this.clientSocket(browserType, profileId);
     if (connection && connection.readyState === WebSocket.OPEN) {
       connection.send(JSON.stringify({ endpoint: 'open-tabs', data }));
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Ask the extension to bring an (open) tab group to the front by title, in the
+   * given profile. No-op if that group isn't currently open (Chrome exposes no
+   * way to reopen a closed saved group). Returns true if a request was sent.
+   */
+  public sendFocusTabGroup(
+    browserType: BrowserType,
+    title: string,
+    profileId?: string
+  ): boolean {
+    const connection = this.clientSocket(browserType, profileId);
+    if (connection && connection.readyState === WebSocket.OPEN) {
+      connection.send(
+        JSON.stringify({ endpoint: 'focus-tab-group', data: { title } })
+      );
       return true;
     }
     return false;
@@ -325,6 +361,13 @@ export default class BrowserTracker {
         this._openWindows.delete(key);
       }
     }
+
+    // Remember this profile's tab groups (id -> title/color) for lookups.
+    const groupMap = new Map<number, { title: string; color: string }>();
+    (data.tabGroups ?? []).forEach((g) =>
+      groupMap.set(g.id, { title: g.title, color: g.color })
+    );
+    this._groupsByProfile.set(profile.id, groupMap);
 
     data.windows.forEach((win) => {
       win.title = data.runtimeInfo.browserInfo.name; // used for browser type

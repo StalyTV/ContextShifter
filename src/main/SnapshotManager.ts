@@ -302,6 +302,8 @@ export default class SnapshotManager {
             relevance: t.relevance ?? 0,
             profileId: t.profileId,
             profileEmail: t.profileEmail,
+            groupTitle: t.groupTitle,
+            groupColor: t.groupColor,
           })
         );
         return e;

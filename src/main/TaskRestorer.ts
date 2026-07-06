@@ -243,13 +243,17 @@ export default class TaskRestorer {
 
     // Browser tabs: group the task's tabs by (browser type, profile) so each
     // profile's tabs reopen in *that* profile — not merged into one window.
-    type TabGroup = {
+    // Tabs that belong to a Chrome tab group are NOT reopened individually;
+    // instead the group is brought to the front (if it's currently open), so
+    // its current content — not the old tabs — is what appears.
+    type RestoreGroup = {
       type: BrowserType;
       profileId: string;
       profileEmail: string;
-      urls: string[];
+      urls: string[]; // ungrouped tabs to reopen
+      groupTitles: Set<string>; // tab groups to focus
     };
-    const groups = new Map<string, TabGroup>();
+    const groups = new Map<string, RestoreGroup>();
     for (const b of taskBrowsers) {
       for (const t of b.browserTabs ?? []) {
         if (t.isSelected === false || !t.url) continue;
@@ -257,9 +261,16 @@ export default class TaskRestorer {
         const key = `${b.type}::${profileId}`;
         const g =
           groups.get(key) ??
-          { type: b.type, profileId, profileEmail: t.profileEmail ?? '', urls: [] };
+          ({
+            type: b.type,
+            profileId,
+            profileEmail: t.profileEmail ?? '',
+            urls: [],
+            groupTitles: new Set<string>(),
+          } as RestoreGroup);
         if (!g.profileEmail && t.profileEmail) g.profileEmail = t.profileEmail;
-        g.urls.push(t.url);
+        if (t.groupTitle) g.groupTitles.add(t.groupTitle);
+        else g.urls.push(t.url);
         groups.set(key, g);
       }
     }
@@ -267,6 +278,14 @@ export default class TaskRestorer {
     for (const g of groups.values()) {
       try {
         this.openTabGroup(g.type, g.profileId, g.profileEmail, g.urls);
+        // Bring each selected tab group to the front (no-op if it's closed).
+        g.groupTitles.forEach((title) =>
+          BrowserTracker.getInstance().sendFocusTabGroup(
+            g.type,
+            title,
+            g.profileId || undefined
+          )
+        );
       } catch (err) {
         error(`[TaskRestorer] Failed to open tabs in ${g.type}`, err);
       }
@@ -274,10 +293,10 @@ export default class TaskRestorer {
   }
 
   /**
-   * Open one (type, profile) group's tabs. If the profile's extension is
-   * connected, route through it (opens in the existing window, as before). If
-   * not — Chrome closed or that profile not open — launch the profile directly
-   * via its `--profile-directory` so Chrome opens it without the profile picker.
+   * Open one (type, profile) group's ungrouped tabs. If the profile's extension
+   * is connected, route through it (opens in the existing window). If not —
+   * Chrome closed or that profile not open — launch the profile directly via its
+   * `--profile-directory` so Chrome opens it without the profile picker.
    */
   private static openTabGroup(
     type: BrowserType,
@@ -285,6 +304,7 @@ export default class TaskRestorer {
     profileEmail: string,
     urls: string[]
   ): void {
+    if (urls.length === 0) return;
     const tracker = BrowserTracker.getInstance();
 
     // 1) Profile's window already open -> reuse it (unchanged behaviour).

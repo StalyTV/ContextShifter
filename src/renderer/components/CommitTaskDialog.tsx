@@ -41,6 +41,21 @@ const keyApp = (a: ApplicationEntity) => `app:${a.path}`;
 const keyFile = (a: ApplicationEntity, f: FileEntity) =>
   `file:${a.path}|${f.path}`;
 
+// Chrome tab-group colour names -> CSS hex, for the group swatch.
+const CHROME_GROUP_COLORS: Record<string, string> = {
+  grey: '#5f6368',
+  blue: '#1a73e8',
+  red: '#d93025',
+  yellow: '#f9ab00',
+  green: '#188038',
+  pink: '#d01884',
+  purple: '#a142f4',
+  cyan: '#007b83',
+  orange: '#fa903e',
+};
+const chromeGroupColor = (c?: string) =>
+  CHROME_GROUP_COLORS[(c ?? '').toLowerCase()] ?? '#8a8a8a';
+
 function hostFromUrl(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, '');
@@ -522,41 +537,115 @@ export default function CommitTaskDialog({
                       )}
                     </div>
                     {isOpen &&
-                      tabs.map((t) => {
-                        const tk = keyTab(b, t);
-                        const checked = selected.has(tk);
-                        const fav = faviconFor(t);
-                        return (
-                          <div
-                            key={tk}
-                            className={`${styles.row} ${styles.child} ${
-                              parentChecked ? '' : styles.rowOff
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              disabled={!parentChecked}
-                              onChange={() => toggle(tk)}
-                            />
-                            <Icon
-                              src={fav}
-                              letter={hostFromUrl(t.url || t.title || '?')}
-                            />
-                            <div className={styles.body}>
-                              <div className={styles.name}>
-                                {t.title || hostFromUrl(t.url)}
+                      (() => {
+                        const renderTab = (
+                          t: BrowserTabEntity,
+                          indent: boolean
+                        ) => {
+                          const tk = keyTab(b, t);
+                          const checked = selected.has(tk);
+                          const fav = faviconFor(t);
+                          return (
+                            <div
+                              key={tk}
+                              className={`${styles.row} ${styles.child} ${
+                                parentChecked ? '' : styles.rowOff
+                              }`}
+                              style={indent ? { paddingLeft: 26 } : undefined}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                disabled={!parentChecked}
+                                onChange={() => toggle(tk)}
+                              />
+                              <Icon
+                                src={fav}
+                                letter={hostFromUrl(t.url || t.title || '?')}
+                              />
+                              <div className={styles.body}>
+                                <div className={styles.name}>
+                                  {t.title || hostFromUrl(t.url)}
+                                </div>
+                                <div className={styles.sub}>
+                                  {hostFromUrl(t.url)}
+                                  {t.profileEmail ? ` · ${t.profileEmail}` : ''}
+                                </div>
                               </div>
-                              <div className={styles.sub}>
-                                {hostFromUrl(t.url)}
-                                {t.profileEmail ? ` · ${t.profileEmail}` : ''}
-                              </div>
+                              <ScoreBadge value={t.relevance} />
+                              <SemBadge value={t.semanticRelevance} />
                             </div>
-                            <ScoreBadge value={t.relevance} />
-                      <SemBadge value={t.semanticRelevance} />
-                          </div>
+                          );
+                        };
+
+                        // Partition into tab groups + ungrouped tabs.
+                        const grouped = new Map<string, BrowserTabEntity[]>();
+                        const ungrouped: BrowserTabEntity[] = [];
+                        tabs.forEach((t) => {
+                          if (t.groupTitle) {
+                            const arr = grouped.get(t.groupTitle) ?? [];
+                            arr.push(t);
+                            grouped.set(t.groupTitle, arr);
+                          } else ungrouped.push(t);
+                        });
+
+                        return (
+                          <>
+                            {Array.from(grouped.entries()).map(
+                              ([title, gtabs]) => {
+                                const keys = gtabs.map((t) => keyTab(b, t));
+                                const allOn = keys.every((kk) =>
+                                  selected.has(kk)
+                                );
+                                return (
+                                  <div key={`grp-${title}`}>
+                                    <div
+                                      className={`${styles.row} ${styles.child} ${
+                                        parentChecked ? '' : styles.rowOff
+                                      }`}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={allOn}
+                                        disabled={!parentChecked}
+                                        onChange={() =>
+                                          setSelected((prev) => {
+                                            const n = new Set(prev);
+                                            keys.forEach((kk) =>
+                                              allOn ? n.delete(kk) : n.add(kk)
+                                            );
+                                            return n;
+                                          })
+                                        }
+                                      />
+                                      <span
+                                        style={{
+                                          width: 14,
+                                          height: 14,
+                                          borderRadius: 4,
+                                          flex: '0 0 auto',
+                                          background: chromeGroupColor(
+                                            gtabs[0].groupColor
+                                          ),
+                                        }}
+                                      />
+                                      <div className={styles.body}>
+                                        <div className={styles.name}>{title}</div>
+                                        <div className={styles.sub}>
+                                          tab group · {gtabs.length} tab
+                                          {gtabs.length === 1 ? '' : 's'}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    {gtabs.map((t) => renderTab(t, true))}
+                                  </div>
+                                );
+                              }
+                            )}
+                            {ungrouped.map((t) => renderTab(t, false))}
+                          </>
                         );
-                      })}
+                      })()}
                   </div>
                 );
               })}

@@ -1,10 +1,17 @@
 import { Windows, Tabs, WebNavigation, Runtime } from 'webextension-polyfill'
 
+export interface TabGroupInfo {
+  id: number
+  title: string
+  color: string
+}
+
 export interface BrowserEvent {
   type: BrowserEventType
   windows: Windows.Window[]
   runtimeInfo: RuntimeInfo
   removedTab?: Tabs.Tab // only present for tab-removed
+  tabGroups?: TabGroupInfo[] // Chrome tab groups (id/title/color), if any
 }
 
 export type TabId = number

@@ -47,6 +47,16 @@ export default class BrowserTab extends BaseEntity {
   @Column({ type: 'varchar', nullable: true })
   profileEmail!: string;
 
+  // Chrome tab group this tab belongs to (title = identity within a profile,
+  // color = Chrome group colour name). Null when the tab isn't grouped. When a
+  // committed tab has a group, restore focuses the group rather than reopening
+  // the tab.
+  @Column({ type: 'varchar', nullable: true })
+  groupTitle!: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  groupColor!: string;
+
   @ManyToOne(() => Browser, (browser) => browser.browserTabs, {
     onDelete: 'CASCADE'
   })
