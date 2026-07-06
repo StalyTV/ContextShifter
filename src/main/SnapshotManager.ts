@@ -12,6 +12,7 @@ import BrowserTabEntity from './entity/BrowserTab';
 import IDEEntity from './entity/IDE';
 import IDEFileEntity from './entity/IDEFile';
 import FileEntity from './entity/File';
+import ArtifactUsage from './entity/ArtifactUsage';
 import { info } from 'electron-log';
 import UsageData from './entity/UsageData';
 import TrayManager from './TrayManager';
@@ -377,6 +378,50 @@ export default class SnapshotManager {
       `[SnapshotManager] Committed artefacts to task ${taskId} (${browsers.length} browsers / ${ides.length} ides / ${applications.length} apps)`
     );
     await TrayManager.updateTray();
+  }
+
+  /**
+   * Remove one committed artefact from a task and remember the deselection (so
+   * it stays out of the auto-selection next time the task is active).
+   */
+  public async removeArtefact(
+    snapshotId: number,
+    kind: 'browser' | 'tab' | 'ide' | 'ideFile' | 'app' | 'file',
+    artefactId: number
+  ): Promise<void> {
+    let usageKey: string | null = null;
+    if (kind === 'tab') {
+      const t = await BrowserTabEntity.findOneBy({ id: artefactId });
+      if (t) usageKey = `tab:${t.url}`;
+      await BrowserTabEntity.delete(artefactId);
+    } else if (kind === 'ideFile') {
+      const f = await IDEFileEntity.findOneBy({ id: artefactId });
+      if (f) usageKey = `file:${f.path}`;
+      await IDEFileEntity.delete(artefactId);
+    } else if (kind === 'app') {
+      const a = await Application.findOneBy({ id: artefactId });
+      if (a) usageKey = `app:${a.path}`;
+      await Application.delete(artefactId);
+    } else if (kind === 'ide') {
+      const i = await IDEEntity.findOneBy({ id: artefactId });
+      if (i) usageKey = `ide:${i.path}`;
+      await IDEEntity.delete(artefactId);
+    } else if (kind === 'browser') {
+      await BrowserEntity.delete(artefactId);
+    } else if (kind === 'file') {
+      await FileEntity.delete(artefactId);
+    }
+
+    if (usageKey) {
+      const row = await ArtifactUsage.findOneBy({ snapshotId, key: usageKey });
+      if (row) {
+        row.deselected = true;
+        await row.save();
+      }
+    }
+    info(
+      `[SnapshotManager] Removed ${kind} ${artefactId} from task ${snapshotId}`
+    );
   }
 }
 

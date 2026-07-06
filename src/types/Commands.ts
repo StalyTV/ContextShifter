@@ -133,6 +133,13 @@ type Commands = {
     applications: Application[],
     trim?: TrimWindow
   ) => Promise<void>;
+  // Remove a single committed artefact from a task (also remembers the
+  // deselection so it stays off next time the task is active).
+  'remove-task-artefact': (
+    snapshotId: number,
+    kind: 'browser' | 'tab' | 'ide' | 'ideFile' | 'app' | 'file',
+    artefactId: number
+  ) => Promise<void>;
   'discard-active-task': () => Promise<void>;
   'get-active-task': () => Promise<{ id: number; name: string } | null>;
 

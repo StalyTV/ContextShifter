@@ -778,6 +778,18 @@ typedIpcMain.handle(
   }
 );
 
+typedIpcMain.handle(
+  'remove-task-artefact',
+  async (e, snapshotId, kind, artefactId) => {
+    await SnapshotManager.getInstance().removeArtefact(
+      snapshotId,
+      kind,
+      artefactId
+    );
+    WindowManager.mainWindow?.webContents.send('snapshots-changed');
+  }
+);
+
 typedIpcMain.handle('get-score-weights', async () => {
   return ScoreWeights.get();
 });

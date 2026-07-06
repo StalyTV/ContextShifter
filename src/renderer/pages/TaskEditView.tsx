@@ -65,6 +65,20 @@ function ArtifactIcon({
   );
 }
 
+const CHROME_GROUP_COLORS: Record<string, string> = {
+  grey: '#5f6368',
+  blue: '#1a73e8',
+  red: '#d93025',
+  yellow: '#f9ab00',
+  green: '#188038',
+  pink: '#d01884',
+  purple: '#a142f4',
+  cyan: '#007b83',
+  orange: '#fa903e',
+};
+const chromeGroupColor = (c?: string) =>
+  CHROME_GROUP_COLORS[(c ?? '').toLowerCase()] ?? '#8a8a8a';
+
 type RowProps = {
   icon: React.ReactNode;
   name: string;
@@ -73,6 +87,8 @@ type RowProps = {
   isOpen?: boolean;
   onToggle?: () => void;
   isChild?: boolean;
+  onRemove?: () => void;
+  swatch?: string;
 };
 
 function ArtifactRow({
@@ -83,12 +99,26 @@ function ArtifactRow({
   isOpen,
   onToggle,
   isChild,
+  onRemove,
+  swatch,
 }: RowProps) {
   return (
     <div
       className={`${styles.artifactRow} ${isChild ? styles.artifactChild : ''}`}
     >
-      {icon}
+      {swatch ? (
+        <span
+          style={{
+            width: 14,
+            height: 14,
+            borderRadius: 4,
+            flex: '0 0 auto',
+            background: swatch,
+          }}
+        />
+      ) : (
+        icon
+      )}
       <div className={styles.artifactBody}>
         <div className={styles.artifactName}>{name}</div>
         {sub ? <div className={styles.artifactSub}>{sub}</div> : null}
@@ -103,6 +133,26 @@ function ArtifactRow({
           aria-label={isOpen ? 'Hide children' : 'Show children'}
         >
           ▸
+        </button>
+      ) : null}
+      {onRemove ? (
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Remove ${name}`}
+          title="Remove from task"
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--text-secondary, #999)',
+            cursor: 'pointer',
+            fontSize: 16,
+            lineHeight: 1,
+            padding: '0 4px',
+            flex: '0 0 auto',
+          }}
+        >
+          ×
         </button>
       ) : null}
     </div>
@@ -159,12 +209,35 @@ export default function TaskEditView() {
     setName(snap?.name ?? '');
 
     if (snap) {
+      // Expand the Browser + IDE groups by default so all artefacts are listed.
+      const open = new Set<string>();
+      (snap.browsers ?? []).forEach((b) => open.add(`browser-${b.id}`));
+      (snap.ides ?? []).forEach((i) => open.add(`ide-${i.id}`));
+      setExpanded(open);
+
       const kids: SnapshotEntity[] = await window.electron.ipcRenderer
         .invoke('get-snapshot-children', snap.id);
       setChildren(kids ?? []);
     }
     setLoading(false);
   }
+
+  const removeArtefact = async (
+    kind: 'browser' | 'tab' | 'ide' | 'ideFile' | 'app' | 'file',
+    artefactId: number
+  ) => {
+    try {
+      await window.electron.ipcRenderer.invoke(
+        'remove-task-artefact',
+        id,
+        kind,
+        artefactId
+      );
+      await load();
+    } catch {
+      // best-effort
+    }
+  };
 
   useEffect(() => {
     if (Number.isFinite(id)) {
@@ -488,22 +561,57 @@ export default function TaskEditView() {
                     childCount={tabs.length}
                     isOpen={isOpen}
                     onToggle={() => toggleExpanded(k)}
+                    onRemove={() => removeArtefact('browser', b.id)}
                   />
                   {isOpen &&
-                    tabs.map((t) => (
-                      <ArtifactRow
-                        key={`tab-${t.id}`}
-                        isChild
-                        icon={
-                          <ArtifactIcon
-                            src={faviconFor(t)}
-                            letter={hostFromUrl(t.url || t.title || '?')}
-                          />
-                        }
-                        name={t.title || hostFromUrl(t.url)}
-                        sub={hostFromUrl(t.url)}
-                      />
-                    ))}
+                    (() => {
+                      const renderTab = (t: BrowserTabEntity) => (
+                        <ArtifactRow
+                          key={`tab-${t.id}`}
+                          isChild
+                          icon={
+                            <ArtifactIcon
+                              src={faviconFor(t)}
+                              letter={hostFromUrl(t.url || t.title || '?')}
+                            />
+                          }
+                          name={t.title || hostFromUrl(t.url)}
+                          sub={hostFromUrl(t.url)}
+                          onRemove={() => removeArtefact('tab', t.id)}
+                        />
+                      );
+                      const grouped = new Map<string, BrowserTabEntity[]>();
+                      const ungrouped: BrowserTabEntity[] = [];
+                      tabs.forEach((t) => {
+                        const gt = (t as any).groupTitle as string | undefined;
+                        if (gt) {
+                          const arr = grouped.get(gt) ?? [];
+                          arr.push(t);
+                          grouped.set(gt, arr);
+                        } else ungrouped.push(t);
+                      });
+                      return (
+                        <>
+                          {Array.from(grouped.entries()).map(([title, gt]) => (
+                            <div key={`grp-${title}`}>
+                              <ArtifactRow
+                                isChild
+                                icon={null}
+                                swatch={chromeGroupColor(
+                                  (gt[0] as any).groupColor
+                                )}
+                                name={title}
+                                sub={`tab group · ${gt.length} tab${
+                                  gt.length === 1 ? '' : 's'
+                                }`}
+                              />
+                              {gt.map(renderTab)}
+                            </div>
+                          ))}
+                          {ungrouped.map(renderTab)}
+                        </>
+                      );
+                    })()}
                 </div>
               );
             })}
@@ -531,6 +639,7 @@ export default function TaskEditView() {
                     childCount={files.length + (ide.workspacePath ? 1 : 0)}
                     isOpen={isOpen}
                     onToggle={() => toggleExpanded(k)}
+                    onRemove={() => removeArtefact('ide', ide.id)}
                   />
                   {isOpen && ide.workspacePath && (
                     <ArtifactRow
@@ -555,6 +664,7 @@ export default function TaskEditView() {
                           }
                           name={display}
                           sub={f.path}
+                          onRemove={() => removeArtefact('ideFile', f.id)}
                         />
                       );
                     })}
@@ -587,6 +697,7 @@ export default function TaskEditView() {
                     childCount={files.length}
                     isOpen={isOpen}
                     onToggle={() => toggleExpanded(k)}
+                    onRemove={() => removeArtefact('app', app.id)}
                   />
                   {isOpen &&
                     files.map((f) => (
@@ -598,6 +709,7 @@ export default function TaskEditView() {
                         }
                         name={f.name || f.path}
                         sub={f.path}
+                        onRemove={() => removeArtefact('file', f.id)}
                       />
                     ))}
                 </div>
