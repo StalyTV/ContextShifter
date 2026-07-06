@@ -9,6 +9,7 @@
 import {
   faCirclePlay,
   faArrowUpFromBracket,
+  faBackward,
 } from '@fortawesome/free-solid-svg-icons';
 import {
   faTrashCan,
@@ -19,6 +20,7 @@ export const byPrefixAndName = {
   fas: {
     'circle-play': faCirclePlay,
     'arrow-up-from-bracket': faArrowUpFromBracket,
+    backward: faBackward,
   },
   far: {
     'trash-can': faTrashCan,

@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   TimelineMarkerDTO,
   TimelineSegmentDTO,
   IdlePeriodDTO,
 } from '../../types/Commands';
+import { byPrefixAndName } from '../fontawesome';
 import dominantColor from './dominantColor';
 import styles from './TrimBar.module.scss';
 
@@ -22,6 +24,9 @@ type Props = {
   activeStartMs?: number;
   /** Where the previous task ended — drawn as a boundary indicator (0 = none). */
   lastTaskEndMs?: number;
+  /** Reveal 15 more minutes of pre-roll (shown as a button when available). */
+  onExtendEarlier?: () => void;
+  canExtend?: boolean;
   /** Live while dragging (visual only). */
   onPreview: (start: number, end: number) => void;
   /** On release — recompute the scores for the kept window. */
@@ -32,7 +37,7 @@ type Props = {
 function fmtClock(ms: number): string {
   const d = new Date(ms);
   const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  return `${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 function fmtDur(ms: number): string {
@@ -67,6 +72,8 @@ export default function TrimBar({
   idlePeriods,
   activeStartMs,
   lastTaskEndMs,
+  onExtendEarlier,
+  canExtend,
   onPreview,
   onCommit,
   busy,
@@ -146,7 +153,19 @@ export default function TrimBar({
   return (
     <div className={styles.wrap}>
       <div className={styles.heading}>
-        <span>Trim session timeline</span>
+        <span className={styles.headingLeft}>
+          {canExtend && onExtendEarlier && (
+            <button
+              type="button"
+              className={styles.extendButton}
+              onClick={onExtendEarlier}
+              title="Reveal 15 more minutes before the task started"
+            >
+              <FontAwesomeIcon icon={byPrefixAndName.fas.backward} /> 15m
+            </button>
+          )}
+          <span>Trim session timeline</span>
+        </span>
         <span className={styles.kept}>
           kept {fmtDur(trimEnd - trimStart)}
           {trimmed ? ` · trimmed ${fmtDur(total - (trimEnd - trimStart))}` : ''}

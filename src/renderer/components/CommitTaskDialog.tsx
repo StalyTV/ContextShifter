@@ -430,43 +430,26 @@ export default function CommitTaskDialog({
         </div>
 
         {bundle && bundle.sessionEndMs > bundle.sessionStartMs && (
-          <>
-            <TrimBar
-              startMs={visibleStart}
-              endMs={bundle.sessionEndMs}
-              trimStart={trimStart}
-              trimEnd={trimEnd}
-              activeStartMs={bundle.sessionStartMs}
-              lastTaskEndMs={bundle.lastTaskEndMs}
-              markers={bundle.markers}
-              segments={bundle.segments}
-              idlePeriods={bundle.idlePeriods}
-              onPreview={handleTrimPreview}
-              onCommit={handleTrimCommit}
-              busy={trimBusy}
-            />
-            {visibleStart > bundle.floorMs && (
-              <button
-                type="button"
-                onClick={() =>
-                  setVisibleStart((v) =>
-                    Math.max(bundle.floorMs, v - 15 * 60 * 1000)
-                  )
-                }
-                title="Reveal 15 more minutes before the task started"
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--accent)',
-                  cursor: 'pointer',
-                  fontSize: '12px',
-                  padding: '2px 0 8px',
-                }}
-              >
-                ◀ Show 15 min earlier
-              </button>
-            )}
-          </>
+          <TrimBar
+            startMs={visibleStart}
+            endMs={bundle.sessionEndMs}
+            trimStart={trimStart}
+            trimEnd={trimEnd}
+            activeStartMs={bundle.sessionStartMs}
+            lastTaskEndMs={bundle.lastTaskEndMs}
+            canExtend={visibleStart > bundle.floorMs}
+            onExtendEarlier={() =>
+              setVisibleStart((v) =>
+                Math.max(bundle.floorMs, v - 15 * 60 * 1000)
+              )
+            }
+            markers={bundle.markers}
+            segments={bundle.segments}
+            idlePeriods={bundle.idlePeriods}
+            onPreview={handleTrimPreview}
+            onCommit={handleTrimCommit}
+            busy={trimBusy}
+          />
         )}
 
         <div className={styles.sectionHeader}>
