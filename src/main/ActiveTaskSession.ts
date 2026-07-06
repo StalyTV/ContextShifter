@@ -80,6 +80,8 @@ export type StoppedSession = {
   files: TrackedFile[];
   /** Unified artefact keys (app:/ide:/tab:/file:) selected by the scorer. */
   autoSelectKeys: string[];
+  /** Keys the user deselected on a previous activation (kept out of auto-select). */
+  deselectedKeys: string[];
   accumulatedActiveMs: number;
   stopMomentMs: number;
   /** When the task was set active — the default trim start + an indicator. */
@@ -182,6 +184,8 @@ export default class ActiveTaskSession {
   // reused so semantic scoring only re-embeds when an artefact's text changes.
   private _priorEmbeddings: Map<string, { text: string; embedding: number[] }> =
     new Map();
+  // Artefact keys the user deselected before — kept out of auto-selection.
+  private _priorDeselected: Set<string> = new Set();
 
   // Ambient event log — always recording (even with no active task) so a task's
   // window can be extended back before it was activated. Rolling 2h buffer.
@@ -356,6 +360,31 @@ export default class ActiveTaskSession {
   public abandonPending(): void {
     if (this._pending) this._prevBoundaryMs = this._pending.sessionEndMs;
     this.clearPending();
+  }
+
+  /**
+   * Remember which tracked artefacts the user kept vs. deselected, so a
+   * deselected one stays unselected next time even if it scores high. Called
+   * after the artefacts are committed (rows already persisted).
+   */
+  public async applyDeselections(
+    taskId: number,
+    selectedKeys: Set<string>
+  ): Promise<void> {
+    try {
+      const rows = await ArtifactUsage.getForSnapshot(taskId);
+      const changed: ArtifactUsage[] = [];
+      for (const r of rows) {
+        const desired = !selectedKeys.has(r.key);
+        if (!!r.deselected !== desired) {
+          r.deselected = desired;
+          changed.push(r);
+        }
+      }
+      if (changed.length > 0) await ArtifactUsage.save(changed);
+    } catch {
+      // best-effort
+    }
   }
 
   /**
@@ -745,6 +774,7 @@ export default class ActiveTaskSession {
       browsers,
       files,
       autoSelectKeys,
+      deselectedKeys: Array.from(this._priorDeselected),
       accumulatedActiveMs: 0,
       stopMomentMs: p.sessionEndMs,
       sessionStartMs: p.activeStartMs,
@@ -890,6 +920,7 @@ export default class ActiveTaskSession {
           // ignore malformed cached embedding
         }
       }
+      if (r.deselected) this._priorDeselected.add(r.key);
       if (r.kind === 'app') {
         this._apps.set(r.path, {
           name: r.name ?? r.path,
@@ -956,6 +987,7 @@ export default class ActiveTaskSession {
   private resetTaskState(): void {
     this._priorStats = new Map();
     this._priorEmbeddings = new Map();
+    this._priorDeselected = new Set();
     this._priorAccumulatedMs = 0;
   }
 

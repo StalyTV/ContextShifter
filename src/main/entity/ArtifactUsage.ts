@@ -99,6 +99,12 @@ export default class ArtifactUsage extends BaseEntity {
   @Column({ type: 'double', default: 0 })
   score!: number;
 
+  // The user deselected this artefact in the picker despite it being tracked.
+  // Remembered so it stays unselected on future activations of the task even if
+  // it scores high again (cleared when the user re-selects it).
+  @Column({ type: 'tinyint', default: 0 })
+  deselected!: boolean;
+
   static async getForSnapshot(snapshotId: number): Promise<ArtifactUsage[]> {
     return this.find({ where: { snapshotId } });
   }

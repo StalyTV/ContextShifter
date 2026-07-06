@@ -567,7 +567,25 @@ async function buildStoppedBundle(
   });
   filteredApps.forEach((a) => leafScores.set(keyApp(a), a.relevance ?? 0));
 
+  // Keep the threshold based on ALL leaves, then drop the ones the user
+  // deselected before (so a high-scoring artefact they rejected stays off).
+  const deselected = new Set(stopped.deselectedKeys ?? []);
   const selectedLeaves = ArtifactScorer.selectAboveThreshold(leafScores);
+  browserList.forEach((b) =>
+    b.browserTabs.forEach((t) => {
+      if (deselected.has(`tab:${t.url}`)) selectedLeaves.delete(keyTab(b.type, t.url));
+    })
+  );
+  filteredIdes.forEach((i) => {
+    (i.ideFiles ?? []).forEach((f) => {
+      if (deselected.has(`file:${f.path}`)) selectedLeaves.delete(keyIdeFile(i, f));
+    });
+    if (deselected.has(`ide:${i.path}`)) selectedLeaves.delete(keyIde(i));
+  });
+  filteredApps.forEach((a) => {
+    if (deselected.has(`app:${a.path}`)) selectedLeaves.delete(keyApp(a));
+  });
+
   const autoSelect = new Set<string>(selectedLeaves);
   browserList.forEach((b) =>
     b.browserTabs.forEach((t) => {
@@ -702,6 +720,26 @@ typedIpcMain.handle(
     } else {
       session.clearPending();
     }
+
+    // Remember which tracked artefacts the user kept vs. rejected, so a
+    // deselected one stays off next time. Selected internal keys from the
+    // committed (selected) entities; every other tracked row = deselected.
+    const selectedKeys = new Set<string>();
+    (browsers ?? []).forEach((b) =>
+      (b.browserTabs ?? []).forEach((t) => {
+        if (t.url) selectedKeys.add(`tab:${t.url}`);
+      })
+    );
+    (ides ?? []).forEach((i) => {
+      if (i.path) selectedKeys.add(`ide:${i.path}`);
+      (i.ideFiles ?? []).forEach((f) => {
+        if (f.path) selectedKeys.add(`file:${f.path}`);
+      });
+    });
+    (applications ?? []).forEach((a) => {
+      if (a.path) selectedKeys.add(`app:${a.path}`);
+    });
+    await session.applyDeselections(taskId, selectedKeys);
 
     // Capture study data BEFORE committing artefact entities (commit can
     // prune/rewrite rows); the ArtifactUsage rows now hold the trimmed stats.
