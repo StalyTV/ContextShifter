@@ -38,6 +38,7 @@ import {
   mergeStats,
   analyzeTimeline,
   TimelineMarker,
+  TimelineSegment,
   IdlePeriod,
 } from './scoring/SessionTimeline';
 import StaticSettings from './StaticSettings';
@@ -84,8 +85,9 @@ export type StoppedSession = {
   /** The current session's wall-clock span — the trim bar's full range. */
   sessionStartMs: number;
   sessionEndMs: number;
-  /** First-introduction markers + idle stretches, for the trim bar backdrop. */
+  /** First-introduction markers + active segments + idle stretches (trim bar). */
   markers: TimelineMarker[];
+  segments: TimelineSegment[];
   idlePeriods: IdlePeriod[];
 };
 
@@ -635,7 +637,7 @@ export default class ActiveTaskSession {
 
     // The timeline backdrop spans the whole session (independent of any trim
     // window) so the brackets slide over a fixed set of markers / idle bands.
-    const { markers, idlePeriods } = analyzeTimeline(
+    const { markers, segments, idlePeriods } = analyzeTimeline(
       p.events,
       p.sessionStartMs,
       p.sessionEndMs,
@@ -655,6 +657,7 @@ export default class ActiveTaskSession {
       sessionStartMs: p.sessionStartMs,
       sessionEndMs: p.sessionEndMs,
       markers,
+      segments,
       idlePeriods,
     };
   }

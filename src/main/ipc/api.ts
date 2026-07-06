@@ -143,6 +143,55 @@ typedIpcMain.handle('get-active-task', async () => {
   return { id: snap.id, name: snap.name };
 });
 
+// Fetch a favicon and inline it as a data URL, so the renderer can read its
+// pixels (to derive the tab's colour) without a tainted canvas. Cached; times
+// out fast; returns '' on failure. Fetched main-side, so no CORS restriction.
+const faviconCache = new Map<string, string>();
+async function faviconDataUrl(
+  pageUrl: string,
+  favUrl?: string
+): Promise<string> {
+  const cacheKey = favUrl || pageUrl;
+  const hit = faviconCache.get(cacheKey);
+  if (hit != null) return hit;
+  let host = '';
+  try {
+    host = new URL(pageUrl).hostname;
+  } catch {
+    // ignore
+  }
+  const candidates = [
+    favUrl && /^https?:\/\//.test(favUrl) ? favUrl : '',
+    host
+      ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(
+          host
+        )}&sz=64`
+      : '',
+  ].filter(Boolean);
+
+  for (const url of candidates) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 2500);
+      // eslint-disable-next-line no-await-in-loop
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timer);
+      if (!res.ok) continue;
+      const mime = res.headers.get('content-type') || 'image/png';
+      // eslint-disable-next-line no-await-in-loop
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length === 0) continue;
+      const dataUrl = `data:${mime};base64,${buf.toString('base64')}`;
+      faviconCache.set(cacheKey, dataUrl);
+      return dataUrl;
+    } catch {
+      // try next candidate
+    }
+  }
+  faviconCache.set(cacheKey, '');
+  return '';
+}
+
 async function buildStoppedBundle(
   stopped: StoppedSession
 ): Promise<StoppedTaskBundle> {
@@ -532,20 +581,22 @@ async function buildStoppedBundle(
     })
   );
 
-  // Resolve each timeline marker to an icon (for its colour) + a short label.
-  // Tabs use their browser's app icon (a data URL, so the renderer can sample
-  // it without tainting the canvas, unlike a remote favicon).
+  // Resolve each timeline artefact key to an icon (for its colour) + a short
+  // label, once per unique key (favicon fetches are expensive). Tabs use their
+  // real favicon (fetched as a data URL) so the colour matches the site (e.g.
+  // Twitch = purple), not the browser's multicolour app icon.
   const appIconByPath = new Map(stopped.apps.map((a) => [a.path, a]));
   const ideIconByPath = new Map(stopped.ides.map((i) => [i.path, i]));
-  const browserIconByType = new Map<BrowserType, string>();
-  const tabMetaByUrl = new Map<string, { title: string; type: BrowserType }>();
+  const tabMetaByUrl = new Map<string, { title: string }>();
+  const favIconByUrl = new Map<string, string>();
   stopped.browsers.forEach((b) => {
-    const live = browserList.find((x) => x.type === b.type);
-    browserIconByType.set(b.type, live?.icon ?? b.app.icon ?? '');
-    b.tabs.forEach((t) =>
-      tabMetaByUrl.set(t.url, { title: t.title, type: b.type })
-    );
+    b.tabs.forEach((t) => tabMetaByUrl.set(t.url, { title: t.title }));
   });
+  browserList.forEach((b) =>
+    (b.browserTabs ?? []).forEach((t) => {
+      if (t.url && t.favIconUrl) favIconByUrl.set(t.url, t.favIconUrl);
+    })
+  );
   const hostOf = (url: string): string => {
     try {
       return new URL(url).hostname.replace(/^www\./, '');
@@ -553,29 +604,52 @@ async function buildStoppedBundle(
       return url;
     }
   };
+
+  const timelineKeys = new Set<string>([
+    ...stopped.markers.map((m) => m.key),
+    ...stopped.segments.map((s) => s.key),
+  ]);
+  const iconLabelByKey = new Map<string, { icon: string; label: string }>();
+  await Promise.all(
+    Array.from(timelineKeys).map(async (key) => {
+      let icon = '';
+      let label = key;
+      if (key.startsWith('app:')) {
+        const path = key.slice('app:'.length);
+        const a = appIconByPath.get(path);
+        icon = a?.icon ?? '';
+        label = a?.name ?? (path.split('/').pop() || path);
+      } else if (key.startsWith('ide:')) {
+        const path = key.slice('ide:'.length);
+        const i = ideIconByPath.get(path);
+        icon = i?.icon ?? '';
+        label = i?.name ?? (path.split('/').pop() || path);
+      } else if (key.startsWith('tab:')) {
+        const url = key.slice('tab:'.length);
+        icon = await faviconDataUrl(url, favIconByUrl.get(url));
+        label = tabMetaByUrl.get(url)?.title || hostOf(url);
+      } else if (key.startsWith('file:')) {
+        const path = key.slice('file:'.length);
+        label = path.split('/').pop() || path;
+      }
+      iconLabelByKey.set(key, { icon, label });
+    })
+  );
+
   const markers = stopped.markers.map((m) => {
-    let icon = '';
-    let label = m.key;
-    if (m.kind === 'app') {
-      const path = m.key.slice('app:'.length);
-      const a = appIconByPath.get(path);
-      icon = a?.icon ?? '';
-      label = a?.name ?? (path.split('/').pop() || path);
-    } else if (m.kind === 'ide') {
-      const path = m.key.slice('ide:'.length);
-      const i = ideIconByPath.get(path);
-      icon = i?.icon ?? '';
-      label = i?.name ?? (path.split('/').pop() || path);
-    } else if (m.kind === 'tab') {
-      const url = m.key.slice('tab:'.length);
-      const meta = tabMetaByUrl.get(url);
-      icon = meta ? browserIconByType.get(meta.type) ?? '' : '';
-      label = meta?.title || hostOf(url);
-    } else {
-      const path = m.key.slice('file:'.length);
-      label = path.split('/').pop() || path;
-    }
-    return { t: m.t, key: m.key, kind: m.kind, icon, label };
+    const il = iconLabelByKey.get(m.key) ?? { icon: '', label: m.key };
+    return { t: m.t, key: m.key, kind: m.kind, icon: il.icon, label: il.label };
+  });
+  const segments = stopped.segments.map((s) => {
+    const il = iconLabelByKey.get(s.key) ?? { icon: '', label: s.key };
+    return {
+      startMs: s.start,
+      endMs: s.end,
+      key: s.key,
+      kind: s.kind,
+      icon: il.icon,
+      label: il.label,
+    };
   });
 
   return {
@@ -590,6 +664,7 @@ async function buildStoppedBundle(
     sessionStartMs: stopped.sessionStartMs,
     sessionEndMs: stopped.sessionEndMs,
     markers,
+    segments,
     idlePeriods: stopped.idlePeriods,
   };
 }

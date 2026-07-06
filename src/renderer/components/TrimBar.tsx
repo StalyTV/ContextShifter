@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { TimelineMarkerDTO, IdlePeriodDTO } from '../../types/Commands';
+import {
+  TimelineMarkerDTO,
+  TimelineSegmentDTO,
+  IdlePeriodDTO,
+} from '../../types/Commands';
 import dominantColor from './dominantColor';
 import styles from './TrimBar.module.scss';
 
@@ -8,8 +12,10 @@ type Props = {
   endMs: number;
   trimStart: number;
   trimEnd: number;
-  /** Artefact-introduction markers (vertical lines, tinted by icon colour). */
+  /** Artefact-introduction markers (thin ticks, tinted by icon colour). */
   markers?: TimelineMarkerDTO[];
+  /** Active stretches per artefact (coloured bands, tinted by icon colour). */
+  segments?: TimelineSegmentDTO[];
   /** Idle stretches where duration scoring was frozen (greyed bands). */
   idlePeriods?: IdlePeriodDTO[];
   /** Live while dragging (visual only). */
@@ -37,13 +43,15 @@ function fmtDur(ms: number): string {
 }
 
 const MIN_WINDOW_MS = 1000;
+const FALLBACK_COLOR = '#8a8a8a';
 
 /**
  * A video-editor-style trim bar: drag the bracket handles to keep only part of
  * the session. Reports the window live (onPreview) and on release (onCommit).
- * The backdrop shows where each artefact was first introduced (vertical lines,
- * tinted by the icon's dominant colour) and idle stretches where duration
- * scoring froze (greyed bands).
+ * The backdrop shows which artefact was active over each stretch (coloured
+ * bands, tinted by the artefact's icon colour), idle stretches where duration
+ * scoring froze (greyed bands), and where each artefact was first introduced
+ * (thin ticks).
  */
 export default function TrimBar({
   startMs,
@@ -51,6 +59,7 @@ export default function TrimBar({
   trimStart,
   trimEnd,
   markers,
+  segments,
   idlePeriods,
   onPreview,
   onCommit,
@@ -61,22 +70,26 @@ export default function TrimBar({
   const dragging = useRef<null | 'start' | 'end'>(null);
   // Latest previewed window, so the mouseup handler commits the final value.
   const latest = useRef({ start: trimStart, end: trimEnd });
-  // Resolved dominant colour per marker key (async via the icon image).
+  // Resolved dominant colour per artefact key (async via the icon image).
   const [colors, setColors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!dragging.current) latest.current = { start: trimStart, end: trimEnd };
   }, [trimStart, trimEnd]);
 
+  // Resolve a colour for every artefact key on the timeline (markers + segments).
   useEffect(() => {
     let cancelled = false;
+    const byKey = new Map<string, string>();
+    (segments ?? []).forEach((s) => byKey.set(s.key, s.icon));
     (markers ?? []).forEach((m) => {
-      dominantColor(m.icon)
+      if (!byKey.has(m.key)) byKey.set(m.key, m.icon);
+    });
+    byKey.forEach((icon, key) => {
+      dominantColor(icon)
         .then((c) => {
           if (!cancelled) {
-            setColors((prev) =>
-              prev[m.key] === c ? prev : { ...prev, [m.key]: c }
-            );
+            setColors((prev) => (prev[key] === c ? prev : { ...prev, [key]: c }));
           }
           return c;
         })
@@ -85,7 +98,7 @@ export default function TrimBar({
     return () => {
       cancelled = true;
     };
-  }, [markers]);
+  }, [markers, segments]);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -137,7 +150,24 @@ export default function TrimBar({
       <div ref={barRef} className={styles.bar}>
         <div className={styles.trackDim} />
 
-        {/* Idle (frozen-scoring) bands. */}
+        {/* Active segments: which artefact was focused over each stretch. */}
+        {(segments ?? []).map((s, i) => {
+          const l = Math.max(0, pct(s.startMs));
+          const r = Math.min(100, pct(s.endMs));
+          if (r <= l) return null;
+          const color = colors[s.key] ?? FALLBACK_COLOR;
+          return (
+            <div
+              // eslint-disable-next-line react/no-array-index-key
+              key={`seg-${i}`}
+              className={styles.segment}
+              style={{ left: `${l}%`, width: `${r - l}%`, background: color }}
+              title={`${s.label} · ${fmtClock(s.startMs)}–${fmtClock(s.endMs)}`}
+            />
+          );
+        })}
+
+        {/* Idle (frozen-scoring) bands — drawn over the segments. */}
         {(idlePeriods ?? []).map((p, i) => {
           const l = Math.max(0, pct(p.start));
           const r = Math.min(100, pct(p.end));
@@ -153,15 +183,30 @@ export default function TrimBar({
           );
         })}
 
+        {/* Dim the trimmed-away portions so the kept window stands out. */}
+        {leftPct > 0 && (
+          <div
+            className={styles.trimmedOverlay}
+            style={{ left: 0, width: `${leftPct}%` }}
+          />
+        )}
+        {rightPct < 100 && (
+          <div
+            className={styles.trimmedOverlay}
+            style={{ left: `${rightPct}%`, width: `${100 - rightPct}%` }}
+          />
+        )}
+
+        {/* Kept-window outline (no fill, so segment colours show through). */}
         <div
           className={styles.keptRegion}
           style={{ left: `${leftPct}%`, right: `${100 - rightPct}%` }}
         />
 
-        {/* Artefact-introduction markers. */}
+        {/* Artefact-introduction ticks. */}
         {(markers ?? []).map((m) => {
           const within = m.t >= trimStart && m.t <= trimEnd;
-          const color = colors[m.key] ?? '#8a8a8a';
+          const color = colors[m.key] ?? FALLBACK_COLOR;
           return (
             <div
               key={`mark-${m.key}-${m.t}`}

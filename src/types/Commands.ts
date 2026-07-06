@@ -50,6 +50,17 @@ export type TimelineMarkerDTO = {
 // timeout), drawn as a greyed band on the trim bar.
 export type IdlePeriodDTO = { start: number; end: number };
 
+// A stretch during which one artefact was the active/focused one, drawn as a
+// coloured band (tinted by the artefact's icon colour) on the trim bar.
+export type TimelineSegmentDTO = {
+  startMs: number;
+  endMs: number;
+  key: string;
+  kind: 'app' | 'ide' | 'tab' | 'file';
+  icon: string; // data URL used to derive the colour ('' when none)
+  label: string;
+};
+
 export type StoppedTaskBundle = {
   taskId: number;
   taskName: string;
@@ -64,8 +75,10 @@ export type StoppedTaskBundle = {
   // Wall-clock span of the just-stopped session — the trim bar's full range.
   sessionStartMs: number;
   sessionEndMs: number;
-  // Trim-bar backdrop: artefact-introduction markers + idle (frozen) bands.
+  // Trim-bar backdrop: artefact-introduction markers, active (coloured)
+  // segments, and idle (frozen) bands.
   markers: TimelineMarkerDTO[];
+  segments: TimelineSegmentDTO[];
   idlePeriods: IdlePeriodDTO[];
 };
 

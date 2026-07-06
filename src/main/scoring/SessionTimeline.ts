@@ -49,8 +49,16 @@ export function replay(
 
 export type TimelineMarker = { t: number; key: string; kind: ArtifactKind };
 export type IdlePeriod = { start: number; end: number };
+/** A stretch during which one artefact was the focused/active one. */
+export type TimelineSegment = {
+  start: number;
+  end: number;
+  key: string;
+  kind: ArtifactKind;
+};
 export type TimelineAnalysis = {
   markers: TimelineMarker[];
+  segments: TimelineSegment[];
   idlePeriods: IdlePeriod[];
 };
 
@@ -78,6 +86,29 @@ export function analyzeTimeline(
     markers.push({ t: ev.t, key: ev.key, kind: ev.kind });
   }
 
+  // Active segments: which artefact was focused over each stretch. The focus at
+  // winStart is the last 'f' at or before it; every later 'f' in the window ends
+  // the current segment and starts a new one; the last runs to winEnd.
+  const segments: TimelineSegment[] = [];
+  let cur: { key: string; kind: ArtifactKind } | null = null;
+  for (const ev of events) {
+    if (ev.ty !== 'f' || ev.t > winStart) break;
+    cur = { key: ev.key, kind: ev.kind };
+  }
+  let segStart = winStart;
+  for (const ev of events) {
+    if (ev.ty !== 'f') continue;
+    if (ev.t <= winStart || ev.t > winEnd) continue;
+    if (cur && ev.t > segStart) {
+      segments.push({ start: segStart, end: ev.t, key: cur.key, kind: cur.kind });
+    }
+    cur = { key: ev.key, kind: ev.kind };
+    segStart = ev.t;
+  }
+  if (cur && winEnd > segStart) {
+    segments.push({ start: segStart, end: winEnd, key: cur.key, kind: cur.kind });
+  }
+
   // Idle = any gap between consecutive activity timestamps longer than the idle
   // timeout. The frozen stretch is [lastActivity + idleTimeout, nextActivity].
   const times = events
@@ -91,7 +122,7 @@ export function analyzeTimeline(
     const idleStart = prev + idleTimeoutMs;
     if (cur > idleStart) idlePeriods.push({ start: idleStart, end: cur });
   }
-  return { markers, idlePeriods };
+  return { markers, segments, idlePeriods };
 }
 
 /**

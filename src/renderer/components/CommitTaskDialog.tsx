@@ -410,6 +410,7 @@ export default function CommitTaskDialog({
             trimStart={trimStart}
             trimEnd={trimEnd}
             markers={bundle.markers}
+            segments={bundle.segments}
             idlePeriods={bundle.idlePeriods}
             onPreview={handleTrimPreview}
             onCommit={handleTrimCommit}
