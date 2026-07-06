@@ -677,9 +677,14 @@ export default class ActiveTaskSession {
     }
 
     // Pass 2: semantic similarity, weighted by the behavioral score. Reuses a
-    // persisted embedding when the artefact's text is unchanged.
+    // persisted embedding when the artefact's text is unchanged. Never-close
+    // artefacts (always open, not part of any task) and ones the user previously
+    // deselected are kept OUT of the centroid so they don't skew the task theme;
+    // excluded keys just get a neutral similarity of 1.
     const semInputs: SemanticInput[] = [];
-    for (const [key] of merged) {
+    for (const [key, stat] of merged) {
+      if (isNeverCloseKey(key, stat)) continue;
+      if (this._priorDeselected.has(key)) continue;
       const text = texts.get(key) ?? '';
       const cached = this._priorEmbeddings.get(key);
       semInputs.push({

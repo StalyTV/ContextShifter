@@ -213,19 +213,27 @@ export default class ScoreWeightsManager {
         );
       }
 
-      // Pass 2: semantic similarity, reusing cached embeddings.
-      const semInputs: SemanticInput[] = rows.map((r) => {
-        const text = textByKey.get(r.key) ?? '';
-        let cachedEmbedding: number[] | null = null;
-        if (r.embedding && r.embeddedText === text) {
-          try {
-            cachedEmbedding = JSON.parse(r.embedding);
-          } catch {
-            cachedEmbedding = null;
+      // Pass 2: semantic similarity, reusing cached embeddings. Never-close and
+      // previously-deselected artefacts are kept OUT of the centroid.
+      const semInputs: SemanticInput[] = rows
+        .filter((r) => !isNeverClose(r) && !r.deselected)
+        .map((r) => {
+          const text = textByKey.get(r.key) ?? '';
+          let cachedEmbedding: number[] | null = null;
+          if (r.embedding && r.embeddedText === text) {
+            try {
+              cachedEmbedding = JSON.parse(r.embedding);
+            } catch {
+              cachedEmbedding = null;
+            }
           }
-        }
-        return { key: r.key, text, weight: behavioralByKey.get(r.key) ?? 0, cachedEmbedding };
-      });
+          return {
+            key: r.key,
+            text,
+            weight: behavioralByKey.get(r.key) ?? 0,
+            cachedEmbedding,
+          };
+        });
       // eslint-disable-next-line no-await-in-loop
       const semantic = await SemanticScorer.similarities(semInputs);
 
