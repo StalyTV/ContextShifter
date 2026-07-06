@@ -18,6 +18,10 @@ type Props = {
   segments?: TimelineSegmentDTO[];
   /** Idle stretches where duration scoring was frozen (greyed bands). */
   idlePeriods?: IdlePeriodDTO[];
+  /** When the task was set active — drawn as a "task started" indicator. */
+  activeStartMs?: number;
+  /** Where the previous task ended — drawn as a boundary indicator (0 = none). */
+  lastTaskEndMs?: number;
   /** Live while dragging (visual only). */
   onPreview: (start: number, end: number) => void;
   /** On release — recompute the scores for the kept window. */
@@ -61,6 +65,8 @@ export default function TrimBar({
   markers,
   segments,
   idlePeriods,
+  activeStartMs,
+  lastTaskEndMs,
   onPreview,
   onCommit,
   busy,
@@ -196,6 +202,28 @@ export default function TrimBar({
             style={{ left: `${rightPct}%`, width: `${100 - rightPct}%` }}
           />
         )}
+
+        {/* Where the previous task ended — you can't include time before it. */}
+        {lastTaskEndMs != null &&
+          lastTaskEndMs > startMs &&
+          lastTaskEndMs < endMs && (
+            <div
+              className={styles.boundaryLine}
+              style={{ left: `${pct(lastTaskEndMs)}%` }}
+              title={`Previous task ended ${fmtClock(lastTaskEndMs)}`}
+            />
+          )}
+
+        {/* When the task was set active (everything left of it is pre-roll). */}
+        {activeStartMs != null &&
+          activeStartMs > startMs &&
+          activeStartMs < endMs && (
+            <div
+              className={styles.activeLine}
+              style={{ left: `${pct(activeStartMs)}%` }}
+              title={`Task started ${fmtClock(activeStartMs)}`}
+            />
+          )}
 
         {/* Kept-window outline (no fill, so segment colours show through). */}
         <div

@@ -72,9 +72,16 @@ export type StoppedTaskBundle = {
   // Picker keys the scorer auto-selected (above the score threshold), incl.
   // parent rows for any selected leaf.
   autoSelectKeys: string[];
-  // Wall-clock span of the just-stopped session — the trim bar's full range.
+  // When the task was set active (default trim start) and when it ended
+  // (default trim end).
   sessionStartMs: number;
   sessionEndMs: number;
+  // Earliest the trim start can be pulled back to (2h / app start / prev task).
+  floorMs: number;
+  // Where the previous task ended (boundary indicator), or 0 if none in range.
+  lastTaskEndMs: number;
+  // Pre-roll before activation to reveal by default: min(duration/3, 15 min).
+  preRollMs: number;
   // Trim-bar backdrop: artefact-introduction markers, active (coloured)
   // segments, and idle (frozen) bands.
   markers: TimelineMarkerDTO[];

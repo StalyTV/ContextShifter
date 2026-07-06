@@ -138,6 +138,9 @@ export default function CommitTaskDialog({
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(0);
   const [trimBusy, setTrimBusy] = useState(false);
+  // Left edge of the visible timeline: starts at the default pre-roll before
+  // activation and extends back (15 min at a time) down to the floor.
+  const [visibleStart, setVisibleStart] = useState(0);
   // Whether the "discard this session?" confirmation is showing.
   const [confirmDiscard, setConfirmDiscard] = useState(false);
 
@@ -171,8 +174,12 @@ export default function CommitTaskDialog({
         if (result) {
           const { sel, exp } = computeAutoSelection(result);
           if (skip) {
-            // Skip the screen: commit the scorer's selection and finish.
-            await commitSelection(result, sel);
+            // Skip the screen: commit the scorer's selection over the default
+            // (active) window and finish.
+            await commitSelection(result, sel, {
+              startMs: result.sessionStartMs,
+              endMs: result.sessionEndMs,
+            });
             if (!cancelled) {
               setCommitted(true);
               onCommitted();
@@ -183,6 +190,12 @@ export default function CommitTaskDialog({
           setExpanded(exp);
           setTrimStart(result.sessionStartMs);
           setTrimEnd(result.sessionEndMs);
+          setVisibleStart(
+            Math.max(
+              result.floorMs,
+              result.sessionStartMs - (result.preRollMs ?? 0)
+            )
+          );
         }
       } catch (err) {
         if (!cancelled) setError(String(err));
@@ -342,12 +355,10 @@ export default function CommitTaskDialog({
     if (!bundle || saving) return;
     setSaving(true);
     try {
-      // Only send a trim window when the user actually narrowed it; otherwise
-      // the full session was already persisted on stop.
-      const trimmed =
-        trimStart > bundle.sessionStartMs + 500 ||
-        trimEnd < bundle.sessionEndMs - 500;
-      const trim = trimmed ? { startMs: trimStart, endMs: trimEnd } : undefined;
+      // Always send the chosen window: it may extend before activation (into
+      // the pre-roll) or trim either end, and the backend records it as the
+      // task's boundary for the next task.
+      const trim = { startMs: trimStart, endMs: trimEnd };
       await commitSelection(bundle, selected, trim);
       setCommitted(true);
       onCommitted();
@@ -404,18 +415,43 @@ export default function CommitTaskDialog({
         </div>
 
         {bundle && bundle.sessionEndMs > bundle.sessionStartMs && (
-          <TrimBar
-            startMs={bundle.sessionStartMs}
-            endMs={bundle.sessionEndMs}
-            trimStart={trimStart}
-            trimEnd={trimEnd}
-            markers={bundle.markers}
-            segments={bundle.segments}
-            idlePeriods={bundle.idlePeriods}
-            onPreview={handleTrimPreview}
-            onCommit={handleTrimCommit}
-            busy={trimBusy}
-          />
+          <>
+            <TrimBar
+              startMs={visibleStart}
+              endMs={bundle.sessionEndMs}
+              trimStart={trimStart}
+              trimEnd={trimEnd}
+              activeStartMs={bundle.sessionStartMs}
+              lastTaskEndMs={bundle.lastTaskEndMs}
+              markers={bundle.markers}
+              segments={bundle.segments}
+              idlePeriods={bundle.idlePeriods}
+              onPreview={handleTrimPreview}
+              onCommit={handleTrimCommit}
+              busy={trimBusy}
+            />
+            {visibleStart > bundle.floorMs && (
+              <button
+                type="button"
+                onClick={() =>
+                  setVisibleStart((v) =>
+                    Math.max(bundle.floorMs, v - 15 * 60 * 1000)
+                  )
+                }
+                title="Reveal 15 more minutes before the task started"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--accent)',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  padding: '2px 0 8px',
+                }}
+              >
+                ◀ Show 15 min earlier
+              </button>
+            )}
+          </>
         )}
 
         <div className={styles.sectionHeader}>

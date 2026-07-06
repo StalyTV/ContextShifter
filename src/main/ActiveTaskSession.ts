@@ -29,7 +29,7 @@ import ArtifactScorer, { ScoreInput } from './ArtifactScorer';
 import KnownApplication from './entity/KnownApplication';
 import NeverCloseBrowserTab from './entity/NeverCloseBrowserTab';
 import { isBlankTab } from './helpers/isBlankTab';
-import StatsAccumulator, { UsageStat } from './scoring/StatsAccumulator';
+import { UsageStat } from './scoring/StatsAccumulator';
 import artefactText from './scoring/artefactText';
 import SemanticScorer, { SemanticInput } from './scoring/SemanticScorer';
 import {
@@ -82,9 +82,16 @@ export type StoppedSession = {
   autoSelectKeys: string[];
   accumulatedActiveMs: number;
   stopMomentMs: number;
-  /** The current session's wall-clock span — the trim bar's full range. */
+  /** When the task was set active — the default trim start + an indicator. */
   sessionStartMs: number;
+  /** When the task ended — the default trim end. */
   sessionEndMs: number;
+  /** Earliest the trim start can be pulled back to (2h / app start / prev task). */
+  floorMs: number;
+  /** Where the previous task ended (drawn as a boundary indicator), or 0. */
+  lastTaskEndMs: number;
+  /** How much pre-roll to reveal by default: min(duration/3, 15 min). */
+  preRollMs: number;
   /** First-introduction markers + active segments + idle stretches (trim bar). */
   markers: TimelineMarker[];
   segments: TimelineSegment[];
@@ -113,11 +120,21 @@ type PendingSession = {
   taskName: string;
   priorStats: Map<string, UsageStat>;
   priorAccumulatedMs: number;
+  // Ambient events over [floorMs, sessionEndMs] — includes time before the task
+  // was activated, so the trim start can be pulled back into the pre-roll.
   events: TLEvent[];
-  sessionStartMs: number;
+  activeStartMs: number; // when the task was set active
+  floorMs: number; // earliest the trim start can be extended to
   sessionEndMs: number;
+  lastBoundaryMs: number; // where the previous task ended (indicator)
   meta: Meta;
 };
+
+// Ambient logging keeps the last 2h of events, which also caps how far a task's
+// start can be pulled back (the "up to 2 hours" limit).
+const MAX_PREROLL_MS = 2 * 60 * 60 * 1000;
+// One "add more" click reveals another 15 min of pre-roll.
+const PREROLL_SLOT_MS = 15 * 60 * 1000;
 
 const BROWSER_NAME_TO_TYPE: Array<{ test: RegExp; type: BrowserType }> = [
   { test: /chrome/i, type: 'chrome' },
@@ -166,9 +183,15 @@ export default class ActiveTaskSession {
   private _priorEmbeddings: Map<string, { text: string; embedding: number[] }> =
     new Map();
 
-  // This session's live contribution + the raw event timeline driving it.
-  private _acc: StatsAccumulator = new StatsAccumulator();
-  private _events: TLEvent[] = [];
+  // Ambient event log — always recording (even with no active task) so a task's
+  // window can be extended back before it was activated. Rolling 2h buffer.
+  private _ambientEvents: TLEvent[] = [];
+  private _pruneCounter = 0;
+  // When logging started (app launch) and where the previous task ended. Both
+  // floor how far back a task's start can be pulled.
+  private _loggingStartMs = Date.now();
+  private _prevBoundaryMs = Date.now();
+  // When the current task was set active (0 when none).
   private _sessionStartMs = 0;
 
   // Just enough focus state to avoid recording duplicate focus events and to
@@ -201,7 +224,9 @@ export default class ActiveTaskSession {
 
   public async start(taskId: number, taskName: string): Promise<void> {
     this._activeTaskName = taskName;
-    this.resetSession();
+    // Reset only per-task state — the ambient event log keeps running so this
+    // task can later reach back into the time before it was activated.
+    this.resetTaskState();
     await this.loadAccumulated(taskId);
     this._sessionStartMs = Date.now();
     this._activeTaskId = taskId;
@@ -232,26 +257,16 @@ export default class ActiveTaskSession {
     const taskId = this._activeTaskId;
     const taskName = this._activeTaskName ?? `Task ${taskId}`;
     const now = Date.now();
+    const activeStart = this._sessionStartMs;
 
-    this._acc.end(now);
+    this.pruneAmbient(now);
+    this._pending = this.buildPending(taskId, taskName, activeStart, now);
 
-    // Snapshot everything needed to re-score the session for any trim window.
-    this._pending = {
-      taskId,
-      taskName,
-      priorStats: this._priorStats,
-      priorAccumulatedMs: this._priorAccumulatedMs,
-      events: this._events,
-      sessionStartMs: this._sessionStartMs,
-      sessionEndMs: now,
-      meta: this.snapshotMeta(),
-    };
-
-    // Persist + score the full (untrimmed) session up front so nothing is lost
-    // even if the user never commits.
+    // Persist + score the default (active-only) window up front so nothing is
+    // lost even if the user never commits.
     const stopped = await this.buildAndPersist(
       this._pending,
-      this._sessionStartMs,
+      activeStart,
       now,
       /* persist */ true
     );
@@ -263,12 +278,35 @@ export default class ActiveTaskSession {
         stopped.files.length} artefacts, ${stopped.autoSelectKeys.length} auto-selected`
     );
 
+    // Clear the active task but KEEP the ambient log running for the next task.
     this._activeTaskId = null;
     this._activeTaskName = null;
-    this.resetSession();
+    this._sessionStartMs = 0;
     this.broadcastChange();
 
     return stopped;
+  }
+
+  /** Snapshot the ambient log into a pending session for [floor, end]. */
+  private buildPending(
+    taskId: number,
+    taskName: string,
+    activeStart: number,
+    end: number
+  ): PendingSession {
+    const floor = Math.min(activeStart, this.computeFloorMs(end));
+    return {
+      taskId,
+      taskName,
+      priorStats: this._priorStats,
+      priorAccumulatedMs: this._priorAccumulatedMs,
+      events: this._ambientEvents.filter((e) => e.t >= floor && e.t <= end),
+      activeStartMs: activeStart,
+      floorMs: floor,
+      sessionEndMs: end,
+      lastBoundaryMs: this._prevBoundaryMs,
+      meta: this.snapshotMeta(),
+    };
   }
 
   /**
@@ -298,12 +336,26 @@ export default class ActiveTaskSession {
       winEnd,
       true
     );
+    // The committed end becomes the boundary the NEXT task can't reach before
+    // (except into any time this task trimmed away — hence winEnd, not the
+    // active-start). Time before winStart that this task gave up stays claimable.
+    this._prevBoundaryMs = winEnd;
     this.clearPending();
     return stopped;
   }
 
   public clearPending(): void {
     this._pending = null;
+  }
+
+  /**
+   * Cancel the picker after a stop: the default (active) window was already
+   * persisted, so just record the task's end as the boundary for the next task
+   * and drop the pending timeline.
+   */
+  public abandonPending(): void {
+    if (this._pending) this._prevBoundaryMs = this._pending.sessionEndMs;
+    this.clearPending();
   }
 
   /**
@@ -314,35 +366,32 @@ export default class ActiveTaskSession {
     if (this._activeTaskId === null) return;
     const taskId = this._activeTaskId;
     const now = Date.now();
-    this._acc.end(now);
-    const pending: PendingSession = {
+    const activeStart = this._sessionStartMs;
+    this.pruneAmbient(now);
+    const pending = this.buildPending(
       taskId,
-      taskName: this._activeTaskName ?? `Task ${taskId}`,
-      priorStats: this._priorStats,
-      priorAccumulatedMs: this._priorAccumulatedMs,
-      events: this._events,
-      sessionStartMs: this._sessionStartMs,
-      sessionEndMs: now,
-      meta: this.snapshotMeta(),
-    };
+      this._activeTaskName ?? `Task ${taskId}`,
+      activeStart,
+      now
+    );
     try {
-      await this.buildAndPersist(pending, this._sessionStartMs, now, true);
+      await this.buildAndPersist(pending, activeStart, now, true);
     } catch {
       // best-effort
     }
+    this._prevBoundaryMs = now;
     info(`[ActiveTaskSession] Discarded active task ${taskId}`);
     this._activeTaskId = null;
     this._activeTaskName = null;
+    this._sessionStartMs = 0;
     this.clearPending();
-    this.resetSession();
     this.broadcastChange();
   }
 
   // ---------- tracker hooks ----------
 
-  /** Hook from ActiveArtifact.setCurrentWindow */
+  /** Hook from ActiveArtifact.setCurrentWindow (records ambiently — always). */
   public onWindow(sample: ActiveWindowSample): void {
-    if (this._activeTaskId === null) return;
     const appName = sample.process;
     const appPath = sample.processPath;
     if (!appName || !appPath) return;
@@ -419,7 +468,6 @@ export default class ActiveTaskSession {
     url: string,
     title: string
   ): void {
-    if (this._activeTaskId === null) return;
     if (this._frontmostBrowserType !== type) return;
     if (!url || isBlankTab(url)) return;
     this._tabs.set(url, {
@@ -433,7 +481,6 @@ export default class ActiveTaskSession {
 
   /** Hook from VSCodeTracker -> ActiveArtifact.setCurrentFile */
   public onFile(file: ActiveFile): void {
-    if (this._activeTaskId === null) return;
     if (!file.path) return;
     this._files.set(file.path, { path: file.path, lastSeen: Date.now() });
     this._lastActiveFilePath = file.path;
@@ -442,26 +489,59 @@ export default class ActiveTaskSession {
 
   /** A click / keystroke happened (attributed to the focused artefact). */
   public onInteraction(): void {
-    if (this._activeTaskId === null) return;
     const t = Date.now();
-    this._events.push({ ty: 'i', t });
-    this._acc.interaction(t);
+    this._ambientEvents.push({ ty: 'i', t });
+    this.maybePrune(t);
   }
 
   /** Passive activity (mouse-move / scroll) — keeps duration alive. */
   public onActivity(): void {
-    if (this._activeTaskId === null) return;
     const t = Date.now();
-    this._events.push({ ty: 'a', t });
-    this._acc.activity(t);
+    this._ambientEvents.push({ ty: 'a', t });
+    this.maybePrune(t);
   }
 
   private recordFocus(key: string, kind: ArtifactKind): void {
     if (this._focusKey === key) return;
     const t = Date.now();
-    this._events.push({ ty: 'f', t, key, kind });
-    this._acc.focus(key, kind, t);
+    this._ambientEvents.push({ ty: 'f', t, key, kind });
     this._focusKey = key;
+    this.maybePrune(t);
+  }
+
+  /** Drop ambient events / metadata older than the 2h retention window. */
+  private maybePrune(now: number): void {
+    this._pruneCounter += 1;
+    if (this._pruneCounter % 256 !== 0) return;
+    this.pruneAmbient(now);
+  }
+
+  private pruneAmbient(now: number): void {
+    const cutoff = now - MAX_PREROLL_MS;
+    let i = 0;
+    while (
+      i < this._ambientEvents.length &&
+      this._ambientEvents[i].t < cutoff
+    ) {
+      i += 1;
+    }
+    if (i > 0) this._ambientEvents.splice(0, i);
+    const pruneMeta = (m: Map<unknown, { lastSeen: number }>) => {
+      for (const [k, v] of m) if (v.lastSeen < cutoff) m.delete(k);
+    };
+    pruneMeta(this._apps as Map<unknown, { lastSeen: number }>);
+    pruneMeta(this._ides as Map<unknown, { lastSeen: number }>);
+    pruneMeta(this._browsers as Map<unknown, { lastSeen: number }>);
+    pruneMeta(this._tabs as Map<unknown, { lastSeen: number }>);
+    pruneMeta(this._files as Map<unknown, { lastSeen: number }>);
+  }
+
+  private computeFloorMs(now: number): number {
+    return Math.max(
+      this._loggingStartMs,
+      now - MAX_PREROLL_MS,
+      this._prevBoundaryMs
+    );
   }
 
   // ---------- scoring + persistence ----------
@@ -493,7 +573,15 @@ export default class ActiveTaskSession {
     }
 
     if (persist) {
-      await this.persist(p.taskId, merged, scored, p.meta, activeMs, winEnd);
+      await this.persist(
+        p.taskId,
+        merged,
+        scored,
+        p.meta,
+        activeMs,
+        winStart,
+        winEnd
+      );
     }
 
     const stopped = this.buildStoppedSession(p, scores, semantic);
@@ -635,13 +723,18 @@ export default class ActiveTaskSession {
       ArtifactScorer.selectAboveThreshold(scores)
     );
 
-    // The timeline backdrop spans the whole session (independent of any trim
-    // window) so the brackets slide over a fixed set of markers / idle bands.
+    // The timeline backdrop spans the full extendable range [floor, end]
+    // (independent of any trim window) so the brackets slide over a fixed set of
+    // markers / segments / idle bands, including the pre-roll before activation.
     const { markers, segments, idlePeriods } = analyzeTimeline(
       p.events,
-      p.sessionStartMs,
+      p.floorMs,
       p.sessionEndMs,
       StaticSettings.DURATION_IDLE_TIMEOUT_MS
+    );
+    const preRollMs = Math.min(
+      Math.max(0, p.sessionEndMs - p.activeStartMs) / 3,
+      PREROLL_SLOT_MS
     );
 
     return {
@@ -654,8 +747,14 @@ export default class ActiveTaskSession {
       autoSelectKeys,
       accumulatedActiveMs: 0,
       stopMomentMs: p.sessionEndMs,
-      sessionStartMs: p.sessionStartMs,
+      sessionStartMs: p.activeStartMs,
       sessionEndMs: p.sessionEndMs,
+      floorMs: p.floorMs,
+      lastTaskEndMs:
+        p.lastBoundaryMs > p.floorMs && p.lastBoundaryMs < p.activeStartMs
+          ? p.lastBoundaryMs
+          : 0,
+      preRollMs,
       markers,
       segments,
       idlePeriods,
@@ -708,6 +807,7 @@ export default class ActiveTaskSession {
     scored: Map<string, ScoredKey>,
     meta: Meta,
     activeMs: number,
+    winStartMs: number,
     nowMs: number
   ): Promise<void> {
     const existingRows = await ArtifactUsage.getForSnapshot(taskId);
@@ -762,6 +862,7 @@ export default class ActiveTaskSession {
     const snap = await Snapshot.findOneBy({ id: taskId });
     if (snap) {
       snap.activeMs = activeMs;
+      snap.lastStartTs = new Date(winStartMs).toISOString();
       snap.lastStopTs = new Date(nowMs).toISOString();
       await snap.save();
     }
@@ -849,21 +950,13 @@ export default class ActiveTaskSession {
     }
   }
 
-  private resetSession(): void {
-    this._apps.clear();
-    this._ides.clear();
-    this._browsers.clear();
-    this._tabs.clear();
-    this._files.clear();
+  // Reset only per-task accumulation. Ambient state (event log, metadata maps,
+  // focus dedup) is intentionally preserved so the next task can reach back into
+  // the time before it was activated.
+  private resetTaskState(): void {
     this._priorStats = new Map();
     this._priorEmbeddings = new Map();
     this._priorAccumulatedMs = 0;
-    this._acc = new StatsAccumulator();
-    this._events = [];
-    this._sessionStartMs = Date.now();
-    this._focusKey = null;
-    this._lastActiveFilePath = null;
-    this._frontmostBrowserType = null;
   }
 
   private async broadcastChange(): Promise<void> {

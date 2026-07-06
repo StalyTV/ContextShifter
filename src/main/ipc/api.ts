@@ -663,6 +663,9 @@ async function buildStoppedBundle(
     autoSelectKeys: Array.from(autoSelect),
     sessionStartMs: stopped.sessionStartMs,
     sessionEndMs: stopped.sessionEndMs,
+    floorMs: stopped.floorMs,
+    lastTaskEndMs: stopped.lastTaskEndMs,
+    preRollMs: stopped.preRollMs,
     markers,
     segments,
     idlePeriods: stopped.idlePeriods,
@@ -760,7 +763,7 @@ typedIpcMain.handle('discard-active-task', async () => {
   // Covers cancelling the picker after a stop too: drop any pending timeline
   // (the full session was already persisted at stop).
   await ActiveTaskSession.getInstance().discard();
-  ActiveTaskSession.getInstance().clearPending();
+  ActiveTaskSession.getInstance().abandonPending();
 });
 
 // settings

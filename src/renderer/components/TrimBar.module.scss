@@ -84,6 +84,30 @@
   z-index: 1;
 }
 
+// "Task started" indicator — everything to its left is pre-roll.
+.activeLine {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  transform: translateX(-1px);
+  background: var(--accent);
+  z-index: 3;
+  pointer-events: auto;
+}
+
+// "Previous task ended" boundary — can't include time before it.
+.boundaryLine {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 0;
+  border-left: 2px dashed #e0564e;
+  transform: translateX(-1px);
+  z-index: 3;
+  pointer-events: auto;
+}
+
 .marker {
   position: absolute;
   top: -2px;
