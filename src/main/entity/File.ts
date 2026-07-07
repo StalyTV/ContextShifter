@@ -27,6 +27,12 @@ export default class File extends BaseEntity {
   @Column({ type: 'tinyint', nullable: false, default: true })
   isSelected!: boolean;
 
+  @Column({ type: 'double', nullable: false, default: 0 })
+  public relevance!: number;
+
+  @Column({ type: 'double', nullable: true })
+  public semanticRelevance!: number;
+
   @ManyToOne(() => Application, (app) => app.files, {
     onDelete: 'CASCADE',
   })

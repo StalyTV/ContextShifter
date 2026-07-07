@@ -359,6 +359,8 @@ export default class SnapshotManager {
             name: f.name,
             path: f.path,
             isSelected: f.isSelected ?? true,
+            relevance: f.relevance ?? 0,
+            semanticRelevance: f.semanticRelevance,
           });
           fe.application = e;
           return fe;
@@ -409,6 +411,8 @@ export default class SnapshotManager {
     } else if (kind === 'browser') {
       await BrowserEntity.delete(artefactId);
     } else if (kind === 'file') {
+      const f = await FileEntity.findOneBy({ id: artefactId });
+      if (f) usageKey = `file:${f.path}`;
       await FileEntity.delete(artefactId);
     }
 

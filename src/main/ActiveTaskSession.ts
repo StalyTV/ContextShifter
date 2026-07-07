@@ -55,8 +55,13 @@ export type TrackedApp = {
   lastSeen: number;
   score?: number;
   semanticScore?: number;
-  /** Documents open in this app while active (path -> name), for reopening. */
-  documents?: { path: string; name: string }[];
+  /** Documents open in this app while active — each a scored file artefact. */
+  documents?: {
+    path: string;
+    name: string;
+    score?: number;
+    semanticScore?: number;
+  }[];
 };
 
 export type TrackedTab = {
@@ -522,6 +527,12 @@ export default class ActiveTaskSession {
         const docs = this._appDocuments.get(appPath) ?? new Map<string, string>();
         docs.set(docPath, getFileNameFromPath(docPath));
         this._appDocuments.set(appPath, docs);
+        // Attribute focus to the document itself (like an IDE file) so each
+        // document gets its own duration/frequency/recency + semantic score —
+        // but only if the app is still the focused one (this resolves async).
+        if (this._focusKey === appKey(appPath)) {
+          this.recordFocus(fileKey(docPath), 'file');
+        }
       })
       .catch(() => undefined);
   }
@@ -759,7 +770,11 @@ export default class ActiveTaskSession {
         ...a,
         score: scores.get(appKey(a.path)) ?? 0,
         semanticScore: semantic.get(appKey(a.path)),
-        documents: meta.appDocuments.get(a.path) ?? [],
+        documents: (meta.appDocuments.get(a.path) ?? []).map((d) => ({
+          ...d,
+          score: scores.get(fileKey(d.path)),
+          semanticScore: semantic.get(fileKey(d.path)),
+        })),
       }))
       .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
     const ides = Array.from(meta.ides.values())

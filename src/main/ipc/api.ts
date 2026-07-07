@@ -525,14 +525,22 @@ async function buildStoppedBundle(
       filesByPath.set(f.path, fe);
     });
     (tracked?.documents ?? []).forEach((d) => {
-      if (!d.path || filesByPath.has(d.path)) return;
-      const fe = new FileEntity();
+      if (!d.path) return;
+      const fe = filesByPath.get(d.path) ?? new FileEntity();
       fe.name = d.name;
       fe.path = d.path;
       fe.isSelected = true;
+      fe.relevance = d.score ?? 0;
+      if (d.semanticScore != null) fe.semanticRelevance = d.semanticScore;
       filesByPath.set(d.path, fe);
     });
     a.files = Array.from(filesByPath.values());
+    // The app row's relevance is the best of its own and its documents' scores,
+    // so a relevant document keeps its app in the auto-selection.
+    a.relevance = a.files.reduce(
+      (m, f) => Math.max(m, f.relevance ?? 0),
+      a.relevance ?? 0
+    );
     if (tracked) trackedKeys.add(keyApp(a));
     appList.push(a);
   }
@@ -593,7 +601,12 @@ async function buildStoppedBundle(
     );
     leafScores.set(keyIde(i), ideScore.get(i.path) ?? 0);
   });
-  filteredApps.forEach((a) => leafScores.set(keyApp(a), a.relevance ?? 0));
+  filteredApps.forEach((a) => {
+    leafScores.set(keyApp(a), a.relevance ?? 0);
+    (a.files ?? []).forEach((f) =>
+      leafScores.set(keyFile(a, f), f.relevance ?? 0)
+    );
+  });
 
   // Keep the threshold based on ALL leaves, then drop the ones the user
   // deselected before (so a high-scoring artefact they rejected stays off).
@@ -612,6 +625,9 @@ async function buildStoppedBundle(
   });
   filteredApps.forEach((a) => {
     if (deselected.has(`app:${a.path}`)) selectedLeaves.delete(keyApp(a));
+    (a.files ?? []).forEach((f) => {
+      if (deselected.has(`file:${f.path}`)) selectedLeaves.delete(keyFile(a, f));
+    });
   });
 
   const autoSelect = new Set<string>(selectedLeaves);
@@ -626,7 +642,13 @@ async function buildStoppedBundle(
       if (selectedLeaves.has(keyIdeFile(i, f))) autoSelect.add(keyIde(i));
     })
   );
-  // Pre-check an auto-selected app's captured documents (unless deselected).
+  // A document scoring above the threshold selects its parent app…
+  filteredApps.forEach((a) =>
+    (a.files ?? []).forEach((f) => {
+      if (selectedLeaves.has(keyFile(a, f))) autoSelect.add(keyApp(a));
+    })
+  );
+  // …and an auto-selected app pre-checks all its documents (unless deselected).
   filteredApps.forEach((a) => {
     if (!autoSelect.has(keyApp(a))) return;
     (a.files ?? []).forEach((f) => {
@@ -773,6 +795,9 @@ typedIpcMain.handle(
     });
     (applications ?? []).forEach((a) => {
       if (a.path) selectedKeys.add(`app:${a.path}`);
+      (a.files ?? []).forEach((f) => {
+        if (f.path) selectedKeys.add(`file:${f.path}`);
+      });
     });
     await session.applyDeselections(taskId, selectedKeys);
 

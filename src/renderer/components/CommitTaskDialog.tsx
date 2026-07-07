@@ -821,6 +821,8 @@ export default function CommitTaskDialog({
                               <div className={styles.name}>{f.name}</div>
                               <div className={styles.sub}>{f.path}</div>
                             </div>
+                            <ScoreBadge value={f.relevance} />
+                            <SemBadge value={f.semanticRelevance} />
                             <SemInfoButton kind="file" path={f.path} />
                           </div>
                         );
