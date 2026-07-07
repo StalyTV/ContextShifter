@@ -1,0 +1,7 @@
+{
+  "name": "sharp",
+  "version": "0.34.5",
+  "description": "No-op stub — ContextShifter uses transformers for text only, never images. Avoids sharp's heavy native build during Electron packaging.",
+  "main": "index.js",
+  "type": "commonjs"
+}

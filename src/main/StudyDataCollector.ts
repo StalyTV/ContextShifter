@@ -34,6 +34,17 @@ export type CommittedSelection = {
   applications: Array<{ path?: string }>;
 };
 
+/** Parse a persisted embedding (JSON array of floats); null if absent/invalid. */
+function parseEmbedding(raw: string | null | undefined): number[] | null {
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw);
+    return Array.isArray(v) && v.length > 0 ? (v as number[]) : null;
+  } catch {
+    return null;
+  }
+}
+
 type ArtefactRow = {
   key: string;
   kind: string;
@@ -54,6 +65,9 @@ type ArtefactRow = {
   /** Normalized semantic relevance [0,1] and the raw cosine it came from. */
   semanticSimilarity: number;
   semanticCosine: number | null;
+  /** Raw sentence-embedding vector (frozen MiniLM features), for offline
+   * training of a relevance classifier on kept-vs-deselected labels. */
+  embedding: number[] | null;
   score: number;
   selected: boolean;
   /** Stable anonymous id (set only when anonymization is enabled). */
@@ -84,6 +98,7 @@ function anonymizeArtefact(r: ArtefactRow): ArtefactRow {
     lastAccessActiveMs: r.lastAccessActiveMs,
     semanticSimilarity: r.semanticSimilarity,
     semanticCosine: r.semanticCosine,
+    embedding: r.embedding,
     score: r.score,
     selected: r.selected,
     anonId,
@@ -182,6 +197,7 @@ export default class StudyDataCollector {
           lastAccessActiveMs: r.lastAccessActiveMs ?? 0,
           semanticSimilarity: r.semanticSimilarity ?? 1,
           semanticCosine: r.semanticCosine ?? null,
+          embedding: parseEmbedding(r.embedding),
           score: r.score ?? 0,
           selected: isSelected(r),
         }))

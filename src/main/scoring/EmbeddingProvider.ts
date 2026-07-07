@@ -11,10 +11,9 @@
  * semantic similarity as neutral, so the app never breaks or blocks on it.
  */
 
-import { app } from 'electron';
-import { join } from 'path';
 import { info, warn } from 'electron-log';
 import StaticSettings from '../StaticSettings';
+import getAssetPath from '../helpers/getAssetPath';
 
 // Hide the import from webpack's static analysis so the (large, ESM-only)
 // package is resolved from node_modules at runtime instead of being bundled.
@@ -65,19 +64,20 @@ export default class EmbeddingProvider {
   private async load(): Promise<void> {
     try {
       const { pipeline, env } = await dynamicImport('@huggingface/transformers');
-      // Keep model weights in a writable per-user cache; allow the one-time
-      // download unless a bundled copy is provided.
-      env.cacheDir = join(app.getPath('userData'), 'models');
-      env.allowRemoteModels = true;
+      // Load the model that ships bundled under assets/models/<model-id>/ — no
+      // network, works offline from first launch. (env.localModelPath is the
+      // *parent* dir; the model id resolves the subfolder.)
+      env.allowRemoteModels = false;
+      env.localModelPath = getAssetPath('models');
       const model = StaticSettings.SEMANTIC_MODEL;
-      info(`[EmbeddingProvider] loading "${model}"…`);
+      info(`[EmbeddingProvider] loading "${model}" from ${env.localModelPath}…`);
       // Default device = onnxruntime-node (N-API native, Electron-compatible).
       // NOTE: 'wasm' is NOT a valid device in @huggingface/transformers v4
-      // (only cpu/webgpu/coreml) — passing it throws before the model loads.
-      this._extractor = (await pipeline(
-        'feature-extraction',
-        model
-      )) as unknown as Extractor;
+      // (only cpu/webgpu/coreml). dtype 'fp32' loads onnx/model.onnx (the file
+      // we bundle).
+      this._extractor = (await pipeline('feature-extraction', model, {
+        dtype: 'fp32',
+      })) as unknown as Extractor;
       info('[EmbeddingProvider] model ready');
     } catch (err) {
       this._failed = true;
