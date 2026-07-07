@@ -385,9 +385,9 @@ export default class TaskRestorer {
       // Part of the task -> keep open.
       if (keepPaths.has(path) || keepNames.has(lowerName)) continue;
 
-      // Don't quit a browser whose tabs the task manages.
-      const bt = browserTypeFromName(name);
-      if (bt && keepBrowserTypes.has(bt)) continue;
+      // Never quit a browser: we manage its tabs (close unrelated ones, collapse
+      // tab groups) but keep the app open so open tab groups aren't lost.
+      if (browserTypeFromName(name)) continue;
 
       if (!path) continue;
 

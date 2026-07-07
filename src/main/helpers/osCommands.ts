@@ -19,6 +19,40 @@ import ArtifactFiles from "../../types/ArtifactFiles";
 
 const asyncExec = promisify(exec);
 
+/**
+ * The file path of the document open in the frontmost app's front window, via
+ * the Accessibility AXDocument attribute (macOS). Works for document-based apps
+ * (Preview, Word, Pages, TextEdit, …) that expose their open file; returns null
+ * otherwise. Needs the Accessibility permission (already required by active-win).
+ */
+export async function getFrontDocumentPath(): Promise<string | null> {
+  if (!isMac) return null;
+  const script = `tell application "System Events"
+  set procs to (every process whose frontmost is true)
+  if (count of procs) is 0 then return ""
+  try
+    set d to value of attribute "AXDocument" of window 1 of (item 1 of procs)
+    if d is missing value then return ""
+    return d as text
+  on error
+    return ""
+  end try
+end tell`;
+  try {
+    const { stdout } = await asyncExec(`osascript -e '${script}'`, {
+      timeout: 2000,
+    });
+    const raw = (stdout || '').trim();
+    if (!raw) return null;
+    if (raw.startsWith('file://')) {
+      return decodeURIComponent(raw.replace(/^file:\/\//, ''));
+    }
+    return raw.startsWith('/') ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
 //TODO remove openArtifacts and merge method with openFiles
 export async function openArtifact(artifact: Artifact) {
   if (isMac) {

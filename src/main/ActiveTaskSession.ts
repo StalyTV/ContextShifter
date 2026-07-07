@@ -32,6 +32,8 @@ import { isBlankTab } from './helpers/isBlankTab';
 import { UsageStat } from './scoring/StatsAccumulator';
 import artefactText from './scoring/artefactText';
 import SemanticScorer, { SemanticInput } from './scoring/SemanticScorer';
+import { getFrontDocumentPath } from './helpers/osCommands';
+import { getFileNameFromPath } from './helpers/getFileNameFromPath';
 import {
   TLEvent,
   replay,
@@ -53,6 +55,8 @@ export type TrackedApp = {
   lastSeen: number;
   score?: number;
   semanticScore?: number;
+  /** Documents open in this app while active (path -> name), for reopening. */
+  documents?: { path: string; name: string }[];
 };
 
 export type TrackedTab = {
@@ -106,6 +110,7 @@ type Meta = {
   browsers: Map<BrowserType, TrackedApp>;
   tabs: Map<string, TrackedTab>;
   files: Map<string, TrackedFile>;
+  appDocuments: Map<string, { path: string; name: string }[]>;
 };
 
 /** Per-artefact scoring output: final score + semantic detail for persistence. */
@@ -176,6 +181,10 @@ export default class ActiveTaskSession {
   private _browsers: Map<BrowserType, TrackedApp> = new Map(); // by type
   private _tabs: Map<string, TrackedTab> = new Map(); // by url
   private _files: Map<string, TrackedFile> = new Map(); // by path
+  // Documents open in regular apps (appPath -> docPath -> docName), captured via
+  // Accessibility while a task is active, so they can be reopened on restore.
+  private _appDocuments: Map<string, Map<string, string>> = new Map();
+  private _docCaptureAt = 0; // throttle for the osascript document query
 
   // Accumulated stats from previous sessions (loaded; never mutated in place).
   private _priorStats: Map<string, UsageStat> = new Map();
@@ -489,6 +498,26 @@ export default class ActiveTaskSession {
       lastSeen: now,
     });
     this.recordFocus(appKey(appPath), 'app');
+    this.captureFrontDocument(appPath, now);
+  }
+
+  /**
+   * Best-effort: capture the document open in the focused app (Preview, Word,
+   * …) so it can be reopened on restore. Throttled and async; only while a task
+   * is active.
+   */
+  private captureFrontDocument(appPath: string, now: number): void {
+    if (this._activeTaskId === null) return;
+    if (now - this._docCaptureAt < 1500) return;
+    this._docCaptureAt = now;
+    getFrontDocumentPath()
+      .then((docPath) => {
+        if (!docPath) return;
+        const docs = this._appDocuments.get(appPath) ?? new Map<string, string>();
+        docs.set(docPath, getFileNameFromPath(docPath));
+        this._appDocuments.set(appPath, docs);
+      })
+      .catch(() => undefined);
   }
 
   /** Hook from BrowserTracker when the extension reports the active tab changed. */
@@ -724,6 +753,7 @@ export default class ActiveTaskSession {
         ...a,
         score: scores.get(appKey(a.path)) ?? 0,
         semanticScore: semantic.get(appKey(a.path)),
+        documents: meta.appDocuments.get(a.path) ?? [],
       }))
       .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
     const ides = Array.from(meta.ides.values())
@@ -968,12 +998,20 @@ export default class ActiveTaskSession {
   }
 
   private snapshotMeta(): Meta {
+    const appDocuments = new Map<string, { path: string; name: string }[]>();
+    for (const [appPath, docs] of this._appDocuments) {
+      appDocuments.set(
+        appPath,
+        Array.from(docs.entries()).map(([path, name]) => ({ path, name }))
+      );
+    }
     return {
       apps: new Map(this._apps),
       ides: new Map(this._ides),
       browsers: new Map(this._browsers),
       tabs: new Map(this._tabs),
       files: new Map(this._files),
+      appDocuments,
     };
   }
 
@@ -994,6 +1032,7 @@ export default class ActiveTaskSession {
     this._priorEmbeddings = new Map();
     this._priorDeselected = new Set();
     this._priorAccumulatedMs = 0;
+    this._appDocuments = new Map();
   }
 
   private async broadcastChange(): Promise<void> {

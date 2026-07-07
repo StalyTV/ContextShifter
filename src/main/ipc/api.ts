@@ -513,14 +513,26 @@ async function buildStoppedBundle(
     a.relevance = appScore.get(path) ?? 0;
     const appSem = appSemantic.get(path);
     if (appSem != null) a.semanticRelevance = appSem;
-    // Carry previously-committed files (we don't track app files live).
-    a.files = (prevApp?.files ?? []).map((f) => {
+    // Union of previously-committed files + documents captured live while the
+    // app was focused this session (Preview/Word/… open document).
+    const filesByPath = new Map<string, FileEntity>();
+    (prevApp?.files ?? []).forEach((f) => {
+      if (!f.path) return;
       const fe = new FileEntity();
       fe.name = f.name;
       fe.path = f.path;
       fe.isSelected = true;
-      return fe;
+      filesByPath.set(f.path, fe);
     });
+    (tracked?.documents ?? []).forEach((d) => {
+      if (!d.path || filesByPath.has(d.path)) return;
+      const fe = new FileEntity();
+      fe.name = d.name;
+      fe.path = d.path;
+      fe.isSelected = true;
+      filesByPath.set(d.path, fe);
+    });
+    a.files = Array.from(filesByPath.values());
     if (tracked) trackedKeys.add(keyApp(a));
     appList.push(a);
   }
@@ -614,6 +626,13 @@ async function buildStoppedBundle(
       if (selectedLeaves.has(keyIdeFile(i, f))) autoSelect.add(keyIde(i));
     })
   );
+  // Pre-check an auto-selected app's captured documents (unless deselected).
+  filteredApps.forEach((a) => {
+    if (!autoSelect.has(keyApp(a))) return;
+    (a.files ?? []).forEach((f) => {
+      if (!deselected.has(`file:${f.path}`)) autoSelect.add(keyFile(a, f));
+    });
+  });
 
   // Resolve each timeline artefact key to an icon (for its colour) + a short
   // label, once per unique key (favicon fetches are expensive). Tabs use their
