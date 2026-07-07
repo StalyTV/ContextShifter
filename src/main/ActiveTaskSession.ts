@@ -184,7 +184,8 @@ export default class ActiveTaskSession {
   // Documents open in regular apps (appPath -> docPath -> docName), captured via
   // Accessibility while a task is active, so they can be reopened on restore.
   private _appDocuments: Map<string, Map<string, string>> = new Map();
-  private _docCaptureAt = 0; // throttle for the osascript document query
+  // Throttle the osascript document query per app (appPath -> last query ms).
+  private _docCaptureAt: Map<string, number> = new Map();
 
   // Accumulated stats from previous sessions (loaded; never mutated in place).
   private _priorStats: Map<string, UsageStat> = new Map();
@@ -498,19 +499,24 @@ export default class ActiveTaskSession {
       lastSeen: now,
     });
     this.recordFocus(appKey(appPath), 'app');
-    this.captureFrontDocument(appPath, now);
+    this.captureFrontDocument(appName, appPath, now);
   }
 
   /**
    * Best-effort: capture the document open in the focused app (Preview, Word,
-   * …) so it can be reopened on restore. Throttled and async; only while a task
-   * is active.
+   * …) so it can be reopened on restore. Each distinct document accumulates.
+   * Queries the *specific* app (not "frontmost") to avoid capturing a later
+   * app's document; throttled per app; only while a task is active.
    */
-  private captureFrontDocument(appPath: string, now: number): void {
+  private captureFrontDocument(
+    appName: string,
+    appPath: string,
+    now: number
+  ): void {
     if (this._activeTaskId === null) return;
-    if (now - this._docCaptureAt < 1500) return;
-    this._docCaptureAt = now;
-    getFrontDocumentPath()
+    if (now - (this._docCaptureAt.get(appPath) ?? 0) < 700) return;
+    this._docCaptureAt.set(appPath, now);
+    getFrontDocumentPath(appName)
       .then((docPath) => {
         if (!docPath) return;
         const docs = this._appDocuments.get(appPath) ?? new Map<string, string>();
@@ -1033,6 +1039,7 @@ export default class ActiveTaskSession {
     this._priorDeselected = new Set();
     this._priorAccumulatedMs = 0;
     this._appDocuments = new Map();
+    this._docCaptureAt = new Map();
   }
 
   private async broadcastChange(): Promise<void> {

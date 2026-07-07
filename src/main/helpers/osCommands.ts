@@ -20,15 +20,22 @@ import ArtifactFiles from "../../types/ArtifactFiles";
 const asyncExec = promisify(exec);
 
 /**
- * The file path of the document open in the frontmost app's front window, via
- * the Accessibility AXDocument attribute (macOS). Works for document-based apps
- * (Preview, Word, Pages, TextEdit, …) that expose their open file; returns null
- * otherwise. Needs the Accessibility permission (already required by active-win).
+ * The file path of the document open in the given app's front window (or the
+ * frontmost app if no name is given), via the Accessibility AXDocument attribute
+ * (macOS). Works for document-based apps (Preview, Word, Pages, TextEdit, …) that
+ * expose their open file; returns null otherwise. Querying a *specific* app (not
+ * "frontmost") avoids a race where the front app changes before this resolves.
+ * Needs the Accessibility permission (already required by active-win).
  */
-export async function getFrontDocumentPath(): Promise<string | null> {
+export async function getFrontDocumentPath(
+  appName?: string
+): Promise<string | null> {
   if (!isMac) return null;
+  const selector = appName
+    ? `(every process whose name is "${appName.replace(/["\\]/g, '')}")`
+    : `(every process whose frontmost is true)`;
   const script = `tell application "System Events"
-  set procs to (every process whose frontmost is true)
+  set procs to ${selector}
   if (count of procs) is 0 then return ""
   try
     set d to value of attribute "AXDocument" of window 1 of (item 1 of procs)
