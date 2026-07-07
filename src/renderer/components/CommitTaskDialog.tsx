@@ -8,6 +8,7 @@ import FileEntity from '../../main/entity/File';
 import { StoppedTaskBundle } from '../../types/Commands';
 import TrimBar from './TrimBar';
 import ConfirmDialog from './ConfirmDialog';
+import SemInfoButton from './SemInfoButton';
 import styles from './NewTaskDialog.module.scss';
 
 type Props = {
@@ -557,6 +558,11 @@ export default function CommitTaskDialog({
                               </div>
                               <ScoreBadge value={t.relevance} />
                               <SemBadge value={t.semanticRelevance} />
+                              <SemInfoButton
+                                kind="tab"
+                                title={t.title}
+                                url={t.url}
+                              />
                             </div>
                           );
                         };
@@ -666,6 +672,12 @@ export default function CommitTaskDialog({
                       </div>
                       <ScoreBadge value={i.relevance} />
                       <SemBadge value={i.semanticRelevance} />
+                      <SemInfoButton
+                        kind="ide"
+                        name={i.name}
+                        path={i.path}
+                        title={i.title}
+                      />
                       {(files.length > 0 || i.workspacePath) && (
                         <button
                           type="button"
@@ -727,6 +739,7 @@ export default function CommitTaskDialog({
                               </div>
                               <ScoreBadge value={f.relevance} />
                       <SemBadge value={f.semanticRelevance} />
+                              <SemInfoButton kind="file" path={f.path} />
                             </div>
                           );
                         })}
@@ -767,6 +780,12 @@ export default function CommitTaskDialog({
                       </div>
                       <ScoreBadge value={a.relevance} />
                       <SemBadge value={a.semanticRelevance} />
+                      <SemInfoButton
+                        kind="app"
+                        name={a.name}
+                        path={a.path}
+                        title={a.title}
+                      />
                       {files.length > 0 && (
                         <button
                           type="button"
@@ -802,6 +821,7 @@ export default function CommitTaskDialog({
                               <div className={styles.name}>{f.name}</div>
                               <div className={styles.sub}>{f.path}</div>
                             </div>
+                            <SemInfoButton kind="file" path={f.path} />
                           </div>
                         );
                       })}

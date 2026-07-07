@@ -12,6 +12,7 @@ import ApplicationEntity from '../../main/entity/Application';
 import FileEntity from '../../main/entity/File';
 import TaskActionButtons from '../components/TaskActionButtons';
 import ConfirmDialog from '../components/ConfirmDialog';
+import SemInfoButton from '../components/SemInfoButton';
 import CommitTaskDialog from '../components/CommitTaskDialog';
 import StartTaskDialog from '../components/StartTaskDialog';
 
@@ -89,6 +90,7 @@ type RowProps = {
   isChild?: boolean;
   onRemove?: () => void;
   swatch?: string;
+  extra?: React.ReactNode;
 };
 
 function ArtifactRow({
@@ -101,6 +103,7 @@ function ArtifactRow({
   isChild,
   onRemove,
   swatch,
+  extra,
 }: RowProps) {
   return (
     <div
@@ -123,6 +126,7 @@ function ArtifactRow({
         <div className={styles.artifactName}>{name}</div>
         {sub ? <div className={styles.artifactSub}>{sub}</div> : null}
       </div>
+      {extra}
       {childCount && childCount > 0 && onToggle ? (
         <button
           type="button"
@@ -578,6 +582,9 @@ export default function TaskEditView() {
                           name={t.title || hostFromUrl(t.url)}
                           sub={hostFromUrl(t.url)}
                           onRemove={() => removeArtefact('tab', t.id)}
+                          extra={
+                            <SemInfoButton kind="tab" title={t.title} url={t.url} />
+                          }
                         />
                       );
                       const grouped = new Map<string, BrowserTabEntity[]>();
@@ -640,6 +647,14 @@ export default function TaskEditView() {
                     isOpen={isOpen}
                     onToggle={() => toggleExpanded(k)}
                     onRemove={() => removeArtefact('ide', ide.id)}
+                    extra={
+                      <SemInfoButton
+                        kind="ide"
+                        name={ide.name}
+                        path={ide.path}
+                        title={(ide as any).title}
+                      />
+                    }
                   />
                   {isOpen && ide.workspacePath && (
                     <ArtifactRow
@@ -665,6 +680,7 @@ export default function TaskEditView() {
                           name={display}
                           sub={f.path}
                           onRemove={() => removeArtefact('ideFile', f.id)}
+                          extra={<SemInfoButton kind="file" path={f.path} />}
                         />
                       );
                     })}
@@ -698,6 +714,14 @@ export default function TaskEditView() {
                     isOpen={isOpen}
                     onToggle={() => toggleExpanded(k)}
                     onRemove={() => removeArtefact('app', app.id)}
+                    extra={
+                      <SemInfoButton
+                        kind="app"
+                        name={app.name}
+                        path={app.path}
+                        title={app.title}
+                      />
+                    }
                   />
                   {isOpen &&
                     files.map((f) => (
@@ -710,6 +734,7 @@ export default function TaskEditView() {
                         name={f.name || f.path}
                         sub={f.path}
                         onRemove={() => removeArtefact('file', f.id)}
+                        extra={<SemInfoButton kind="file" path={f.path} />}
                       />
                     ))}
                 </div>

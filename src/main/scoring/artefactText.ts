@@ -7,7 +7,9 @@
  * embedding model sees "questions jwt refresh" rather than one opaque slug.
  */
 
-import { ArtifactKind } from '../entity/ArtifactUsage';
+// Type-only import so this module stays free of runtime (TypeORM) deps and can
+// be imported by the renderer too (to show the exact text used for embedding).
+import type { ArtifactKind } from '../entity/ArtifactUsage';
 
 export type ArtefactTextInput = {
   kind: ArtifactKind;
