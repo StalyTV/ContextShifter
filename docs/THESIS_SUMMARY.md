@@ -98,6 +98,50 @@ truth, and keeps the evaluation honest. (The predecessor's multiplicative
 Frequency–Distance–Antiquity scorer, `FDACalculator`, is retained in-tree as a
 **legacy** comparison baseline but no longer drives the flow.)
 
+### 2.1 Semantic relevance — a content signal on top of behaviour
+
+The behavioural terms above (duration, frequency, recency) are all *interaction*
+signals: they measure how an artefact was used, not what it is *about*. On top of
+them, ContextShifter multiplies in a **semantic relevance** factor computed from
+local, on-device sentence embeddings ([`EmbeddingProvider`](../src/main/scoring/EmbeddingProvider.ts),
+[`SemanticScorer`](../src/main/scoring/SemanticScorer.ts)): each artefact's text
+(title / URL / path) is embedded, and its cosine similarity to a
+behaviourally-weighted **centroid** of the task's artefacts becomes a `[0,1]`
+factor that can only *demote* off-topic artefacts (an outlier/contamination
+detector). It is off by default (`influence α = 0`) and collected before it
+drives, exactly like the interaction weight, so its contribution can be
+calibrated against the study ground truth.
+
+**Related work.** The idea of inferring a task — or a task's relevant resources —
+from the *content* of desktop artefacts predates this work; embeddings simply
+modernise the representation step. **Shen et al.** (hybrid Naïve-Bayes/SVM task
+recognition from desktop activities and email, IUI 2006 [16]) and **Stumpf et
+al.** ("Predicting user tasks", 2005 [17]) use hand-engineered text features of
+documents/windows/emails to classify the active task; **Ceri et al.**'s *xMem*
+(ICWE 2006 [2]) assigns content-derived keywords to web pages to aid history
+navigation — the keyword-based ancestor of representing a tab by its content.
+Against these, ContextShifter's semantic term is a neural, embedding-based
+representation of the same content signal. It is deliberately **complementary to
+the degree-of-interest lineage** — Kersten & Murphy's Mylyn/Mylar DOI model
+(AOSD 2005 [13], FSE 2006 [14]; Kersten's thesis [12]) scores relevance purely
+from *frequency + recency of interaction* and is content-blind; the embedding
+term supplies exactly the content dimension DOI cannot see. Conceptually the
+split follows Tulving's distinction between **episodic** and **semantic** memory
+[19]: the behavioural signals and the timeline operationalise the episodic
+(*when/where*), while the embedding relevance operationalises the semantic
+(*what/meaning*).
+
+**Method references (not in the Safer & Murphy bibliography — pre-deep-learning).**
+The embedding technique itself draws on modern NLP: **Reimers & Gurevych,
+"Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks" (EMNLP 2019)**
+for sentence-level embeddings usable with cosine similarity, and **Wang et al.,
+"MiniLM: Deep Self-Attention Distillation for Task-Agnostic Compression of
+Pre-Trained Transformers" (NeurIPS 2020)** for the distilled model family. The
+concrete model shipped is **`all-MiniLM-L6-v2`** (the sentence-transformers model
+card), run locally via Transformers.js — so the content signal is computed
+on-device with nothing leaving the machine, consistent with the study's privacy
+posture.
+
 ---
 
 ## 3. Making the signals trustworthy — refinements to tracking
