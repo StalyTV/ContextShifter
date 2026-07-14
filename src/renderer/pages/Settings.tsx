@@ -29,6 +29,16 @@ export default function Settings() {
   const [isDataAnonymized, setIsDataAnonymized] = useState<boolean>(false);
   const [isArtefactSelectionEnabled, setIsArtefactSelectionEnabled] =
     useState<boolean>(true);
+  const [showRelevanceScores, setShowRelevanceScores] =
+    useState<boolean>(false);
+  const [studyPhase, setStudyPhase] = useState<'phase1' | 'phase2'>('phase1');
+  // The study-config controls (phase + artefact selection + show scores) are
+  // locked so participants can't change them; a password unlocks them for this
+  // app run only (not persisted).
+  const [studyControlsUnlocked, setStudyControlsUnlocked] =
+    useState<boolean>(false);
+  const [unlockInput, setUnlockInput] = useState<string>('');
+  const [unlockError, setUnlockError] = useState<boolean>(false);
   const [isStudyDataCollectionEnabled, setIsStudyDataCollectionEnabled] =
     useState<boolean>(false);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
@@ -67,6 +77,8 @@ export default function Settings() {
       setIsDarkMode(settings.isDarkModeEnabled);
       setIsDataAnonymized(settings.isDataAnonymized);
       setIsArtefactSelectionEnabled(settings.isArtefactSelectionEnabled);
+      setShowRelevanceScores(settings.showRelevanceScores);
+      setStudyPhase(settings.studyPhase ?? 'phase1');
       setIsStudyDataCollectionEnabled(settings.isStudyDataCollectionEnabled);
       setEndOfDayPopUpTime(settings.endOfDayPopUpTime);
       setShowQuestionnaireOnlyOnWorkdays(
@@ -167,6 +179,8 @@ export default function Settings() {
     isDarkModeEnabled: isDarkMode,
     isDataAnonymized: isDataAnonymized,
     isArtefactSelectionEnabled: isArtefactSelectionEnabled,
+    showRelevanceScores: showRelevanceScores,
+    studyPhase: studyPhase,
     isStudyDataCollectionEnabled: isStudyDataCollectionEnabled,
     endOfDayPopUpTime: endOfDayPopUpTime,
     showQuestionnaireOnlyOnWorkdays: showQuestionnaireOnlyOnWorkdays,
@@ -191,9 +205,33 @@ export default function Settings() {
   };
 
   const onToggleArtefactSelection = async () => {
+    if (!studyControlsUnlocked) return;
     const next = !isArtefactSelectionEnabled;
     setIsArtefactSelectionEnabled(next);
     setSettings(buildSettings({ isArtefactSelectionEnabled: next }));
+  };
+
+  const onToggleShowRelevanceScores = async () => {
+    if (!studyControlsUnlocked) return;
+    const next = !showRelevanceScores;
+    setShowRelevanceScores(next);
+    setSettings(buildSettings({ showRelevanceScores: next }));
+  };
+
+  const onSelectPhase = async (phase: 'phase1' | 'phase2') => {
+    if (phase === studyPhase) return;
+    setStudyPhase(phase);
+    setSettings(buildSettings({ studyPhase: phase }));
+  };
+
+  const onSubmitUnlock = () => {
+    if (unlockInput === 'Myelin') {
+      setStudyControlsUnlocked(true);
+      setUnlockError(false);
+      setUnlockInput('');
+    } else {
+      setUnlockError(true);
+    }
   };
 
   const onExportStudyData = async () => {
@@ -264,44 +302,36 @@ export default function Settings() {
         </div>
       )}
 
-      <h4>Artefact Selection</h4>
+      <h4>Study Phase</h4>
       <div className={styles.studyCard}>
         <label className={styles.dataCollectionRow}>
           <input
-            type="checkbox"
+            type="radio"
+            name="studyPhase"
             className={styles.checkbox}
-            checked={isArtefactSelectionEnabled}
-            onChange={onToggleArtefactSelection}
+            checked={studyPhase === 'phase1'}
+            onChange={() => onSelectPhase('phase1')}
           />
-          <span className={styles.dataCollectionLabel}>Artefact Selection</span>
+          <span className={styles.dataCollectionLabel}>Phase 1 (3 days)</span>
+        </label>
+        <label className={styles.dataCollectionRow}>
+          <input
+            type="radio"
+            name="studyPhase"
+            className={styles.checkbox}
+            checked={studyPhase === 'phase2'}
+            onChange={() => onSelectPhase('phase2')}
+          />
+          <span className={styles.dataCollectionLabel}>Phase 2 (2 days)</span>
         </label>
         <p className={styles.exportMessage}>
-          When off, ending or switching a task skips the selection screen and
-          automatically keeps the artefacts the scorer finds relevant.
+          Phase 1: the selection screen makes no preselection, you choose all
+          artefacts yourself. Phase 2: the scorer preselects the artefacts it
+          finds relevant.
         </p>
       </div>
 
-      <h4>Connection Status</h4>
-      <div className={styles.connections}>
-        <div className={styles.connection}>
-          <div
-            className={`${styles.circle} ${
-              extensionStatus.isVSCodeConnected ? styles.connected : undefined
-            }`}
-          ></div>
-          <span>VSCode Extension</span>
-        </div>
-        <div className={styles.connection}>
-          <div
-            className={`${styles.circle} ${
-              extensionStatus.isBrowserConnected ? styles.connected : undefined
-            }`}
-          ></div>
-          <span>Browser Extension</span>
-        </div>
-      </div>
-
-      <h4>Study Settings</h4>
+      <h4>Data Collection</h4>
       <div className={styles.studyCard}>
         <label className={styles.dataCollectionRow}>
           <input
@@ -328,12 +358,6 @@ export default function Settings() {
           <span>Export Study Data</span>
         </button>
         <button
-          className={styles.exportButton}
-          onClick={() => setShowWeights(true)}
-        >
-          <span>Weights</span>
-        </button>
-        <button
           className={styles.clearButton}
           onClick={() => setShowClearConfirm(true)}
         >
@@ -344,9 +368,29 @@ export default function Settings() {
         ) : null}
       </div>
 
+      <h4>Connection Status</h4>
+      <div className={styles.connections}>
+        <div className={styles.connection}>
+          <div
+            className={`${styles.circle} ${
+              extensionStatus.isVSCodeConnected ? styles.connected : undefined
+            }`}
+          ></div>
+          <span>VSCode Extension</span>
+        </div>
+        <div className={styles.connection}>
+          <div
+            className={`${styles.circle} ${
+              extensionStatus.isBrowserConnected ? styles.connected : undefined
+            }`}
+          ></div>
+          <span>Browser Extension</span>
+        </div>
+      </div>
+
       <div className={styles.sectionHeader}>
         <div className={styles.titleWithInfo}>
-          <h4>Apps that should never be closed</h4>
+          <h4>Apps that should never be tracked and closed</h4>
           <InfoIcon
             className={styles.infoIcon}
             data-tooltip-id={'task-snap'}
@@ -405,7 +449,7 @@ export default function Settings() {
 
       <div className={styles.sectionHeader}>
         <div className={styles.titleWithInfo}>
-          <h4>Browser tabs that should never close</h4>
+          <h4>Browser tabs that should never be tracked and closed</h4>
           <InfoIcon
             className={styles.infoIcon}
             data-tooltip-id={'task-snap'}
@@ -473,6 +517,87 @@ export default function Settings() {
           )}
         </>
       )}
+
+      <h4>Artefact Selection</h4>
+      <div className={styles.studyCard}>
+        <label
+          className={styles.dataCollectionRow}
+          style={{ opacity: studyControlsUnlocked ? 1 : 0.55 }}
+        >
+          <input
+            type="checkbox"
+            className={styles.checkbox}
+            checked={isArtefactSelectionEnabled}
+            disabled={!studyControlsUnlocked}
+            onChange={onToggleArtefactSelection}
+          />
+          <span className={styles.dataCollectionLabel}>Artefact Selection</span>
+        </label>
+        <p className={styles.exportMessage}>
+          When off, ending or switching a task skips the selection screen and
+          automatically keeps the artefacts the scorer finds relevant.
+        </p>
+        <label
+          className={styles.dataCollectionRow}
+          style={{ opacity: studyControlsUnlocked ? 1 : 0.55 }}
+        >
+          <input
+            type="checkbox"
+            className={styles.checkbox}
+            checked={showRelevanceScores}
+            disabled={!studyControlsUnlocked}
+            onChange={onToggleShowRelevanceScores}
+          />
+          <span className={styles.dataCollectionLabel}>
+            Show relevance scores
+          </span>
+        </label>
+        <p className={styles.exportMessage}>
+          When on, the relevance and semantic scores (and the embedding-text
+          info) are shown next to each artefact in the selection and task
+          views.
+        </p>
+        <button
+          className={styles.exportButton}
+          onClick={() => setShowWeights(true)}
+          disabled={!studyControlsUnlocked}
+          style={{ opacity: studyControlsUnlocked ? 1 : 0.55 }}
+        >
+          <span>Weights</span>
+        </button>
+        {studyControlsUnlocked ? (
+          <p className={styles.exportMessage}>Study controls unlocked.</p>
+        ) : (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="password"
+              placeholder="Password to unlock"
+              value={unlockInput}
+              onChange={(e) => {
+                setUnlockInput(e.target.value);
+                setUnlockError(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') onSubmitUnlock();
+              }}
+              style={{
+                flex: 1,
+                padding: '6px 8px',
+                borderRadius: 4,
+                border: '1px solid rgba(128,128,128,0.4)',
+                background: 'transparent',
+                color: 'inherit',
+              }}
+            />
+            <button className={styles.exportButton} onClick={onSubmitUnlock}>
+              Unlock
+            </button>
+          </div>
+        )}
+        {unlockError ? (
+          <p className={styles.exportMessage}>Wrong password.</p>
+        ) : null}
+      </div>
 
       {showWeights && <WeightsDialog onClose={() => setShowWeights(false)} />}
       {showClearConfirm && (

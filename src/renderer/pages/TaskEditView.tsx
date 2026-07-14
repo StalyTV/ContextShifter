@@ -13,6 +13,7 @@ import FileEntity from '../../main/entity/File';
 import TaskActionButtons from '../components/TaskActionButtons';
 import ConfirmDialog from '../components/ConfirmDialog';
 import SemInfoButton from '../components/SemInfoButton';
+import { ScoreVisibilityProvider } from '../components/ScoreVisibility';
 import CommitTaskDialog from '../components/CommitTaskDialog';
 import StartTaskDialog from '../components/StartTaskDialog';
 
@@ -176,6 +177,8 @@ export default function TaskEditView() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [activeTask, setActiveTask] = useState<ActiveTask>(null);
+  // Whether to show semantic/relevance info ("Show relevance scores" setting).
+  const [showScores, setShowScores] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<SnapshotEntity | null>(null);
   const [showCommitTask, setShowCommitTask] = useState(false);
   const [showStartTask, setShowStartTask] = useState(false);
@@ -249,6 +252,27 @@ export default function TaskEditView() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const settings = await window.electron.ipcRenderer.invoke(
+          'get-settings'
+        );
+        if (alive)
+          setShowScores(
+            (settings as { showRelevanceScores?: boolean })
+              ?.showRelevanceScores === true
+          );
+      } catch {
+        /* default hidden */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -432,6 +456,7 @@ export default function TaskEditView() {
     browsers.length + ides.length + apps.length > 0;
 
   return (
+    <ScoreVisibilityProvider value={showScores}>
     <div className={styles.page}>
       <div className={styles.topBar}>
         <button
@@ -786,5 +811,6 @@ export default function TaskEditView() {
         />
       )}
     </div>
+    </ScoreVisibilityProvider>
   );
 }

@@ -166,7 +166,6 @@ export default class ScoreWeightsManager {
       const rows = await ArtifactUsage.getForSnapshot(snap.id);
       if (rows.length === 0) continue;
 
-      const totalSessionMs = snap.activeMs ?? 0;
       const lastAccessMsOf = (r: ArtifactUsage) =>
         r.lastAccessTs ? Date.parse(r.lastAccessTs) : 0;
       // Recency decays over the task's total active time (sum of idle-capped
@@ -179,6 +178,16 @@ export default class ScoreWeightsManager {
       const totalInteractions = rows
         .filter((r) => !isNeverClose(r))
         .reduce((s, r) => s + (r.interactionCount ?? 0), 0);
+      // The task is finished, so the stored decayed values (decayed to the last
+      // stop) ARE the score basis — min-max normalize them like live scoring,
+      // excluding never-close artefacts from the maxima.
+      let maxF = 0;
+      let maxD = 0;
+      for (const r of rows) {
+        if (isNeverClose(r)) continue;
+        if ((r.scoredFrequency ?? 0) > maxF) maxF = r.scoredFrequency ?? 0;
+        if ((r.scoredDurationMs ?? 0) > maxD) maxD = r.scoredDurationMs ?? 0;
+      }
 
       // Pass 1: behavioral inputs + scores + text (reused as the centroid weight).
       const inputByKey = new Map<string, ScoreInput>();
@@ -187,8 +196,8 @@ export default class ScoreWeightsManager {
       for (const r of rows) {
         const lastAccessMs = lastAccessMsOf(r);
         const input: ScoreInput = {
-          totalDurationMs: r.totalDurationMs ?? 0,
-          accessCount: r.accessCount ?? 0,
+          durationNorm: maxD > 0 ? (r.scoredDurationMs ?? 0) / maxD : 0,
+          frequencyNorm: maxF > 0 ? (r.scoredFrequency ?? 0) / maxF : 0,
           lastAccessMs: Number.isNaN(lastAccessMs) ? 0 : lastAccessMs,
           lastAccessActiveMs: r.lastAccessActiveMs ?? 0,
           interactionShare:
@@ -199,7 +208,7 @@ export default class ScoreWeightsManager {
         inputByKey.set(r.key, input);
         behavioralByKey.set(
           r.key,
-          ArtifactScorer.behavioralScore(input, totalSessionMs, nowActiveMs)
+          ArtifactScorer.behavioralScore(input, nowActiveMs)
         );
         textByKey.set(
           r.key,
@@ -243,11 +252,11 @@ export default class ScoreWeightsManager {
         input.semanticSimilarity = sem?.similarity ?? 1;
         r.semanticSimilarity = sem?.similarity ?? 1;
         r.semanticCosine = sem?.cosine ?? null!;
+        r.embeddedText = textByKey.get(r.key) ?? '';
         if (sem?.embedding) {
           r.embedding = JSON.stringify(sem.embedding);
-          r.embeddedText = textByKey.get(r.key) ?? '';
         }
-        r.score = ArtifactScorer.score(input, totalSessionMs, nowActiveMs);
+        r.score = ArtifactScorer.score(input, nowActiveMs);
       }
       // eslint-disable-next-line no-await-in-loop
       await ArtifactUsage.save(rows);

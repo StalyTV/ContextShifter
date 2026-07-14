@@ -142,6 +142,49 @@ card), run locally via Transformers.js — so the content signal is computed
 on-device with nothing leaving the machine, consistent with the study's privacy
 posture.
 
+### 2.2 What goes into the centroid — document-level scoring and container exclusion
+
+The semantic centroid is only as good as the set of artefacts it is built from.
+Two refinements make it reflect the *content the user actually worked on* rather
+than the shells that hosted it.
+
+**Documents are scored individually, not as one blob per app.** Document-based
+macOS apps (Preview, Word, Pages, TextEdit, …) expose the open file through the
+Accessibility `AXDocument` attribute
+([`getFrontDocumentPath`](../src/main/helpers/osCommands.ts)). ContextShifter
+captures the front document of the focused app and records a *per-document* focus
+artefact (`file:<path>`) with its own duration, frequency, recency and embedding
+— so two PDFs opened in the same Preview window are two separately scored
+artefacts, each with its own relevance and semantic score, instead of collapsing
+into a single "Preview" entry.
+
+**Containers are kept out of the centroid; only their content is scored.** An
+application that merely *hosts* documents carries no useful task content of its
+own — its embedding text is just the app name plus a window title, which would
+add noise to the task theme. So a host app (one with captured documents) is
+excluded from the centroid entirely, and its row instead displays the scores of
+its **most relevant document**. This mirrors the existing VS Code behaviour,
+where focus is attributed to the active *file* rather than to the editor shell.
+Together with the two pre-existing exclusions — **never-close** artefacts (always
+open, not part of any one task) and artefacts the user **previously deselected** —
+the centroid is composed only of the leaf content artefacts (documents, files,
+tabs, and genuinely standalone apps) that define the task. Excluded keys receive
+a neutral semantic factor of `1` so they are neither demoted nor allowed to skew
+the theme. (The live task-stop path applies all three exclusions; the manual
+weight-recompute path — used only when the analyst edits weights — still lacks
+the app→documents mapping to reproduce the host-app exclusion.)
+
+**Showing the scores is opt-in.** The relevance and semantic numbers (and the
+"Sem." button that reveals the exact embedding text) are developer/analyst
+instrumentation, not something a study participant should see while curating —
+visible scores could bias which artefacts they keep. A **"Show relevance
+scores"** setting (off by default, [`Settings`](../src/main/entity/Settings.ts) →
+[`CommitTaskDialog`](../src/renderer/components/CommitTaskDialog.tsx) /
+[`TaskEditView`](../src/renderer/pages/TaskEditView.tsx) via a
+[`ScoreVisibility`](../src/renderer/components/ScoreVisibility.tsx) context) keeps
+the picker clean during studies and lets the researcher turn the numbers on for
+debugging and calibration.
+
 ---
 
 ## 3. Making the signals trustworthy — refinements to tracking
@@ -354,12 +397,16 @@ Grouped by theme; commit hashes in parentheses for traceability.
 - Frequency gate ≥ 5 s (`d8638a5`); idle-capped duration (`462dc82`); move/scroll keep duration alive (`b068e29`); recency gate ≥ 3 s (`14aa577`)
 - Editable weights + re-scoring; log start/stop times (`75c3bca`)
 - **Active-time recency** so idle / between-session gaps don't age recency (`ca9c05a`)
+- **Semantic relevance** via local MiniLM embeddings — behaviourally-weighted centroid, multiplicative factor `(1−α)+α·s`
+- Per-document scoring: each open document (PDF/Word/…) tracked and embedded separately (`8b67ea8`)
+- Exclude never-close / previously-deselected / document-host apps from the centroid so only leaf content defines the task theme
 
 **Curation**
 - Timeline trim: curate the time window, re-score the kept span (`de79bff`)
 - Keep commit dialog open on outside click; confirm before discard (`e7f7639`)
 - Fix trimmed scores leaking into storage; timeline markers + idle bands (`9c3e7a6`)
 - Artefact Selection toggle to skip the picker (`492d2fa`)
+- "Show relevance scores" toggle (off by default) to hide the relevance/semantic scores and "Sem." embedding-text button in the picker and task view
 
 **Study / evaluation**
 - Collect per-task scores + manual selection + export (`d69c17d`)

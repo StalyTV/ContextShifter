@@ -41,6 +41,7 @@ import { CloseTabClientRequest } from '../types/context-browser-extension-types/
 import {
   resolveProfileDirectory,
   launchChromeProfile,
+  launchChrome,
 } from './helpers/ChromeProfiles';
 import {
   openArtifact,
@@ -293,10 +294,12 @@ export default class TaskRestorer {
   }
 
   /**
-   * Open one (type, profile) group's ungrouped tabs. If the profile's extension
-   * is connected, route through it (opens in the existing window). If not —
-   * Chrome closed or that profile not open — launch the profile directly via its
-   * `--profile-directory` so Chrome opens it without the profile picker.
+   * Open one (type, profile) group's ungrouped tabs. If a connection for the
+   * browser type is open, route through it (opens in the existing window). If
+   * not — Chrome closed or that profile not open — launch the profile directly
+   * via its `--profile-directory` so Chrome opens it without the picker; and if
+   * even the profile can't be resolved, launch Chrome anyway and open the tabs
+   * once the user has picked a profile (its extension connects).
    */
   private static openTabGroup(
     type: BrowserType,
@@ -307,22 +310,56 @@ export default class TaskRestorer {
     if (urls.length === 0) return;
     const tracker = BrowserTracker.getInstance();
 
-    // 1) Profile's window already open -> reuse it (unchanged behaviour).
-    const sent = tracker.tabOpeningRequest(
-      urls,
-      type,
-      profileId || undefined
-    );
-    if (sent) return;
+    // 1) A window of this browser type is already connected -> reuse it (routes
+    // to the profile's connection when open, else any open window of the type).
+    if (tracker.tabOpeningRequest(urls, type, profileId || undefined)) return;
 
-    // 2) Chrome + a known profile -> launch that profile directly (no picker).
-    if (type === 'chrome') {
-      const directory = resolveProfileDirectory(profileEmail);
-      if (directory && launchChromeProfile(directory, urls)) return;
+    // Non-Chrome: direct profile launch / picker handling below is Chrome-only.
+    if (type !== 'chrome') {
+      tracker.tabOpeningRequest(urls, type);
+      return;
     }
 
-    // 3) Fallback: any connected window of this type, else nothing we can do.
-    tracker.tabOpeningRequest(urls, type);
+    // 2) Chrome closed but we know the profile -> launch that profile directly
+    // (no picker), opening the tabs in it in one go.
+    const directory = resolveProfileDirectory(profileEmail);
+    if (directory && launchChromeProfile(directory, urls)) return;
+
+    // 3) Chrome closed and the profile is unknown -> just start Chrome. It will
+    // most likely show the profile picker; once the user picks a profile its
+    // extension connects, and we open the tabs then.
+    this.openChromeTabsWhenConnected(profileId, urls);
+  }
+
+  /**
+   * Launch Chrome (without a specific profile) and open `urls` through the
+   * extension as soon as a Chrome profile connects — i.e. after the user picks
+   * a profile in the picker. Best-effort: gives up after a timeout so a much
+   * later connection doesn't suddenly reopen stale tabs (e.g. if the picker was
+   * dismissed or the extension isn't installed in the chosen profile).
+   */
+  private static openChromeTabsWhenConnected(
+    profileId: string,
+    urls: string[]
+  ): void {
+    const tracker = BrowserTracker.getInstance();
+    let handled = false;
+    // Subscribe BEFORE launching so the connection can't be missed.
+    tracker.subscribeToConnection('chrome', () => {
+      if (handled) return;
+      handled = true;
+      info(
+        `[TaskRestorer] Chrome connected; opening ${urls.length} deferred tab(s)`
+      );
+      tracker.tabOpeningRequest(urls, 'chrome', profileId || undefined);
+    });
+    setTimeout(() => {
+      if (!handled) {
+        handled = true;
+        info('[TaskRestorer] Chrome did not connect in time; tabs not reopened');
+      }
+    }, 60000);
+    launchChrome();
   }
 
   // ---------------- CLOSE ----------------

@@ -27,6 +27,17 @@ const FIELDS: Array<{
   },
 ];
 
+// Default scoring weights — must match StaticSettings (behavioural weights all
+// equal at 1, interaction off, lambda 0.05, semantic influence off).
+const DEFAULT_WEIGHTS: ScoreWeightsDTO = {
+  duration: 1,
+  frequency: 1,
+  recency: 1,
+  interaction: 0,
+  lambda: 0.05,
+  semantic: 0,
+};
+
 /**
  * Edit the artefact-scoring weights (w1..w4 + lambda). Changing them re-scores
  * every task, so applying requires two explicit confirmations.
@@ -60,6 +71,12 @@ export default function WeightsDialog({ onClose }: Props) {
       prev ? { ...prev, [key]: Number.isFinite(n) ? n : 0 } : prev
     );
     setStep(0); // editing invalidates any in-progress confirmation
+    setDone(null);
+  };
+
+  const resetToDefaults = () => {
+    setWeights({ ...DEFAULT_WEIGHTS });
+    setStep(0); // still needs an explicit Save to persist + re-score
     setDone(null);
   };
 
@@ -152,6 +169,15 @@ export default function WeightsDialog({ onClose }: Props) {
                     disabled={saving}
                   >
                     Close
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.secondary}
+                    onClick={resetToDefaults}
+                    disabled={saving}
+                    title="Load 1 / 1 / 1 / 0, λ 0.05 (still needs Save to apply)"
+                  >
+                    Reset to defaults
                   </button>
                   <button
                     type="button"

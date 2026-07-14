@@ -535,12 +535,18 @@ async function buildStoppedBundle(
       filesByPath.set(d.path, fe);
     });
     a.files = Array.from(filesByPath.values());
-    // The app row's relevance is the best of its own and its documents' scores,
-    // so a relevant document keeps its app in the auto-selection.
-    a.relevance = a.files.reduce(
-      (m, f) => Math.max(m, f.relevance ?? 0),
-      a.relevance ?? 0
-    );
+    // If the app hosts documents, its row shows the most relevant document's
+    // scores (relevance + semantic) — the app itself isn't scored as content.
+    if (a.files.length > 0) {
+      const best = a.files.reduce<FileEntity | null>(
+        (b, f) => ((f.relevance ?? 0) > (b?.relevance ?? -1) ? f : b),
+        null
+      );
+      if (best) {
+        a.relevance = best.relevance ?? 0;
+        a.semanticRelevance = best.semanticRelevance;
+      }
+    }
     if (tracked) trackedKeys.add(keyApp(a));
     appList.push(a);
   }
@@ -883,6 +889,8 @@ typedIpcMain.handle('get-settings', async () => {
     isDataAnonymized: await Settings.getIsDataAnonymized(),
     isArtefactSelectionEnabled:
       await Settings.getIsArtefactSelectionEnabled(),
+    showRelevanceScores: await Settings.getShowRelevanceScores(),
+    studyPhase: await Settings.getStudyPhase(),
     isStudyDataCollectionEnabled:
       await Settings.getIsStudyDataCollectionEnabled(),
     endOfDayPopUpTime: await Settings.getEndOfDayPopUpTime(),
@@ -906,6 +914,14 @@ typedIpcMain.handle('set-settings', async (e, updatedSettings) => {
   await Database.manager.save(Settings, {
     key: 'isArtefactSelectionEnabled',
     value: updatedSettings.isArtefactSelectionEnabled ? 'true' : 'false'
+  });
+  await Database.manager.save(Settings, {
+    key: 'showRelevanceScores',
+    value: updatedSettings.showRelevanceScores ? 'true' : 'false'
+  });
+  await Database.manager.save(Settings, {
+    key: 'studyPhase',
+    value: updatedSettings.studyPhase === 'phase2' ? 'phase2' : 'phase1'
   });
   await Database.manager.save(Settings, {
     key: 'isStudyDataCollectionEnabled',

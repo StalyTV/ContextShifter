@@ -34,6 +34,15 @@ export type UsageStat = {
   lastAccessMs: number;
   /** Last-access position on the active-time clock (session-relative here). */
   lastAccessActiveMs: number;
+  // Time-decayed frequency/duration accumulators (see StaticSettings.
+  // SCORE_HALF_LIFE_MS). Each is a running value `V` valid *as of* its
+  // `*ActiveMs` position on the active-time clock; to read it at a later time T
+  // decay it: V * 2^(-(T - posActiveMs)/halfLife). Updated incrementally at
+  // every access / duration-flush, so *when* each event happened is baked in.
+  decayFreq: number;
+  decayFreqActiveMs: number;
+  decayDur: number;
+  decayDurActiveMs: number;
 };
 
 export default class StatsAccumulator {
@@ -66,8 +75,18 @@ export default class StatsAccumulator {
         interactionCount: 0,
         lastAccessMs: 0,
         lastAccessActiveMs: 0,
+        decayFreq: 0,
+        decayFreqActiveMs: 0,
+        decayDur: 0,
+        decayDurActiveMs: 0,
       });
     }
+  }
+
+  /** Decay factor 2^(-Δ/halfLife) for a Δ (active-ms) gap. */
+  private static decayFactor(deltaActiveMs: number): number {
+    if (deltaActiveMs <= 0) return 1;
+    return Math.pow(2, -deltaActiveMs / StaticSettings.SCORE_HALF_LIFE_MS);
   }
 
   /** A click / keystroke at time `t` (attributed to the focused artefact). */
@@ -121,6 +140,14 @@ export default class StatsAccumulator {
       s.totalDurationMs += delta;
       this._activeElapsedMs += delta;
       this._lastAccruedMs = accrueTo;
+      // Decayed duration: decay what's there to this chunk's (active-time) end,
+      // then add the fresh Δ ms. The chunk is treated as occurring at its end —
+      // a negligible over-fresh approximation vs. the 14-min half-life.
+      const a = this._activeElapsedMs;
+      s.decayDur =
+        s.decayDur * StatsAccumulator.decayFactor(a - s.decayDurActiveMs) +
+        delta;
+      s.decayDurActiveMs = a;
     }
   }
 
@@ -132,6 +159,13 @@ export default class StatsAccumulator {
     const visitMs = Math.max(0, t - this._focusStart);
     if (visitMs >= StaticSettings.MIN_QUALIFYING_ACCESS_MS) {
       s.accessCount += 1;
+      // Decayed frequency: decay the running count to now (the visit's active-
+      // time end), then add this one access. Because the position is advanced
+      // per access, an access an hour ago contributes far less than a fresh one.
+      const a = this._activeElapsedMs;
+      s.decayFreq =
+        s.decayFreq * StatsAccumulator.decayFactor(a - s.decayFreqActiveMs) + 1;
+      s.decayFreqActiveMs = a;
     }
     if (visitMs >= StaticSettings.MIN_RECENCY_ACCESS_MS) {
       s.lastAccessMs = Math.max(s.lastAccessMs, this._lastActivityMs);

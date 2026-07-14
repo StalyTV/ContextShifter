@@ -73,6 +73,37 @@ export function resolveProfileDirectory(email: string | undefined): string | nul
 }
 
 /**
+ * Launch Chrome without selecting a profile. Used when a task's Chrome tabs
+ * can't be tied to a known `--profile-directory` (signed-out profile, or no
+ * `Local State` match): we still need Chrome running so the user can pick a
+ * profile — Chrome will most likely show its profile picker — after which the
+ * profile's extension connects and the tabs are opened through it. No URLs are
+ * passed on the command line on purpose, so the tabs aren't opened twice (once
+ * by Chrome, once by the extension). Returns true if the launch was issued.
+ */
+export function launchChrome(): boolean {
+  try {
+    const child = spawn(CHROME_BINARY, [], { detached: true, stdio: 'ignore' });
+    child.unref();
+    info('[ChromeProfiles] launched Chrome (no profile — expecting picker)');
+    return true;
+  } catch (err) {
+    // Fallback to `open -a` when the binary path differs.
+    try {
+      const child = spawn('open', ['-a', 'Google Chrome'], {
+        detached: true,
+        stdio: 'ignore',
+      });
+      child.unref();
+      return true;
+    } catch (err2) {
+      info(`[ChromeProfiles] failed to launch Chrome: ${String(err2)}`);
+      return false;
+    }
+  }
+}
+
+/**
  * Open `urls` in a specific Chrome profile. Invoking the Chrome binary with
  * `--profile-directory` opens a window for that profile whether or not Chrome is
  * already running (Chrome routes it to the existing process), and passing the

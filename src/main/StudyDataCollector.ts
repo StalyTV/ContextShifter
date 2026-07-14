@@ -53,8 +53,15 @@ type ArtefactRow = {
   url: string;
   title: string;
   browserType: string;
+  /** Raw total foreground duration (ms) across all sessions of the task. */
   totalDurationMs: number;
+  /** Raw total qualifying access count across all sessions of the task. */
   accessCount: number;
+  /** Time-decayed duration (ms) the score was based on (14-min active
+   * half-life, decayed to the last stop). */
+  scoredDurationMs: number;
+  /** Time-decayed access frequency the score was based on (same decay). */
+  scoredFrequency: number;
   /** Raw count of clicks + keystrokes while this artefact was focused. */
   interactionCount: number;
   /** This artefact's share of the task's total interactions, [0,1]. */
@@ -68,6 +75,9 @@ type ArtefactRow = {
   /** Raw sentence-embedding vector (frozen MiniLM features), for offline
    * training of a relevance classifier on kept-vs-deselected labels. */
   embedding: number[] | null;
+  /** The exact text (space-separated words) fed to the embedding model —
+   * i.e. what artefactText() produced from title/URL/path/name. */
+  embeddedText: string;
   score: number;
   selected: boolean;
   /** Stable anonymous id (set only when anonymization is enabled). */
@@ -92,6 +102,8 @@ function anonymizeArtefact(r: ArtefactRow): ArtefactRow {
     browserType: r.browserType,
     totalDurationMs: r.totalDurationMs,
     accessCount: r.accessCount,
+    scoredDurationMs: r.scoredDurationMs,
+    scoredFrequency: r.scoredFrequency,
     interactionCount: r.interactionCount,
     interactionShare: r.interactionShare,
     lastAccessTs: r.lastAccessTs,
@@ -99,6 +111,9 @@ function anonymizeArtefact(r: ArtefactRow): ArtefactRow {
     semanticSimilarity: r.semanticSimilarity,
     semanticCosine: r.semanticCosine,
     embedding: r.embedding,
+    // The embed text is built from the (now-stripped) title/URL/path/name, so
+    // it's identifying — omit it under anonymization.
+    embeddedText: '',
     score: r.score,
     selected: r.selected,
     anonId,
@@ -188,6 +203,8 @@ export default class StudyDataCollector {
           browserType: r.browserType ?? '',
           totalDurationMs: r.totalDurationMs ?? 0,
           accessCount: r.accessCount ?? 0,
+          scoredDurationMs: r.scoredDurationMs ?? 0,
+          scoredFrequency: r.scoredFrequency ?? 0,
           interactionCount: r.interactionCount ?? 0,
           interactionShare:
             totalInteractions > 0
@@ -198,6 +215,7 @@ export default class StudyDataCollector {
           semanticSimilarity: r.semanticSimilarity ?? 1,
           semanticCosine: r.semanticCosine ?? null,
           embedding: parseEmbedding(r.embedding),
+          embeddedText: r.embeddedText ?? '',
           score: r.score ?? 0,
           selected: isSelected(r),
         }))
@@ -208,6 +226,29 @@ export default class StudyDataCollector {
       if (anonymized) {
         artefacts = artefacts.map(anonymizeArtefact);
       }
+
+      // The "never tracked/closed" lists in effect for this task, recorded on
+      // every entry (not only at export) so each record is self-contained.
+      // Identifying fields are stripped/hashed under anonymization, like the
+      // artefacts above.
+      const neverCloseTabRows = await NeverCloseBrowserTab.getAll();
+      const neverCloseLists = {
+        apps: neverCloseApps.map((a) =>
+          anonymized
+            ? { name: '', path: '', anonId: hashString(a.path || a.name || '') }
+            : { name: a.name, path: a.path }
+        ),
+        tabs: neverCloseTabRows.map((t) =>
+          anonymized
+            ? {
+                title: '',
+                url: '',
+                browserType: t.browserType,
+                anonId: hashString(t.url || ''),
+              }
+            : { title: t.title, url: t.url, browserType: t.browserType }
+        ),
+      };
 
       const snap = await Snapshot.findOneBy({ id: taskId });
       const recordedAt = new Date().toISOString();
@@ -229,10 +270,14 @@ export default class StudyDataCollector {
         sessionDurationMs,
         // Scoring weights in effect when this task was scored/saved.
         weights: ScoreWeights.get(),
+        // Study phase in effect (phase1 = no preselection, phase2 = preselect).
+        studyPhase: await Settings.getStudyPhase(),
         accumulatedActiveMs: snap?.activeMs ?? 0,
         totalInteractions,
         artefactCount: artefacts.length,
         selectedCount: artefacts.filter((a) => a.selected).length,
+        // Which artefacts were on the never-tracked/closed lists at this time.
+        neverClose: neverCloseLists,
         artefacts,
       };
 

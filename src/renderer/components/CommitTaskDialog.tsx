@@ -9,6 +9,7 @@ import { StoppedTaskBundle } from '../../types/Commands';
 import TrimBar from './TrimBar';
 import ConfirmDialog from './ConfirmDialog';
 import SemInfoButton from './SemInfoButton';
+import { ScoreVisibilityProvider, useScoresVisible } from './ScoreVisibility';
 import styles from './NewTaskDialog.module.scss';
 
 type Props = {
@@ -108,7 +109,8 @@ function Icon({
 }
 
 function ScoreBadge({ value }: { value?: number }) {
-  if (value == null || value <= 0) return null;
+  const visible = useScoresVisible();
+  if (!visible || value == null || value <= 0) return null;
   return (
     <span className={styles.score} title="Relevance score">
       {value.toFixed(2)}
@@ -120,7 +122,8 @@ function ScoreBadge({ value }: { value?: number }) {
 // is active (the value is set in that case, including small values for
 // off-topic artefacts). Purple to distinguish it from the relevance score.
 function SemBadge({ value }: { value?: number }) {
-  if (value == null) return null;
+  const visible = useScoresVisible();
+  if (!visible || value == null) return null;
   return (
     <span
       className={styles.score}
@@ -159,6 +162,12 @@ export default function CommitTaskDialog({
   const [visibleStart, setVisibleStart] = useState(0);
   // Whether the "discard this session?" confirmation is showing.
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  // Whether to show relevance/semantic scores in the picker ("Show relevance
+  // scores" setting; off by default).
+  const [showScores, setShowScores] = useState(false);
+  // Whether the scorer preselects artefacts (Study Phase 2). Phase 1 = no
+  // preselection. Defaults to false (Phase 1 is the app default).
+  const [preselect, setPreselect] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -166,12 +175,23 @@ export default function CommitTaskDialog({
       try {
         // Is the artefact-selection screen enabled? If not, we auto-commit.
         let skip = false;
+        // Study Phase 2 preselects; Phase 1 (default) does not.
+        let preselectNow = false;
         try {
           const settings = await window.electron.ipcRenderer.invoke(
             'get-settings'
           );
           skip = (settings as { isArtefactSelectionEnabled?: boolean })
             ?.isArtefactSelectionEnabled === false;
+          if (!cancelled) {
+            setShowScores(
+              (settings as { showRelevanceScores?: boolean })
+                ?.showRelevanceScores === true
+            );
+          }
+          preselectNow =
+            (settings as { studyPhase?: string })?.studyPhase === 'phase2';
+          if (!cancelled) setPreselect(preselectNow);
         } catch {
           // default to showing the picker
         }
@@ -188,10 +208,11 @@ export default function CommitTaskDialog({
         setBundle(result);
 
         if (result) {
-          const { sel, exp } = computeAutoSelection(result);
           if (skip) {
             // Skip the screen: commit the scorer's selection over the default
-            // (active) window and finish.
+            // (active) window and finish. (Skipping the picker always trusts
+            // the scorer, regardless of study phase.)
+            const { sel } = computeAutoSelection(result, true);
             await commitSelection(result, sel, {
               startMs: result.sessionStartMs,
               endMs: result.sessionEndMs,
@@ -202,6 +223,7 @@ export default function CommitTaskDialog({
             }
             return;
           }
+          const { sel, exp } = computeAutoSelection(result, preselectNow);
           setSelected(sel);
           setExpanded(exp);
           setTrimStart(result.sessionStartMs);
@@ -225,24 +247,33 @@ export default function CommitTaskDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Compute the scorer's pre-selection (and which parents to expand). Pure.
-  const computeAutoSelection = (b: StoppedTaskBundle) => {
-    // Pre-check: the artefacts the scorer auto-selected (above threshold).
-    const sel = new Set<Key>([...(b.autoSelectKeys ?? [])]);
-    // Expand any parent that has selected children so the user sees them.
+  // Compute the picker's initial selection (and which parents to expand). Pure.
+  // In Phase 1 (`preselect = false`) nothing is pre-checked — the user decides
+  // fully — but the browser/IDE groups are still expanded so everything is
+  // visible to pick. In Phase 2 the scorer's above-threshold artefacts are
+  // pre-checked.
+  const computeAutoSelection = (
+    b: StoppedTaskBundle,
+    preselect: boolean
+  ) => {
+    const sel = new Set<Key>(preselect ? [...(b.autoSelectKeys ?? [])] : []);
     const exp = new Set<Key>();
     b.browsers.forEach((br) => {
-      if ((br.browserTabs ?? []).some((t) => sel.has(keyTab(br, t)))) {
+      if (
+        !preselect ||
+        (br.browserTabs ?? []).some((t) => sel.has(keyTab(br, t)))
+      ) {
         exp.add(keyBrowser(br));
       }
     });
     b.ides.forEach((i) => {
       // Seed the "Project Folder" sub-artefact selection from the IDE's
       // workspaceSelected flag (defaults to selected when a folder is known).
-      if (i.workspacePath && i.workspaceSelected !== false) {
+      if (preselect && i.workspacePath && i.workspaceSelected !== false) {
         sel.add(keyWorkspace(i));
       }
       if (
+        !preselect ||
         sel.has(keyWorkspace(i)) ||
         (i.ideFiles ?? []).some((f) => sel.has(keyIdeFile(i, f)))
       ) {
@@ -250,7 +281,11 @@ export default function CommitTaskDialog({
       }
     });
     b.applications.forEach((a) => {
-      if ((a.files ?? []).some((f) => sel.has(keyFile(a, f)))) {
+      const files = a.files ?? [];
+      if (
+        (!preselect && files.length > 0) ||
+        files.some((f) => sel.has(keyFile(a, f)))
+      ) {
         exp.add(keyApp(a));
       }
     });
@@ -357,7 +392,7 @@ export default function CommitTaskDialog({
       );
       if (rescored) {
         setBundle(rescored);
-        const { sel } = computeAutoSelection(rescored);
+        const { sel } = computeAutoSelection(rescored, preselect);
         setSelected(sel);
       }
     } catch (err) {
@@ -412,6 +447,7 @@ export default function CommitTaskDialog({
   if (autoMode !== false) return null;
 
   return (
+    <ScoreVisibilityProvider value={showScores}>
     <div className={styles.backdrop}>
       <div className={styles.dialog} role="dialog" aria-modal="true">
         <div className={styles.header}>
@@ -868,5 +904,6 @@ export default function CommitTaskDialog({
         />
       )}
     </div>
+    </ScoreVisibilityProvider>
   );
 }

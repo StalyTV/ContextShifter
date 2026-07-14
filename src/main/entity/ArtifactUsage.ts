@@ -78,6 +78,31 @@ export default class ArtifactUsage extends BaseEntity {
   @Column({ type: 'integer', default: 0 })
   lastAccessActiveMs!: number;
 
+  // --- time-decayed frequency/duration (14-min active half-life) ---
+  // Running accumulator state, so the decay continues correctly across sessions.
+  // `decayFreq`/`decayDur` are the values as of the `*ActiveMs` position on the
+  // cumulative active-time clock (decay to a later T with 2^(-(T-pos)/halfLife)).
+  @Column({ type: 'double', default: 0 })
+  decayFreq!: number;
+
+  @Column({ type: 'integer', default: 0 })
+  decayFreqActiveMs!: number;
+
+  @Column({ type: 'double', default: 0 })
+  decayDur!: number;
+
+  @Column({ type: 'integer', default: 0 })
+  decayDurActiveMs!: number;
+
+  // The decayed frequency / duration (ms) the score was actually based on,
+  // decayed to the moment of the last stop. Recorded next to the raw totals
+  // (totalDurationMs / accessCount) for the study export.
+  @Column({ type: 'double', default: 0 })
+  scoredFrequency!: number;
+
+  @Column({ type: 'double', default: 0 })
+  scoredDurationMs!: number;
+
   // --- semantic relevance (content embedding + similarity to task theme) ---
   // Cached embedding (JSON array of floats) and the text it was computed from,
   // so it's only recomputed when the artefact's text changes.

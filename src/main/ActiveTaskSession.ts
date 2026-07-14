@@ -125,6 +125,10 @@ type ScoredKey = {
   semanticCosine: number | null;
   embedding: number[] | null;
   text: string;
+  /** Time-decayed access frequency the score is based on (decayed to stop). */
+  decayedFrequency: number;
+  /** Time-decayed foreground duration (ms) the score is based on. */
+  decayedDuration: number;
 };
 
 type PendingSession = {
@@ -636,7 +640,7 @@ export default class ActiveTaskSession {
     const merged = mergeStats(p.priorStats, contribution);
     const activeMs = p.priorAccumulatedMs + Math.max(0, winEnd - winStart);
 
-    const scored = await this.scoreStats(merged, p.meta, activeMs);
+    const scored = await this.scoreStats(merged, p.meta);
     const scores = new Map<string, number>();
     const semantic = new Map<string, number>();
     // Only surface semantic scores when semantic is actually active (influence
@@ -674,8 +678,7 @@ export default class ActiveTaskSession {
    */
   private async scoreStats(
     merged: Map<string, UsageStat>,
-    meta: Meta,
-    activeMs: number
+    meta: Meta
   ): Promise<Map<string, ScoredKey>> {
     const isNeverCloseKey = await this.buildNeverCloseKeyPredicate(meta);
     let totalInteractions = 0;
@@ -688,6 +691,28 @@ export default class ActiveTaskSession {
       nowActiveMs += stat.totalDurationMs;
     }
 
+    // Pass 0: decay each artefact's frequency/duration accumulator forward to
+    // "now" (the task's total active time), then find the maxima for the min-max
+    // normalization. Never-close artefacts are excluded from the maxima so an
+    // always-open app can't squash the task's real artefacts to near zero.
+    const H = StaticSettings.SCORE_HALF_LIFE_MS;
+    const decayF = new Map<string, number>();
+    const decayD = new Map<string, number>();
+    let maxF = 0;
+    let maxD = 0;
+    for (const [key, stat] of merged) {
+      const fNow =
+        stat.decayFreq * Math.pow(2, -(nowActiveMs - stat.decayFreqActiveMs) / H);
+      const dNow =
+        stat.decayDur * Math.pow(2, -(nowActiveMs - stat.decayDurActiveMs) / H);
+      decayF.set(key, fNow);
+      decayD.set(key, dNow);
+      if (!isNeverCloseKey(key, stat)) {
+        if (fNow > maxF) maxF = fNow;
+        if (dNow > maxD) maxD = dNow;
+      }
+    }
+
     // Pass 1: behavioral inputs + score + the text to embed.
     const inputs = new Map<string, ScoreInput>();
     const texts = new Map<string, string>();
@@ -698,17 +723,14 @@ export default class ActiveTaskSession {
           ? 0
           : stat.interactionCount / totalInteractions;
       const input: ScoreInput = {
-        totalDurationMs: stat.totalDurationMs,
-        accessCount: stat.accessCount,
+        durationNorm: maxD > 0 ? (decayD.get(key) ?? 0) / maxD : 0,
+        frequencyNorm: maxF > 0 ? (decayF.get(key) ?? 0) / maxF : 0,
         lastAccessMs: stat.lastAccessMs,
         lastAccessActiveMs: stat.lastAccessActiveMs,
         interactionShare,
       };
       inputs.set(key, input);
-      behavioral.set(
-        key,
-        ArtifactScorer.behavioralScore(input, activeMs, nowActiveMs)
-      );
+      behavioral.set(key, ArtifactScorer.behavioralScore(input, nowActiveMs));
       const m = this.metaForKey(key, stat.kind, meta);
       texts.set(
         key,
@@ -726,11 +748,18 @@ export default class ActiveTaskSession {
     // persisted embedding when the artefact's text is unchanged. Never-close
     // artefacts (always open, not part of any task) and ones the user previously
     // deselected are kept OUT of the centroid so they don't skew the task theme;
-    // excluded keys just get a neutral similarity of 1.
+    // excluded keys just get a neutral similarity of 1. An app that merely hosts
+    // documents (Preview/Word/…) is also excluded — the *documents* carry the
+    // content; the app name would just be noise (like an IDE vs. its files).
     const semInputs: SemanticInput[] = [];
     for (const [key, stat] of merged) {
       if (isNeverCloseKey(key, stat)) continue;
       if (this._priorDeselected.has(key)) continue;
+      if (
+        stat.kind === 'app' &&
+        (meta.appDocuments.get(key.slice('app:'.length))?.length ?? 0) > 0
+      )
+        continue;
       const text = texts.get(key) ?? '';
       const cached = this._priorEmbeddings.get(key);
       semInputs.push({
@@ -749,11 +778,13 @@ export default class ActiveTaskSession {
       const sem = semantic.get(key);
       input.semanticSimilarity = sem?.similarity ?? 1;
       out.set(key, {
-        score: ArtifactScorer.score(input, activeMs, nowActiveMs),
+        score: ArtifactScorer.score(input, nowActiveMs),
         semanticSimilarity: sem?.similarity ?? 1,
         semanticCosine: sem?.cosine ?? null,
         embedding: sem?.embedding ?? null,
         text: texts.get(key) ?? '',
+        decayedFrequency: decayF.get(key) ?? 0,
+        decayedDuration: decayD.get(key) ?? 0,
       });
     }
     return out;
@@ -920,13 +951,26 @@ export default class ActiveTaskSession {
         ? new Date(stat.lastAccessMs).toISOString()
         : '';
       row.lastAccessActiveMs = stat.lastAccessActiveMs ?? 0;
+      // Time-decayed accumulator state (for continuing the decay across
+      // sessions) — positions are on the cumulative active-time clock.
+      row.decayFreq = stat.decayFreq ?? 0;
+      row.decayFreqActiveMs = stat.decayFreqActiveMs ?? 0;
+      row.decayDur = stat.decayDur ?? 0;
+      row.decayDurActiveMs = stat.decayDurActiveMs ?? 0;
       const sk = scored.get(key);
+      // The decayed frequency/duration the score was actually based on (decayed
+      // to this stop) — recorded alongside the raw totals for the study export.
+      row.scoredFrequency = sk?.decayedFrequency ?? 0;
+      row.scoredDurationMs = sk?.decayedDuration ?? 0;
       row.score = sk?.score ?? 0;
       row.semanticSimilarity = sk?.semanticSimilarity ?? 1;
       row.semanticCosine = sk?.semanticCosine ?? null!;
+      // The exact text (space-separated words) fed to the embedding model —
+      // logged for every artefact for the study, even when the embedding vector
+      // itself isn't computed (e.g. semantic influence = 0).
+      if (sk) row.embeddedText = sk.text;
       if (sk?.embedding) {
         row.embedding = JSON.stringify(sk.embedding);
-        row.embeddedText = sk.text;
         // Keep the in-memory cache in sync for the rest of this session.
         this._priorEmbeddings.set(key, {
           text: sk.text,
@@ -965,6 +1009,10 @@ export default class ActiveTaskSession {
         interactionCount: r.interactionCount ?? 0,
         lastAccessMs: Number.isNaN(lastSeen) ? 0 : lastSeen,
         lastAccessActiveMs: r.lastAccessActiveMs ?? 0,
+        decayFreq: r.decayFreq ?? 0,
+        decayFreqActiveMs: r.decayFreqActiveMs ?? 0,
+        decayDur: r.decayDur ?? 0,
+        decayDurActiveMs: r.decayDurActiveMs ?? 0,
       });
       if (r.embedding && r.embeddedText) {
         try {

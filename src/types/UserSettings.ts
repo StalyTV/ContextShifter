@@ -8,6 +8,9 @@ type UserSettings = {
   isDarkModeEnabled: boolean;
   isDataAnonymized: boolean;
   isArtefactSelectionEnabled: boolean;
+  showRelevanceScores: boolean;
+  /** 'phase1' = no preselection in the picker; 'phase2' = scorer preselects. */
+  studyPhase: 'phase1' | 'phase2';
   isStudyDataCollectionEnabled: boolean;
   endOfDayPopUpTime: Date;
   showQuestionnaireOnlyOnWorkdays: boolean;

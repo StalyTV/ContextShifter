@@ -26,6 +26,15 @@ export default class StaticSettings {
   public static SCORE_WEIGHT_INTERACTION = 0;
   // Recency decay rate per minute since last access: e^(-lambda * minutes).
   public static SCORE_DECAY_LAMBDA = 0.05;
+  // Half-life (in active-time ms) for the *frequency* and *duration* scores:
+  // each access / focus-ms is time-weighted by 2^(-age/halfLife), measured on
+  // the task's active-time clock. So an artefact used heavily early but not
+  // since gradually loses its frequency/duration relevance (instead of staying
+  // maxed out forever), while one used continuously stays high. At 30 min this
+  // fades slower than recency (half-life ln2 / SCORE_DECAY_LAMBDA ≈ 13.9 min):
+  // recency reacts quickly to the last touch, while frequency/duration keep a
+  // longer memory of sustained use.
+  public static SCORE_HALF_LIFE_MS = 30 * 60 * 1000;
   // A focus visit must last at least this long (ms) to count as an "access" for
   // the frequency score. Briefer focus (e.g. accidentally tabbing through a
   // window/tab/file) is ignored so it doesn't inflate the access count.

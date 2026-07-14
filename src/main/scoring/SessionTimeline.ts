@@ -10,6 +10,26 @@
 
 import { ArtifactKind } from '../entity/ArtifactUsage';
 import StatsAccumulator, { UsageStat } from './StatsAccumulator';
+import StaticSettings from '../StaticSettings';
+
+/**
+ * Combine two time-decayed accumulators `(vA @ posA)` and `(vB @ posB)` (values
+ * on the same active-time clock) into one `(v @ pos)`. Both are decayed to the
+ * later position and summed — exact because exponential decay composes, so the
+ * result is independent of where you take the reference.
+ */
+function combineDecay(
+  vA: number,
+  posA: number,
+  vB: number,
+  posB: number
+): { value: number; posActiveMs: number } {
+  const H = StaticSettings.SCORE_HALF_LIFE_MS;
+  const pos = Math.max(posA, posB);
+  const value =
+    vA * Math.pow(2, -(pos - posA) / H) + vB * Math.pow(2, -(pos - posB) / H);
+  return { value, posActiveMs: pos };
+}
 
 export type TLEvent =
   | { ty: 'f'; t: number; key: string; kind: ArtifactKind } // focus switched to key
@@ -147,10 +167,21 @@ export function mergeStats(
   }
   for (const [k, c] of contribution) {
     const cActive = c.lastAccessActiveMs + priorActiveMs;
+    // The contribution's decay positions are session-relative -> lift onto the
+    // cumulative active clock, same shift as recency.
+    const cFreqPos = c.decayFreqActiveMs + priorActiveMs;
+    const cDurPos = c.decayDurActiveMs + priorActiveMs;
     const p = out.get(k);
     if (!p) {
-      out.set(k, { ...c, lastAccessActiveMs: cActive });
+      out.set(k, {
+        ...c,
+        lastAccessActiveMs: cActive,
+        decayFreqActiveMs: cFreqPos,
+        decayDurActiveMs: cDurPos,
+      });
     } else {
+      const freq = combineDecay(p.decayFreq, p.decayFreqActiveMs, c.decayFreq, cFreqPos);
+      const dur = combineDecay(p.decayDur, p.decayDurActiveMs, c.decayDur, cDurPos);
       out.set(k, {
         kind: c.kind || p.kind,
         totalDurationMs: p.totalDurationMs + c.totalDurationMs,
@@ -158,6 +189,10 @@ export function mergeStats(
         interactionCount: p.interactionCount + c.interactionCount,
         lastAccessMs: Math.max(p.lastAccessMs, c.lastAccessMs),
         lastAccessActiveMs: Math.max(p.lastAccessActiveMs, cActive),
+        decayFreq: freq.value,
+        decayFreqActiveMs: freq.posActiveMs,
+        decayDur: dur.value,
+        decayDurActiveMs: dur.posActiveMs,
       });
     }
   }

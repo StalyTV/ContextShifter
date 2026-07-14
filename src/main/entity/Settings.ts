@@ -48,6 +48,22 @@ export default class Settings extends BaseEntity {
     return enabled !== 'false';
   }
 
+  static async getStudyPhase(): Promise<'phase1' | 'phase2'> {
+    // Phase 1 (default): the artefact picker makes NO preselection the user
+    // decides fully. 
+    // Phase 2: the scorer preselects relevant artefacts.
+    const phase = (await this.findOneBy({ key: 'studyPhase' }))?.value;
+    return phase === 'phase2' ? 'phase2' : 'phase1';
+  }
+
+  static async getShowRelevanceScores(): Promise<boolean> {
+    // Default OFF: the relevance/semantic scores are only shown in the
+    // selection screen when explicitly enabled.
+    const enabled = (await this.findOneBy({ key: 'showRelevanceScores' }))
+      ?.value;
+    return enabled === 'true';
+  }
+
   static async getIsStudyDataCollectionEnabled(): Promise<boolean> {
     const enabled = (
       await this.findOneBy({ key: 'isStudyDataCollectionEnabled' })

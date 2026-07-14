@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import artefactText from '../../main/scoring/artefactText';
+import { useScoresVisible } from './ScoreVisibility';
 
 type Kind = 'app' | 'ide' | 'tab' | 'file';
 
@@ -18,7 +19,10 @@ type Props = {
  */
 export default function SemInfoButton({ kind, name, path, url, title }: Props) {
   const [open, setOpen] = useState(false);
+  const visible = useScoresVisible();
   const text = artefactText({ kind, name, path, url, title });
+
+  if (!visible) return null;
 
   const fields: Array<[string, string]> = [];
   if (title) fields.push(['title', title]);

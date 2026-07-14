@@ -4,16 +4,22 @@
  * Weighted linear scoring of artefacts observed during a task, combining
  * foreground duration, access frequency, and recency:
  *
- *   score(a) = w1 * normalized_duration(a)
- *            + w2 * log(1 + access_count(a))
+ *   score(a) = w1 * duration_norm(a)
+ *            + w2 * frequency_norm(a)
  *            + w3 * recency_decay(a)
  *
  * where
- *   normalized_duration = total foreground focus time on a / total session time
- *   access_count        = distinct focus switches to a (log-dampened)
- *   recency_decay       = e^(-lambda * active_minutes_since_last_access),
- *                         measured on the task's active-time clock so idle
- *                         stretches and gaps between sessions don't age recency.
+ *   duration_norm  = time-decayed foreground focus time on a, min-max
+ *                    normalized to [0,1] (the most-focused artefact = 1)
+ *   frequency_norm = time-decayed access count on a, min-max normalized to
+ *                    [0,1] (the most-accessed artefact = 1)
+ *   recency_decay  = e^(-lambda * active_minutes_since_last_access)
+ *
+ * Duration and frequency are decayed on the task's active-time clock with a
+ * 14-min half-life (SCORE_HALF_LIFE_MS): an artefact used heavily early but not
+ * since gradually loses relevance, while one used continuously stays high.
+ * Recency (a separate, single-most-recent-access signal) decays over the same
+ * active-time clock, so idle stretches and gaps between sessions don't age it.
  *
  * On top of this behavioral score, a **semantic** relevance factor multiplies
  * the result:
@@ -32,8 +38,18 @@
 import StaticSettings from './StaticSettings';
 
 export type ScoreInput = {
-  totalDurationMs: number;
-  accessCount: number;
+  /**
+   * Time-decayed foreground duration, normalized to [0,1] as this artefact's
+   * share of the task's maximum (the most-used artefact = 1). The decay (14 min
+   * active half-life) means recent focus counts more than old focus.
+   */
+  durationNorm: number;
+  /**
+   * Time-decayed access frequency, normalized to [0,1] as this artefact's share
+   * of the task's maximum. Same decay as duration, so an artefact used heavily
+   * early but not since gradually loses its frequency weight.
+   */
+  frequencyNorm: number;
   /** Epoch ms of the last access; 0 means "never" (recency guard only). */
   lastAccessMs: number;
   /** Last-access position on the task's cumulative active-time clock (ms). */
@@ -58,13 +74,9 @@ export default class ArtifactScorer {
    * @param nowActiveMs the task's total active-time elapsed — the reference the
    *   recency decay is measured back from (NOT wall-clock).
    */
-  public static score(
-    input: ScoreInput,
-    totalSessionMs: number,
-    nowActiveMs: number
-  ): number {
+  public static score(input: ScoreInput, nowActiveMs: number): number {
     return (
-      this.behavioralScore(input, totalSessionMs, nowActiveMs) *
+      this.behavioralScore(input, nowActiveMs) *
       this.semanticFactor(input.semanticSimilarity)
     );
   }
@@ -76,7 +88,6 @@ export default class ArtifactScorer {
    */
   public static behavioralScore(
     input: ScoreInput,
-    totalSessionMs: number,
     nowActiveMs: number
   ): number {
     const w1 = StaticSettings.SCORE_WEIGHT_DURATION;
@@ -85,11 +96,10 @@ export default class ArtifactScorer {
     const w4 = StaticSettings.SCORE_WEIGHT_INTERACTION;
     const lambda = StaticSettings.SCORE_DECAY_LAMBDA;
 
-    const normalizedDuration =
-      totalSessionMs > 0
-        ? Math.min(1, input.totalDurationMs / totalSessionMs)
-        : 0;
-    const frequency = Math.log(1 + Math.max(0, input.accessCount));
+    // Duration and frequency arrive already time-decayed and min-max normalized
+    // to [0,1] by the caller (this artefact's share of the task's maximum).
+    const duration = Math.min(1, Math.max(0, input.durationNorm));
+    const frequency = Math.min(1, Math.max(0, input.frequencyNorm));
     // Decay over ACTIVE time since last access (idle / between-session gaps add
     // nothing). Guard with the epoch timestamp: 0 means the artefact never
     // qualified for recency, so it scores 0 rather than e^0 = 1.
@@ -104,10 +114,7 @@ export default class ArtifactScorer {
     const interaction = Math.min(1, Math.max(0, input.interactionShare ?? 0));
 
     return (
-      w1 * normalizedDuration +
-      w2 * frequency +
-      w3 * recency +
-      w4 * interaction
+      w1 * duration + w2 * frequency + w3 * recency + w4 * interaction
     );
   }
 
