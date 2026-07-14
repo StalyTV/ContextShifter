@@ -67,11 +67,15 @@ estimate*. ContextShifter scores every artefact touched during a task with a
 **weighted-linear model** (commit `913465f`):
 
 ```
-score(a) = w1 · norm_duration(a)
-         + w2 · log(1 + access_count(a))
+score(a) = w1 · duration_norm(a)      # time-decayed duration,  min-max → [0,1]
+         + w2 · frequency_norm(a)     # time-decayed access count, min-max → [0,1]
          + w3 · e^(−λ · active_minutes_since_last_access(a))
          + w4 · interaction_share(a)
 ```
+
+Duration and frequency are time-decayed on the active-time clock (half-life
+`SCORE_HALF_LIFE_MS`) via an O(1) running accumulator, then min-max normalised to
+`[0,1]` (the most-used / most-accessed artefact = 1).
 
 implemented in [`ArtifactScorer.ts`](../src/main/ArtifactScorer.ts), with all
 weights and constants in
@@ -80,8 +84,8 @@ hypothesis about what signals relevance:
 
 | Term | Signal | Rationale (thesis) |
 | --- | --- | --- |
-| **Duration** (normalised foreground time) | Sustained attention | The longer you actively work *in* an artefact, the more central it is to the task. Normalised by total active time so long tasks don't dominate. |
-| **Frequency** (`log(1+access_count)`) | Repeated return | Coming back to an artefact again and again is a strong relevance signal (cf. interaction-history / degree-of-interest models). `log` dampens runaway counts so a single heavily-revisited file can't swamp the score. |
+| **Duration** (time-decayed, min-max normalised) | Sustained attention | The longer you actively work *in* an artefact, the more central it is. Foreground time is time-decayed on the task's active-time clock (half-life `SCORE_HALF_LIFE_MS`) and normalised to `[0,1]` against the most-used artefact, so **recent** focus counts more than old focus and long tasks don't dominate. |
+| **Frequency** (time-decayed access count, min-max normalised) | Repeated return | Coming back to an artefact again and again is a strong relevance signal (cf. interaction-history / degree-of-interest models). Accesses are time-decayed with the same half-life and normalised to `[0,1]`, so an artefact used heavily *early* but not since gradually fades, while one used *continuously* stays high — instead of a plain count staying maxed out forever. |
 | **Recency** (`e^(−λ·Δ)`) | Forgetting curve | Artefacts used *recently* are more likely still part of the task's working set; older ones decay. Models the natural "what was I just doing" intuition. |
 | **Interaction share** | Active vs. passive use | Distinguishes *working in* an artefact (clicks/keystrokes) from merely *looking at* it. Captured but weighted `0` for now (see §3.4). |
 
@@ -298,25 +302,44 @@ window?
 
 The thesis needs to measure *how good the automatic relevance model is*. The
 mechanism (`d69c17d`) is to record, for every ended task, **both** what the model
-chose **and** what the participant kept:
+chose **and** what the participant kept.
 
-- [`StudyDataCollector`](../src/main/StudyDataCollector.ts) writes one
-  `StudyDataRecord` per ended task: every scored artefact (duration, access
-  count, interaction count + share, recency, score) **plus a `selected` flag**
-  marking the participant's manual choice.
+**Two study phases** (`studyPhase` setting) mirror the field-study design in the
+consent form, and each record logs which phase it was made in:
+
+- **Phase 1 — baseline (3 working days):** the picker makes **no preselection**;
+  the participant ticks the relevant artefacts from scratch. This produces the
+  clean **ground truth** — the participant's judgement, uninfluenced by the model.
+- **Phase 2 — assisted (2 working days):** the scorer **preselects** relevant
+  artefacts and restoration reopens them; the participant confirms/corrects. This
+  measures the usefulness of automatic pre-selection + one-click restoration
+  (the usability question, RQ2).
+
+What each record captures ([`StudyDataCollector`](../src/main/StudyDataCollector.ts)
+writes one `StudyDataRecord` per ended task):
+
+- Every scored artefact with **raw totals** (`totalDurationMs`, `accessCount`,
+  interaction count + share, recency) **and** the **time-decayed score basis**
+  (`scoredDurationMs`, `scoredFrequency`) the score was actually computed from,
+  the semantic similarity + raw cosine, the **raw embedding vector** and the exact
+  **embedding text** fed to the model, the final `score`, **plus a `selected`
+  flag** marking the participant's manual choice.
+- The **never-tracked/closed** app + tab lists in effect at that time, so each
+  record is self-contained (not only available at export).
+- The **weights** and **study phase** in effect, so every data point is
+  self-describing.
 - The model's auto-selection vs. the participant's kept set is exactly a
   **precision/recall** comparison — the empirical core of evaluating the scorer.
 - **Editable weights with live re-scoring** (`75c3bca`): the researcher can sweep
   `w1..w4`/`λ` and re-score all stored tasks, so the model can be *tuned against
-  the collected ground truth* rather than guessed. Each record also stores the
-  weights in effect when it was made (`f56dbfe`), so every data point is
-  self-describing.
-- **Hygiene for valid data:** never-close apps/tabs are excluded from both
-  scoring decisions and the study export (`9f7ba53`, `03fef08`) because they
-  persist across all tasks and aren't part of any task's relevance judgement; an
-  **Anonymize** toggle (`89e27e5`) strips names/paths/URLs to stable hashes for
-  ethics/privacy; **Clear Data Collection** (`f56dbfe`) resets between pilot runs;
-  session start/stop times are logged (`75c3bca`) so durations are reconstructable.
+  the collected ground truth* rather than guessed.
+- **Hygiene for valid data:** never-close apps/tabs are excluded from scoring
+  decisions and from the scored-artefact set (`9f7ba53`, `03fef08`) because they
+  persist across all tasks and aren't part of any relevance judgement; an
+  **Anonymize** toggle (`89e27e5`) strips names/paths/URLs (and the embedding
+  text) to stable hashes for ethics/privacy; **Clear Data Collection** (`f56dbfe`)
+  resets between pilot runs; session start/stop times are logged so durations are
+  reconstructable.
 
 This is the part that turns a tool into a *study*: the app generates the dataset
 that answers the research question.
@@ -400,6 +423,7 @@ Grouped by theme; commit hashes in parentheses for traceability.
 - **Semantic relevance** via local MiniLM embeddings — behaviourally-weighted centroid, multiplicative factor `(1−α)+α·s`
 - Per-document scoring: each open document (PDF/Word/…) tracked and embedded separately (`8b67ea8`)
 - Exclude never-close / previously-deselected / document-host apps from the centroid so only leaf content defines the task theme
+- **Time-decayed duration + frequency** (active-time half-life `SCORE_HALF_LIFE_MS`, min-max normalised to [0,1]) via an O(1) running accumulator; recent use counts more, early-only use fades (`eedefa0`)
 
 **Curation**
 - Timeline trim: curate the time window, re-score the kept span (`de79bff`)
@@ -413,6 +437,9 @@ Grouped by theme; commit hashes in parentheses for traceability.
 - Exclude never-close from study data (`9f7ba53`); include them as a separate export section (`03fef08`)
 - Anonymize Data toggle (`89e27e5`)
 - Save weights with each record; Clear Data Collection (`f56dbfe`)
+- **Study Phase** (phase 1 baseline = no preselection → ground truth; phase 2 assisted = preselect + restore) logged per record (`eedefa0`)
+- Per-record: decayed score basis (`scoredFrequency`/`scoredDurationMs`) beside raw totals, embedding text, and the never-tracked/closed lists (`eedefa0`)
+- Password-locked study controls; settings reorg (Data Collection, Artefact Selection at bottom) (`eedefa0`)
 
 **Hardware / UX / study ops**
 - TimeBuzzer integration + UI changes (`783dfb9`); LED blue while active, press stops (`38e2715`, `02494ec`)

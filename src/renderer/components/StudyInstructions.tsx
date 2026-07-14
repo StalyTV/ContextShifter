@@ -97,7 +97,9 @@ export default function StudyInstructions({ onClose }: Props) {
                 <strong>Pause, stop, or switch:</strong> when you stop working on
                 a task, stop it in ContextShifter or switch to another task or
                 subtask. When a task stops, a selection screen lists the tracked
-                artefacts, ranked by relevance. Confirm which ones to save.
+                artefacts; tick the ones that belong to the task and confirm.
+                What is pre-selected for you depends on the study phase (see
+                "The two study phases" below).
               </li>
               <li>
                 <strong>Button actions:</strong>
@@ -120,10 +122,11 @@ export default function StudyInstructions({ onClose }: Props) {
               </li>
               <li>
                 <strong>Artefacts that should never be tracked:</strong> in
-                Settings, the sections "Apps that should never be closed" and
-                "Browser tabs that should never close" let you exclude specific
-                applications or tabs. These are never closed when you switch
-                tasks and are not associated with any task.
+                Settings, the sections "Apps that should never be tracked and
+                closed" and "Browser tabs that should never be tracked and
+                closed" let you exclude specific applications or tabs. These
+                stay open when you switch tasks and are not associated with,
+                or scored for, any task.
               </li>
             </ul>
           </section>
@@ -158,20 +161,51 @@ export default function StudyInstructions({ onClose }: Props) {
           </section>
 
           <section className={styles.section}>
-            <h3>4. During the study</h3>
+            <h3>4. The two study phases</h3>
+            <p>
+              The study runs in two phases over about six working days. The
+              current phase is set under Settings &rarr; "Study Phase". Please
+              switch to Phase 2 only when the researcher tells you to (after the
+              first three days).
+            </p>
+            <ul>
+              <li>
+                <strong>Phase 1 — baseline (3 working days):</strong> work as
+                usual. At each task switch, ContextShifter shows the artefacts it
+                tracked with <strong>nothing pre-selected</strong> — you tick the
+                artefacts that actually belong to the task and confirm. Your
+                selections are the ground truth for evaluating the algorithm.
+              </li>
+              <li>
+                <strong>Phase 2 — assisted (2 working days):</strong> same as
+                before, but now ContextShifter <strong>pre-selects</strong> the
+                artefacts its algorithm considers relevant, and{' '}
+                <strong>restores</strong> them for you when you return to a task.
+                Confirm the pre-selection, adding any relevant artefact it missed
+                and removing any that were included wrongly.
+              </li>
+              <li>
+                <strong>At the end:</strong> complete the short questionnaire
+                (about 10 minutes) about your experience.
+              </li>
+            </ul>
+          </section>
+
+          <section className={styles.section}>
+            <h3>5. Data collection</h3>
             <ul>
               <li>
                 <strong>At the start of the study:</strong> open Settings, go to
-                "Study Settings", and enable the "Data Collection" tickbox.
+                "Data Collection", and enable the "Data Collection" tickbox.
               </li>
               <li>
                 <strong>At the end of the study:</strong> open Settings, go to
-                "Study Settings", and click "Export Study Data" to choose where to
-                save the collected data.
+                "Data Collection", and click "Export Study Data" to choose where
+                to save the collected data.
               </li>
               <li>
                 <strong>Anonymize data (optional):</strong> enable the "Anonymize
-                Data" tickbox in Study Settings to strip artefact names, paths,
+                Data" tickbox in Data Collection to strip artefact names, paths,
                 and URLs from the collected data. Only the artefact kind, usage
                 scores, and which artefacts you selected are kept.
               </li>
