@@ -10,6 +10,13 @@ import TrimBar from './TrimBar';
 import ConfirmDialog from './ConfirmDialog';
 import SemInfoButton from './SemInfoButton';
 import { ScoreVisibilityProvider, useScoresVisible } from './ScoreVisibility';
+import {
+  OrderMode,
+  ORDER_MODES,
+  num,
+  maxOf,
+  byRelevanceDesc,
+} from './artefactOrder';
 import styles from './NewTaskDialog.module.scss';
 
 type Props = {
@@ -168,6 +175,9 @@ export default function CommitTaskDialog({
   // Whether the scorer preselects artefacts (Study Phase 2). Phase 1 = no
   // preselection. Defaults to false (Phase 1 is the app default).
   const [preselect, setPreselect] = useState(false);
+  // How the artefact list is ordered (see artefactOrder). Default keeps
+  // applications grouped and ordered by their most relevant artefact.
+  const [orderMode, setOrderMode] = useState<OrderMode>('grouped');
 
   useEffect(() => {
     let cancelled = false;
@@ -181,8 +191,9 @@ export default function CommitTaskDialog({
           const settings = await window.electron.ipcRenderer.invoke(
             'get-settings'
           );
-          skip = (settings as { isArtefactSelectionEnabled?: boolean })
-            ?.isArtefactSelectionEnabled === false;
+          skip =
+            (settings as { isArtefactSelectionEnabled?: boolean })
+              ?.isArtefactSelectionEnabled === false;
           if (!cancelled) {
             setShowScores(
               (settings as { showRelevanceScores?: boolean })
@@ -252,10 +263,7 @@ export default function CommitTaskDialog({
   // fully — but the browser/IDE groups are still expanded so everything is
   // visible to pick. In Phase 2 the scorer's above-threshold artefacts are
   // pre-checked.
-  const computeAutoSelection = (
-    b: StoppedTaskBundle,
-    preselect: boolean
-  ) => {
+  const computeAutoSelection = (b: StoppedTaskBundle, preselect: boolean) => {
     const sel = new Set<Key>(preselect ? [...(b.autoSelectKeys ?? [])] : []);
     const exp = new Set<Key>();
     b.browsers.forEach((br) => {
@@ -292,15 +300,6 @@ export default function CommitTaskDialog({
     return { sel, exp };
   };
 
-  const toggle = (k: Key) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(k)) next.delete(k);
-      else next.add(k);
-      return next;
-    });
-  };
-
   const toggleExpanded = (k: Key) => {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -328,6 +327,211 @@ export default function CommitTaskDialog({
     });
     return { parents, parentsSelected };
   }, [bundle, selected]);
+
+  // Flat "Relevance" ordering: every artefact as a leaf, remembering its parent
+  // application so the parent stays selected on restore. Score 0 leaves (mostly
+  // barely-touched browser tabs) are filtered out at render time.
+  type FlatLeaf = {
+    key: Key;
+    parentKey: Key;
+    score: number;
+    semantic?: number;
+    name: string;
+    app: string;
+    appIconSrc?: string | null;
+    appIconLetter?: string;
+    iconSrc?: string | null;
+    iconLetter?: string;
+    glyph?: string;
+    sem: {
+      kind: 'app' | 'ide' | 'tab' | 'file';
+      name?: string | null;
+      path?: string | null;
+      url?: string | null;
+      title?: string | null;
+    };
+  };
+  const flat = useMemo(() => {
+    const leaves: FlatLeaf[] = [];
+    const parentLeafKeys = new Map<string, Key[]>();
+    const add = (l: FlatLeaf) => {
+      leaves.push(l);
+      if (l.parentKey !== l.key) {
+        const arr = parentLeafKeys.get(l.parentKey) ?? [];
+        arr.push(l.key);
+        parentLeafKeys.set(l.parentKey, arr);
+      }
+    };
+    if (bundle) {
+      bundle.browsers.forEach((b) => {
+        const pk = keyBrowser(b);
+        (b.browserTabs ?? []).forEach((t) =>
+          add({
+            key: keyTab(b, t),
+            parentKey: pk,
+            score: num(t.relevance),
+            semantic: t.semanticRelevance,
+            name: t.title || hostFromUrl(t.url),
+            app: String(b.type),
+            appIconSrc: b.icon || null,
+            appIconLetter: String(b.type ?? 'B'),
+            iconSrc: faviconFor(t),
+            iconLetter: hostFromUrl(t.url || t.title || '?'),
+            sem: { kind: 'tab', title: t.title, url: t.url },
+          })
+        );
+      });
+      bundle.ides.forEach((i) => {
+        const pk = keyIde(i);
+        const files = i.ideFiles ?? [];
+        if (files.length === 0) {
+          add({
+            key: pk,
+            parentKey: pk,
+            score: num(i.relevance),
+            semantic: i.semanticRelevance,
+            name: i.workspaceName || i.name,
+            app: i.name,
+            appIconSrc: i.icon || null,
+            appIconLetter: i.name,
+            iconSrc: i.icon || null,
+            iconLetter: i.name,
+            sem: { kind: 'ide', name: i.name, path: i.path, title: i.title },
+          });
+        } else {
+          files.forEach((f) =>
+            add({
+              key: keyIdeFile(i, f),
+              parentKey: pk,
+              score: num(f.relevance),
+              semantic: f.semanticRelevance,
+              name:
+                (f as { name?: string }).name ??
+                (f.path || '').split('/').pop() ??
+                f.path,
+              app: i.name,
+              appIconSrc: i.icon || null,
+              appIconLetter: i.name,
+              glyph: '📄',
+              sem: { kind: 'file', path: f.path },
+            })
+          );
+        }
+      });
+      bundle.applications.forEach((a) => {
+        const pk = keyApp(a);
+        const files = a.files ?? [];
+        if (files.length === 0) {
+          add({
+            key: pk,
+            parentKey: pk,
+            score: num(a.relevance),
+            semantic: a.semanticRelevance,
+            name: a.name,
+            app: a.name,
+            appIconSrc: a.icon || null,
+            appIconLetter: a.name,
+            iconSrc: a.icon || null,
+            iconLetter: a.name,
+            sem: { kind: 'app', name: a.name, path: a.path, title: a.title },
+          });
+        } else {
+          files.forEach((f) =>
+            add({
+              key: keyFile(a, f),
+              parentKey: pk,
+              score: num(f.relevance),
+              semantic: f.semanticRelevance,
+              name: f.name,
+              app: a.name,
+              appIconSrc: a.icon || null,
+              appIconLetter: a.name,
+              glyph: '📄',
+              sem: { kind: 'file', path: f.path },
+            })
+          );
+        }
+      });
+    }
+    leaves.sort((x, y) => y.score - x.score);
+    return { leaves, parentLeafKeys };
+  }, [bundle]);
+
+  // Toggle a leaf in flat mode, keeping its parent application selected while it
+  // has any selected child (so restoration reopens the app/browser).
+  const toggleLeaf = (leafKey: Key, parentKey: Key) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(leafKey)) {
+        next.delete(leafKey);
+        if (parentKey !== leafKey) {
+          const siblings = flat.parentLeafKeys.get(parentKey) ?? [];
+          if (!siblings.some((sk) => sk !== leafKey && next.has(sk)))
+            next.delete(parentKey);
+        }
+      } else {
+        next.add(leafKey);
+        if (parentKey !== leafKey) next.add(parentKey);
+      }
+      return next;
+    });
+  };
+
+  // Toggle a grouped child (tab / file). Selecting it also selects its parent
+  // application; deselecting the last selected child drops the parent, so an
+  // artefact can be picked without first checking its application.
+  const toggleChild = (childKey: Key, parentKey: Key, siblingKeys: Key[]) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(childKey)) {
+        next.delete(childKey);
+        if (!siblingKeys.some((sk) => sk !== childKey && next.has(sk)))
+          next.delete(parentKey);
+      } else {
+        next.add(childKey);
+        next.add(parentKey);
+      }
+      return next;
+    });
+  };
+
+  // Select / deselect a set of child keys at once (a tab group or a browser
+  // profile section), keeping the parent application in sync.
+  const toggleGroup = (
+    groupKeys: Key[],
+    parentKey: Key,
+    siblingKeys: Key[]
+  ) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const allOn = groupKeys.every((k) => next.has(k));
+      if (allOn) {
+        groupKeys.forEach((k) => next.delete(k));
+        if (!siblingKeys.some((sk) => next.has(sk))) next.delete(parentKey);
+      } else {
+        groupKeys.forEach((k) => next.add(k));
+        next.add(parentKey);
+      }
+      return next;
+    });
+  };
+
+  // Toggle an application / IDE parent together with its children (documents,
+  // files, workspace). Ticking an app thus also keeps its open documents, so
+  // restoration reopens the file — not just the application.
+  const toggleParent = (parentKey: Key, childKeys: Key[]) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(parentKey)) {
+        next.delete(parentKey);
+        childKeys.forEach((k) => next.delete(k));
+      } else {
+        next.add(parentKey);
+        childKeys.forEach((k) => next.add(k));
+      }
+      return next;
+    });
+  };
 
   // Build the committed payload from a selection set and send it.
   const commitSelection = async (
@@ -446,464 +650,603 @@ export default function CommitTaskDialog({
   // dialog auto-commits in the effect above and renders nothing.
   if (autoMode !== false) return null;
 
+  // Relevance ordering is a Phase 2 (assisted) feature. In Phase 1 (baseline)
+  // artefacts are shown in their natural order with no ordering toggle, so the
+  // participant isn't nudged by the scores.
+  const orderingEnabled = preselect;
+  const listMode: OrderMode = orderingEnabled ? orderMode : 'grouped';
+
   return (
     <ScoreVisibilityProvider value={showScores}>
-    <div className={styles.backdrop}>
-      <div className={styles.dialog} role="dialog" aria-modal="true">
-        <div className={styles.header}>
-          <h2 className={styles.title}>
-            {bundle
-              ? `Save artefacts for "${bundle.taskName}"`
-              : 'Save artefacts'}
-          </h2>
-          <button
-            type="button"
-            className={styles.close}
-            onClick={handleCancel}
-            aria-label="Close"
+      <div className={styles.backdrop}>
+        <div className={styles.dialog} role="dialog" aria-modal="true">
+          <div className={styles.header}>
+            <h2 className={styles.title}>
+              {bundle
+                ? `Save artefacts for "${bundle.taskName}"`
+                : 'Save artefacts'}
+            </h2>
+            <button
+              type="button"
+              className={styles.close}
+              onClick={handleCancel}
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </div>
+
+          {bundle && bundle.sessionEndMs > bundle.sessionStartMs && (
+            <TrimBar
+              startMs={visibleStart}
+              endMs={bundle.sessionEndMs}
+              trimStart={trimStart}
+              trimEnd={trimEnd}
+              activeStartMs={bundle.sessionStartMs}
+              lastTaskEndMs={bundle.lastTaskEndMs}
+              canExtend={visibleStart > bundle.floorMs}
+              onExtendEarlier={() =>
+                setVisibleStart((v) =>
+                  Math.max(bundle.floorMs, v - 15 * 60 * 1000)
+                )
+              }
+              markers={bundle.markers}
+              segments={bundle.segments}
+              idlePeriods={bundle.idlePeriods}
+              onPreview={handleTrimPreview}
+              onCommit={handleTrimCommit}
+              busy={trimBusy}
+            />
+          )}
+
+          <div className={styles.sectionHeader}>
+            <span className={styles.label}>
+              Tracked while the task was active
+            </span>
+            <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              {orderingEnabled &&
+                ORDER_MODES.map((m) => (
+                  <button
+                    key={m.value}
+                    type="button"
+                    onClick={() => setOrderMode(m.value)}
+                    title={
+                      m.value === 'grouped'
+                        ? 'Group by application, ordered by relevance'
+                        : 'Order all artefacts by relevance'
+                    }
+                    style={{
+                      fontSize: 11,
+                      padding: '2px 8px',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                      border: '1px solid rgba(128,128,128,0.4)',
+                      background:
+                        orderMode === m.value
+                          ? 'rgba(46,90,136,0.18)'
+                          : 'transparent',
+                      color: 'inherit',
+                      fontWeight: orderMode === m.value ? 600 : 400,
+                    }}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              <span className={styles.counter}>
+                {loading
+                  ? '...'
+                  : `${totals.parentsSelected} / ${totals.parents}`}
+              </span>
+            </span>
+          </div>
+
+          <div
+            className={styles.list}
+            style={{ display: 'flex', flexDirection: 'column' }}
           >
-            ×
-          </button>
-        </div>
+            {loading && (
+              <div className={styles.muted}>Reading tracked artefacts...</div>
+            )}
+            {!loading && bundle && totals.parents === 0 && (
+              <div className={styles.muted}>
+                No artefacts were tracked. Switch focus to apps, tabs, or files
+                while a task is active and they will show up here next time.
+              </div>
+            )}
 
-        {bundle && bundle.sessionEndMs > bundle.sessionStartMs && (
-          <TrimBar
-            startMs={visibleStart}
-            endMs={bundle.sessionEndMs}
-            trimStart={trimStart}
-            trimEnd={trimEnd}
-            activeStartMs={bundle.sessionStartMs}
-            lastTaskEndMs={bundle.lastTaskEndMs}
-            canExtend={visibleStart > bundle.floorMs}
-            onExtendEarlier={() =>
-              setVisibleStart((v) =>
-                Math.max(bundle.floorMs, v - 15 * 60 * 1000)
-              )
-            }
-            markers={bundle.markers}
-            segments={bundle.segments}
-            idlePeriods={bundle.idlePeriods}
-            onPreview={handleTrimPreview}
-            onCommit={handleTrimCommit}
-            busy={trimBusy}
-          />
-        )}
+            {bundle && listMode === 'grouped' && (
+              <>
+                {bundle.browsers.map((b) => {
+                  const bk = keyBrowser(b);
+                  const allTabs = b.browserTabs ?? [];
+                  const allTabKeys = allTabs.map((t) => keyTab(b, t));
+                  const tabs = orderingEnabled
+                    ? [...allTabs]
+                        .filter((t) => num(t.relevance) > 0)
+                        .sort(byRelevanceDesc((t) => num(t.relevance)))
+                    : allTabs;
+                  const visibleTabKeys = tabs.map((t) => keyTab(b, t));
+                  const score = maxOf(
+                    b.relevance,
+                    ...allTabs.map((t) => num(t.relevance))
+                  );
+                  if (orderingEnabled && score <= 0) return null;
+                  const isOpen = expanded.has(bk);
+                  const parentChecked = selected.has(bk);
 
-        <div className={styles.sectionHeader}>
-          <span className={styles.label}>
-            Tracked while the task was active
-          </span>
-          <span className={styles.counter}>
-            {loading
-              ? '...'
-              : `${totals.parentsSelected} / ${totals.parents}`}
-          </span>
-        </div>
-
-        <div className={styles.list}>
-          {loading && (
-            <div className={styles.muted}>Reading tracked artefacts...</div>
-          )}
-          {!loading && bundle && totals.parents === 0 && (
-            <div className={styles.muted}>
-              No artefacts were tracked. Switch focus to apps, tabs, or files
-              while a task is active and they will show up here next time.
-            </div>
-          )}
-
-          {bundle && bundle.browsers.length > 0 && (
-            <div className={styles.group}>
-              <div className={styles.groupTitle}>Browsers</div>
-              {bundle.browsers.map((b) => {
-                const k = keyBrowser(b);
-                const tabs = b.browserTabs ?? [];
-                const isOpen = expanded.has(k);
-                const parentChecked = selected.has(k);
-                return (
-                  <div key={k} className={styles.entry}>
-                    <div
-                      className={`${styles.row} ${
-                        parentChecked ? '' : styles.rowOff
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={parentChecked}
-                        onChange={() => toggle(k)}
-                      />
-                      <Icon
-                        src={b.icon || null}
-                        letter={String(b.type ?? 'B')}
-                      />
-                      <div className={styles.body}>
-                        <div className={styles.name}>{b.type}</div>
-                        <div className={styles.sub}>
-                          {tabs.length} tab{tabs.length === 1 ? '' : 's'}
+                  const renderTab = (t: BrowserTabEntity, indent: boolean) => {
+                    const tk = keyTab(b, t);
+                    const checked = selected.has(tk);
+                    const fav = faviconFor(t);
+                    return (
+                      <div
+                        key={tk}
+                        className={`${styles.row} ${styles.child}`}
+                        style={indent ? { paddingLeft: 26 } : undefined}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleChild(tk, bk, allTabKeys)}
+                        />
+                        <Icon
+                          src={fav}
+                          letter={hostFromUrl(t.url || t.title || '?')}
+                        />
+                        <div className={styles.body}>
+                          <div className={styles.name}>
+                            {t.title || hostFromUrl(t.url)}
+                          </div>
+                          <div className={styles.sub}>
+                            {hostFromUrl(t.url)}
+                            {t.profileEmail ? ` · ${t.profileEmail}` : ''}
+                          </div>
                         </div>
+                        <ScoreBadge value={t.relevance} />
+                        <SemBadge value={t.semanticRelevance} />
+                        <SemInfoButton kind="tab" title={t.title} url={t.url} />
                       </div>
-                      <ScoreBadge value={b.relevance} />
-                      <SemBadge value={b.semanticRelevance} />
-                      {tabs.length > 0 && (
-                        <button
-                          type="button"
-                          className={`${styles.expand} ${
-                            isOpen ? styles.expandOpen : ''
-                          }`}
-                          onClick={() => toggleExpanded(k)}
-                          aria-label={isOpen ? 'Hide tabs' : 'Show tabs'}
-                        >
-                          ▸
-                        </button>
-                      )}
-                    </div>
-                    {isOpen &&
-                      (() => {
-                        const renderTab = (
-                          t: BrowserTabEntity,
-                          indent: boolean
-                        ) => {
-                          const tk = keyTab(b, t);
-                          const checked = selected.has(tk);
-                          const fav = faviconFor(t);
-                          return (
-                            <div
-                              key={tk}
-                              className={`${styles.row} ${styles.child} ${
-                                parentChecked ? '' : styles.rowOff
-                              }`}
-                              style={indent ? { paddingLeft: 26 } : undefined}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                disabled={!parentChecked}
-                                onChange={() => toggle(tk)}
-                              />
-                              <Icon
-                                src={fav}
-                                letter={hostFromUrl(t.url || t.title || '?')}
-                              />
-                              <div className={styles.body}>
-                                <div className={styles.name}>
-                                  {t.title || hostFromUrl(t.url)}
-                                </div>
-                                <div className={styles.sub}>
-                                  {hostFromUrl(t.url)}
-                                  {t.profileEmail ? ` · ${t.profileEmail}` : ''}
-                                </div>
-                              </div>
-                              <ScoreBadge value={t.relevance} />
-                              <SemBadge value={t.semanticRelevance} />
-                              <SemInfoButton
-                                kind="tab"
-                                title={t.title}
-                                url={t.url}
-                              />
-                            </div>
-                          );
-                        };
+                    );
+                  };
 
-                        // Partition into tab groups + ungrouped tabs.
-                        const grouped = new Map<string, BrowserTabEntity[]>();
-                        const ungrouped: BrowserTabEntity[] = [];
-                        tabs.forEach((t) => {
-                          if (t.groupTitle) {
-                            const arr = grouped.get(t.groupTitle) ?? [];
-                            arr.push(t);
-                            grouped.set(t.groupTitle, arr);
-                          } else ungrouped.push(t);
-                        });
+                  // Partition into tab groups + ungrouped tabs.
+                  const grouped = new Map<string, BrowserTabEntity[]>();
+                  const ungrouped: BrowserTabEntity[] = [];
+                  tabs.forEach((t) => {
+                    if (t.groupTitle) {
+                      const arr = grouped.get(t.groupTitle) ?? [];
+                      arr.push(t);
+                      grouped.set(t.groupTitle, arr);
+                    } else ungrouped.push(t);
+                  });
 
-                        return (
-                          <>
-                            {Array.from(grouped.entries()).map(
-                              ([title, gtabs]) => {
-                                const keys = gtabs.map((t) => keyTab(b, t));
-                                const allOn = keys.every((kk) =>
-                                  selected.has(kk)
-                                );
-                                return (
-                                  <div key={`grp-${title}`}>
-                                    <div
-                                      className={`${styles.row} ${styles.child} ${
-                                        parentChecked ? '' : styles.rowOff
-                                      }`}
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={allOn}
-                                        disabled={!parentChecked}
-                                        onChange={() =>
-                                          setSelected((prev) => {
-                                            const n = new Set(prev);
-                                            keys.forEach((kk) =>
-                                              allOn ? n.delete(kk) : n.add(kk)
-                                            );
-                                            return n;
-                                          })
-                                        }
-                                      />
-                                      <span
-                                        style={{
-                                          width: 14,
-                                          height: 14,
-                                          borderRadius: 4,
-                                          flex: '0 0 auto',
-                                          background: chromeGroupColor(
-                                            gtabs[0].groupColor
-                                          ),
-                                        }}
-                                      />
-                                      <div className={styles.body}>
-                                        <div className={styles.name}>{title}</div>
-                                        <div className={styles.sub}>
-                                          tab group · {gtabs.length} tab
-                                          {gtabs.length === 1 ? '' : 's'}
-                                        </div>
+                  return (
+                    <div
+                      key={bk}
+                      className={styles.entry}
+                      style={
+                        orderingEnabled
+                          ? { order: Math.round(-score * 1000) }
+                          : undefined
+                      }
+                    >
+                      <div
+                        className={`${styles.row} ${
+                          parentChecked ? '' : styles.rowOff
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={parentChecked}
+                          onChange={() => toggleParent(bk, visibleTabKeys)}
+                        />
+                        <Icon
+                          src={b.icon || null}
+                          letter={String(b.type ?? 'B')}
+                        />
+                        <div className={styles.body}>
+                          <div className={styles.name}>{b.type}</div>
+                          <div className={styles.sub}>
+                            {tabs.length} tab{tabs.length === 1 ? '' : 's'}
+                          </div>
+                        </div>
+                        <ScoreBadge value={b.relevance} />
+                        <SemBadge value={b.semanticRelevance} />
+                        {tabs.length > 0 && (
+                          <button
+                            type="button"
+                            className={`${styles.expand} ${
+                              isOpen ? styles.expandOpen : ''
+                            }`}
+                            onClick={() => toggleExpanded(bk)}
+                            aria-label={isOpen ? 'Hide tabs' : 'Show tabs'}
+                          >
+                            ▸
+                          </button>
+                        )}
+                      </div>
+                      {isOpen && (
+                        <>
+                          {Array.from(grouped.entries()).map(
+                            ([title, gtabs]) => {
+                              const gkeys = gtabs.map((t) => keyTab(b, t));
+                              const gAllOn = gkeys.every((kk) =>
+                                selected.has(kk)
+                              );
+                              return (
+                                <div key={`grp-${title}`}>
+                                  <div
+                                    className={`${styles.row} ${styles.child}`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={gAllOn}
+                                      onChange={() =>
+                                        toggleGroup(gkeys, bk, allTabKeys)
+                                      }
+                                    />
+                                    <span
+                                      style={{
+                                        width: 14,
+                                        height: 14,
+                                        borderRadius: 4,
+                                        flex: '0 0 auto',
+                                        background: chromeGroupColor(
+                                          gtabs[0].groupColor
+                                        ),
+                                      }}
+                                    />
+                                    <div className={styles.body}>
+                                      <div className={styles.name}>{title}</div>
+                                      <div className={styles.sub}>
+                                        tab group · {gtabs.length} tab
+                                        {gtabs.length === 1 ? '' : 's'}
                                       </div>
                                     </div>
-                                    {gtabs.map((t) => renderTab(t, true))}
                                   </div>
-                                );
-                              }
-                            )}
-                            {ungrouped.map((t) => renderTab(t, false))}
-                          </>
-                        );
-                      })()}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {bundle && bundle.ides.length > 0 && (
-            <div className={styles.group}>
-              <div className={styles.groupTitle}>IDEs</div>
-              {bundle.ides.map((i) => {
-                const k = keyIde(i);
-                const files = i.ideFiles ?? [];
-                const isOpen = expanded.has(k);
-                const parentChecked = selected.has(k);
-                return (
-                  <div key={k} className={styles.entry}>
-                    <div
-                      className={`${styles.row} ${
-                        parentChecked ? '' : styles.rowOff
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={parentChecked}
-                        onChange={() => toggle(k)}
-                      />
-                      <Icon src={i.icon || null} letter={i.name} />
-                      <div className={styles.body}>
-                        <div className={styles.name}>
-                          {i.workspaceName || i.name}
-                        </div>
-                        <div className={styles.sub}>
-                          {i.workspacePath || i.path}
-                        </div>
-                      </div>
-                      <ScoreBadge value={i.relevance} />
-                      <SemBadge value={i.semanticRelevance} />
-                      <SemInfoButton
-                        kind="ide"
-                        name={i.name}
-                        path={i.path}
-                        title={i.title}
-                      />
-                      {(files.length > 0 || i.workspacePath) && (
-                        <button
-                          type="button"
-                          className={`${styles.expand} ${
-                            isOpen ? styles.expandOpen : ''
-                          }`}
-                          onClick={() => toggleExpanded(k)}
-                          aria-label={isOpen ? 'Hide contents' : 'Show contents'}
-                        >
-                          ▸
-                        </button>
+                                  {gtabs.map((t) => renderTab(t, true))}
+                                </div>
+                              );
+                            }
+                          )}
+                          {ungrouped.map((t) => renderTab(t, false))}
+                        </>
                       )}
                     </div>
-                    {isOpen && (
-                      <>
-                        {i.workspacePath && (
-                          <div
-                            className={`${styles.row} ${styles.child} ${
-                              parentChecked ? '' : styles.rowOff
+                  );
+                })}
+                {bundle.ides.map((i) => {
+                  const k = keyIde(i);
+                  const files = orderingEnabled
+                    ? [...(i.ideFiles ?? [])]
+                        .filter((f) => num(f.relevance) > 0)
+                        .sort(byRelevanceDesc((f) => num(f.relevance)))
+                    : i.ideFiles ?? [];
+                  const score = maxOf(
+                    i.relevance,
+                    ...(i.ideFiles ?? []).map((f) => num(f.relevance))
+                  );
+                  if (orderingEnabled && score <= 0) return null;
+                  const isOpen = expanded.has(k);
+                  const parentChecked = selected.has(k);
+                  const ideChildKeys = [
+                    ...(i.workspacePath ? [keyWorkspace(i)] : []),
+                    ...files.map((f) => keyIdeFile(i, f)),
+                  ];
+                  return (
+                    <div
+                      key={k}
+                      className={styles.entry}
+                      style={
+                        orderingEnabled
+                          ? { order: Math.round(-score * 1000) }
+                          : undefined
+                      }
+                    >
+                      <div
+                        className={`${styles.row} ${
+                          parentChecked ? '' : styles.rowOff
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={parentChecked}
+                          onChange={() => toggleParent(k, ideChildKeys)}
+                        />
+                        <Icon src={i.icon || null} letter={i.name} />
+                        <div className={styles.body}>
+                          <div className={styles.name}>
+                            {i.workspaceName || i.name}
+                          </div>
+                          <div className={styles.sub}>
+                            {i.workspacePath || i.path}
+                          </div>
+                        </div>
+                        <ScoreBadge value={i.relevance} />
+                        <SemBadge value={i.semanticRelevance} />
+                        <SemInfoButton
+                          kind="ide"
+                          name={i.name}
+                          path={i.path}
+                          title={i.title}
+                        />
+                        {(files.length > 0 || i.workspacePath) && (
+                          <button
+                            type="button"
+                            className={`${styles.expand} ${
+                              isOpen ? styles.expandOpen : ''
                             }`}
+                            onClick={() => toggleExpanded(k)}
+                            aria-label={
+                              isOpen ? 'Hide contents' : 'Show contents'
+                            }
                           >
-                            <input
-                              type="checkbox"
-                              checked={selected.has(keyWorkspace(i))}
-                              disabled={!parentChecked}
-                              onChange={() => toggle(keyWorkspace(i))}
-                            />
-                            <span className={styles.fileGlyph}>📁</span>
-                            <div className={styles.body}>
-                              <div className={styles.name}>Project Folder</div>
-                              <div className={styles.sub}>
-                                {i.workspaceName || i.workspacePath}
+                            ▸
+                          </button>
+                        )}
+                      </div>
+                      {isOpen && (
+                        <>
+                          {i.workspacePath && (
+                            <div className={`${styles.row} ${styles.child}`}>
+                              <input
+                                type="checkbox"
+                                checked={selected.has(keyWorkspace(i))}
+                                onChange={() =>
+                                  toggleChild(keyWorkspace(i), k, ideChildKeys)
+                                }
+                              />
+                              <span className={styles.fileGlyph}>📁</span>
+                              <div className={styles.body}>
+                                <div className={styles.name}>
+                                  Project Folder
+                                </div>
+                                <div className={styles.sub}>
+                                  {i.workspaceName || i.workspacePath}
+                                </div>
                               </div>
                             </div>
-                          </div>
+                          )}
+                          {files.map((f) => {
+                            const fk = keyIdeFile(i, f);
+                            const checked = selected.has(fk);
+                            const display =
+                              (f as any).name ??
+                              (f.path || '').split('/').pop();
+                            return (
+                              <div
+                                key={fk}
+                                className={`${styles.row} ${styles.child}`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() =>
+                                    toggleChild(fk, k, ideChildKeys)
+                                  }
+                                />
+                                <span className={styles.fileGlyph}>📄</span>
+                                <div className={styles.body}>
+                                  <div className={styles.name}>{display}</div>
+                                  <div className={styles.sub}>{f.path}</div>
+                                </div>
+                                <ScoreBadge value={f.relevance} />
+                                <SemBadge value={f.semanticRelevance} />
+                                <SemInfoButton kind="file" path={f.path} />
+                              </div>
+                            );
+                          })}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+                {bundle.applications.map((a) => {
+                  const k = keyApp(a);
+                  const files = orderingEnabled
+                    ? [...(a.files ?? [])]
+                        .filter((f) => num(f.relevance) > 0)
+                        .sort(byRelevanceDesc((f) => num(f.relevance)))
+                    : a.files ?? [];
+                  const score = maxOf(
+                    a.relevance,
+                    ...(a.files ?? []).map((f) => num(f.relevance))
+                  );
+                  if (orderingEnabled && score <= 0) return null;
+                  const isOpen = expanded.has(k);
+                  const parentChecked = selected.has(k);
+                  const appChildKeys = files.map((f) => keyFile(a, f));
+                  // A file-handler app (Preview/Word/…) can't be picked on its
+                  // own — only through its documents. Standalone apps stay
+                  // directly selectable.
+                  const hasDocuments = (a.files ?? []).length > 0;
+                  return (
+                    <div
+                      key={k}
+                      className={styles.entry}
+                      style={
+                        orderingEnabled
+                          ? { order: Math.round(-score * 1000) }
+                          : undefined
+                      }
+                    >
+                      <div
+                        className={`${styles.row} ${
+                          parentChecked ? '' : styles.rowOff
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={parentChecked}
+                          disabled={hasDocuments}
+                          title={
+                            hasDocuments
+                              ? 'Select the document(s) below; the app follows automatically'
+                              : undefined
+                          }
+                          onChange={() => toggleParent(k, appChildKeys)}
+                        />
+                        <Icon src={a.icon || null} letter={a.name} />
+                        <div className={styles.body}>
+                          <div className={styles.name}>{a.name}</div>
+                          {a.title && a.title !== a.name && (
+                            <div className={styles.sub}>{a.title}</div>
+                          )}
+                        </div>
+                        <ScoreBadge value={a.relevance} />
+                        <SemBadge value={a.semanticRelevance} />
+                        <SemInfoButton
+                          kind="app"
+                          name={a.name}
+                          path={a.path}
+                          title={a.title}
+                        />
+                        {files.length > 0 && (
+                          <button
+                            type="button"
+                            className={`${styles.expand} ${
+                              isOpen ? styles.expandOpen : ''
+                            }`}
+                            onClick={() => toggleExpanded(k)}
+                            aria-label={isOpen ? 'Hide files' : 'Show files'}
+                          >
+                            ▸
+                          </button>
                         )}
-                        {files.map((f) => {
-                          const fk = keyIdeFile(i, f);
+                      </div>
+                      {isOpen &&
+                        files.map((f) => {
+                          const fk = keyFile(a, f);
                           const checked = selected.has(fk);
-                          const display =
-                            (f as any).name ?? (f.path || '').split('/').pop();
                           return (
                             <div
                               key={fk}
-                              className={`${styles.row} ${styles.child} ${
-                                parentChecked ? '' : styles.rowOff
-                              }`}
+                              className={`${styles.row} ${styles.child}`}
                             >
                               <input
                                 type="checkbox"
                                 checked={checked}
-                                disabled={!parentChecked}
-                                onChange={() => toggle(fk)}
+                                onChange={() =>
+                                  toggleChild(fk, k, appChildKeys)
+                                }
                               />
                               <span className={styles.fileGlyph}>📄</span>
                               <div className={styles.body}>
-                                <div className={styles.name}>{display}</div>
+                                <div className={styles.name}>{f.name}</div>
                                 <div className={styles.sub}>{f.path}</div>
                               </div>
                               <ScoreBadge value={f.relevance} />
-                      <SemBadge value={f.semanticRelevance} />
+                              <SemBadge value={f.semanticRelevance} />
                               <SemInfoButton kind="file" path={f.path} />
                             </div>
                           );
                         })}
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                    </div>
+                  );
+                })}
+              </>
+            )}
 
-          {bundle && bundle.applications.length > 0 && (
-            <div className={styles.group}>
-              <div className={styles.groupTitle}>Applications</div>
-              {bundle.applications.map((a) => {
-                const k = keyApp(a);
-                const files = a.files ?? [];
-                const isOpen = expanded.has(k);
-                const parentChecked = selected.has(k);
-                return (
-                  <div key={k} className={styles.entry}>
+            {bundle &&
+              listMode === 'flat' &&
+              flat.leaves
+                .filter((l) => l.score > 0)
+                .map((l) => {
+                  const checked = selected.has(l.key);
+                  return (
                     <div
+                      key={l.key}
                       className={`${styles.row} ${
-                        parentChecked ? '' : styles.rowOff
+                        checked ? '' : styles.rowOff
                       }`}
                     >
                       <input
                         type="checkbox"
-                        checked={parentChecked}
-                        onChange={() => toggle(k)}
+                        checked={checked}
+                        onChange={() => toggleLeaf(l.key, l.parentKey)}
                       />
-                      <Icon src={a.icon || null} letter={a.name} />
-                      <div className={styles.body}>
-                        <div className={styles.name}>{a.name}</div>
-                        {a.title && a.title !== a.name && (
-                          <div className={styles.sub}>{a.title}</div>
-                        )}
-                      </div>
-                      <ScoreBadge value={a.relevance} />
-                      <SemBadge value={a.semanticRelevance} />
-                      <SemInfoButton
-                        kind="app"
-                        name={a.name}
-                        path={a.path}
-                        title={a.title}
-                      />
-                      {files.length > 0 && (
-                        <button
-                          type="button"
-                          className={`${styles.expand} ${
-                            isOpen ? styles.expandOpen : ''
-                          }`}
-                          onClick={() => toggleExpanded(k)}
-                          aria-label={isOpen ? 'Hide files' : 'Show files'}
-                        >
-                          ▸
-                        </button>
+                      {l.glyph ? (
+                        <span className={styles.fileGlyph}>{l.glyph}</span>
+                      ) : (
+                        <Icon
+                          src={l.iconSrc ?? null}
+                          letter={l.iconLetter ?? '?'}
+                        />
                       )}
-                    </div>
-                    {isOpen &&
-                      files.map((f) => {
-                        const fk = keyFile(a, f);
-                        const checked = selected.has(fk);
-                        return (
-                          <div
-                            key={fk}
-                            className={`${styles.row} ${styles.child} ${
-                              parentChecked ? '' : styles.rowOff
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              disabled={!parentChecked}
-                              onChange={() => toggle(fk)}
+                      <div className={styles.body}>
+                        <div className={styles.name}>{l.name}</div>
+                        <div
+                          className={styles.sub}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                        >
+                          in
+                          {l.appIconSrc ? (
+                            <img
+                              src={l.appIconSrc}
+                              alt=""
+                              style={{
+                                width: 14,
+                                height: 14,
+                                borderRadius: 3,
+                                objectFit: 'contain',
+                              }}
                             />
-                            <span className={styles.fileGlyph}>📄</span>
-                            <div className={styles.body}>
-                              <div className={styles.name}>{f.name}</div>
-                              <div className={styles.sub}>{f.path}</div>
-                            </div>
-                            <ScoreBadge value={f.relevance} />
-                            <SemBadge value={f.semanticRelevance} />
-                            <SemInfoButton kind="file" path={f.path} />
-                          </div>
-                        );
-                      })}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                          ) : null}
+                          {l.app}
+                        </div>
+                      </div>
+                      <ScoreBadge value={l.score} />
+                      <SemBadge value={l.semantic} />
+                      <SemInfoButton
+                        kind={l.sem.kind}
+                        name={l.sem.name}
+                        path={l.sem.path}
+                        url={l.sem.url}
+                        title={l.sem.title}
+                      />
+                    </div>
+                  );
+                })}
+          </div>
+
+          {error && <div className={styles.error}>{error}</div>}
+
+          <div className={styles.footer}>
+            <button
+              type="button"
+              className={styles.secondary}
+              onClick={handleCancel}
+              disabled={saving}
+            >
+              {discardOnCancel ? 'Discard' : 'Cancel'}
+            </button>
+            <button
+              type="button"
+              className={styles.primary}
+              onClick={handleCommit}
+              disabled={saving || loading || !bundle}
+            >
+              {saving ? 'Saving...' : 'Save artefacts'}
+            </button>
+          </div>
         </div>
 
-        {error && <div className={styles.error}>{error}</div>}
-
-        <div className={styles.footer}>
-          <button
-            type="button"
-            className={styles.secondary}
-            onClick={handleCancel}
-            disabled={saving}
-          >
-            {discardOnCancel ? 'Discard' : 'Cancel'}
-          </button>
-          <button
-            type="button"
-            className={styles.primary}
-            onClick={handleCommit}
-            disabled={saving || loading || !bundle}
-          >
-            {saving ? 'Saving...' : 'Save artefacts'}
-          </button>
-        </div>
+        {confirmDiscard && (
+          <ConfirmDialog
+            title="Discard this session?"
+            message="The tracked artefacts for this session won't be saved to the task. This can't be undone."
+            confirmLabel="Discard"
+            cancelLabel="Keep editing"
+            danger
+            onConfirm={performDiscard}
+            onCancel={() => setConfirmDiscard(false)}
+          />
+        )}
       </div>
-
-      {confirmDiscard && (
-        <ConfirmDialog
-          title="Discard this session?"
-          message="The tracked artefacts for this session won't be saved to the task. This can't be undone."
-          confirmLabel="Discard"
-          cancelLabel="Keep editing"
-          danger
-          onConfirm={performDiscard}
-          onCancel={() => setConfirmDiscard(false)}
-        />
-      )}
-    </div>
     </ScoreVisibilityProvider>
   );
 }

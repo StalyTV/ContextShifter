@@ -14,6 +14,13 @@ import TaskActionButtons from '../components/TaskActionButtons';
 import ConfirmDialog from '../components/ConfirmDialog';
 import SemInfoButton from '../components/SemInfoButton';
 import { ScoreVisibilityProvider } from '../components/ScoreVisibility';
+import {
+  OrderMode,
+  ORDER_MODES,
+  num,
+  maxOf,
+  byRelevanceDesc,
+} from '../components/artefactOrder';
 import CommitTaskDialog from '../components/CommitTaskDialog';
 import StartTaskDialog from '../components/StartTaskDialog';
 
@@ -84,7 +91,7 @@ const chromeGroupColor = (c?: string) =>
 type RowProps = {
   icon: React.ReactNode;
   name: string;
-  sub?: string | null;
+  sub?: React.ReactNode;
   childCount?: number;
   isOpen?: boolean;
   onToggle?: () => void;
@@ -179,6 +186,128 @@ export default function TaskEditView() {
   const [activeTask, setActiveTask] = useState<ActiveTask>(null);
   // Whether to show semantic/relevance info ("Show relevance scores" setting).
   const [showScores, setShowScores] = useState(false);
+  // Artefact ordering (see artefactOrder). Default: grouped by application.
+  const [orderMode, setOrderMode] = useState<OrderMode>('grouped');
+  // Relevance ordering is a Phase 2 feature; Phase 1 shows natural order only.
+  const [orderingEnabled, setOrderingEnabled] = useState(false);
+
+  // Flat "Relevance" ordering: every committed artefact as a leaf, remembering
+  // which application it belongs to. Ordered by relevance.
+  type TVLeaf = {
+    key: string;
+    app: string;
+    appIconSrc?: string | null;
+    appIconLetter?: string;
+    name: string;
+    iconSrc?: string | null;
+    iconLetter?: string;
+    glyph?: string;
+    score: number;
+    sem: {
+      kind: 'app' | 'ide' | 'tab' | 'file';
+      name?: string | null;
+      path?: string | null;
+      url?: string | null;
+      title?: string | null;
+    };
+    remove: { kind: 'tab' | 'ideFile' | 'file' | 'app' | 'ide'; id: number };
+  };
+  const flatLeaves = useMemo(() => {
+    const leaves: TVLeaf[] = [];
+    const bs = (snapshot?.browsers ?? []) as BrowserEntity[];
+    const is = (snapshot?.ides ?? []) as IDEEntity[];
+    const as = (snapshot?.applications ?? []) as ApplicationEntity[];
+    bs.forEach((b) => {
+      (b.browserTabs ?? []).forEach((t) =>
+        leaves.push({
+          key: `tab-${t.id}`,
+          app: String(b.type ?? 'Browser'),
+          appIconSrc: (b as { icon?: string }).icon || null,
+          appIconLetter: String(b.type ?? 'B'),
+          name: t.title || hostFromUrl(t.url),
+          iconSrc: faviconFor(t),
+          iconLetter: hostFromUrl(t.url || t.title || '?'),
+          score: num(t.relevance),
+          sem: { kind: 'tab', title: t.title, url: t.url },
+          remove: { kind: 'tab', id: t.id },
+        })
+      );
+    });
+    is.forEach((ide) => {
+      const files = (ide.ideFiles ?? []) as IDEFileEntity[];
+      if (files.length === 0) {
+        leaves.push({
+          key: `ide-${ide.id}`,
+          app: ide.name || 'IDE',
+          appIconSrc: (ide as { icon?: string }).icon || null,
+          appIconLetter: ide.name || 'IDE',
+          name: ide.workspaceName || ide.name || 'IDE',
+          iconSrc: (ide as { icon?: string }).icon || null,
+          iconLetter: ide.name || 'IDE',
+          score: num(ide.relevance),
+          sem: {
+            kind: 'ide',
+            name: ide.name,
+            path: ide.path,
+            title: (ide as { title?: string }).title,
+          },
+          remove: { kind: 'ide', id: ide.id },
+        });
+      } else {
+        files.forEach((f) =>
+          leaves.push({
+            key: `idefile-${f.id}`,
+            app: ide.name || 'IDE',
+            appIconSrc: (ide as { icon?: string }).icon || null,
+            appIconLetter: ide.name || 'IDE',
+            name: f.name || (f.path || '').split('/').pop() || f.path,
+            glyph: '📄',
+            score: num(f.relevance),
+            sem: { kind: 'file', path: f.path },
+            remove: { kind: 'ideFile', id: f.id },
+          })
+        );
+      }
+    });
+    as.forEach((app) => {
+      const files = (app.files ?? []) as FileEntity[];
+      if (files.length === 0) {
+        leaves.push({
+          key: `app-${app.id}`,
+          app: app.name || 'App',
+          appIconSrc: (app as { icon?: string }).icon || null,
+          appIconLetter: app.name || 'A',
+          name: app.name || app.title || 'Application',
+          iconSrc: (app as { icon?: string }).icon || null,
+          iconLetter: app.name || 'A',
+          score: num(app.relevance),
+          sem: {
+            kind: 'app',
+            name: app.name,
+            path: app.path,
+            title: app.title,
+          },
+          remove: { kind: 'app', id: app.id },
+        });
+      } else {
+        files.forEach((f) =>
+          leaves.push({
+            key: `file-${f.id}`,
+            app: app.name || 'App',
+            appIconSrc: (app as { icon?: string }).icon || null,
+            appIconLetter: app.name || 'A',
+            name: f.name || f.path,
+            glyph: '📄',
+            score: num(f.relevance),
+            sem: { kind: 'file', path: f.path },
+            remove: { kind: 'file', id: f.id },
+          })
+        );
+      }
+    });
+    leaves.sort((x, y) => y.score - x.score);
+    return leaves;
+  }, [snapshot]);
   const [deleteTarget, setDeleteTarget] = useState<SnapshotEntity | null>(null);
   const [showCommitTask, setShowCommitTask] = useState(false);
   const [showStartTask, setShowStartTask] = useState(false);
@@ -195,10 +324,7 @@ export default function TaskEditView() {
     | { kind: 'startDialog'; parentId: number | null }
   >({ kind: 'none' });
 
-  const isSubtask = useMemo(
-    () => snapshot?.parentId != null,
-    [snapshot]
-  );
+  const isSubtask = useMemo(() => snapshot?.parentId != null, [snapshot]);
 
   const toggleExpanded = (k: string) => {
     setExpanded((prev) => {
@@ -210,8 +336,8 @@ export default function TaskEditView() {
   };
 
   async function load() {
-    const snap: SnapshotEntity | null = await window.electron.ipcRenderer
-      .invoke('get-snapshot-by-id', id);
+    const snap: SnapshotEntity | null =
+      await window.electron.ipcRenderer.invoke('get-snapshot-by-id', id);
     setSnapshot(snap);
     setName(snap?.name ?? '');
 
@@ -222,8 +348,10 @@ export default function TaskEditView() {
       (snap.ides ?? []).forEach((i) => open.add(`ide-${i.id}`));
       setExpanded(open);
 
-      const kids: SnapshotEntity[] = await window.electron.ipcRenderer
-        .invoke('get-snapshot-children', snap.id);
+      const kids: SnapshotEntity[] = await window.electron.ipcRenderer.invoke(
+        'get-snapshot-children',
+        snap.id
+      );
       setChildren(kids ?? []);
     }
     setLoading(false);
@@ -260,11 +388,15 @@ export default function TaskEditView() {
         const settings = await window.electron.ipcRenderer.invoke(
           'get-settings'
         );
-        if (alive)
+        if (alive) {
           setShowScores(
             (settings as { showRelevanceScores?: boolean })
               ?.showRelevanceScores === true
           );
+          setOrderingEnabled(
+            (settings as { studyPhase?: string })?.studyPhase === 'phase2'
+          );
+        }
       } catch {
         /* default hidden */
       }
@@ -449,368 +581,491 @@ export default function TaskEditView() {
     );
   }
 
+  const listMode: OrderMode = orderingEnabled ? orderMode : 'grouped';
   const browsers = (snapshot.browsers ?? []) as BrowserEntity[];
   const ides = (snapshot.ides ?? []) as IDEEntity[];
   const apps = (snapshot.applications ?? []) as ApplicationEntity[];
-  const hasAnyArtifact =
-    browsers.length + ides.length + apps.length > 0;
+  const hasAnyArtifact = browsers.length + ides.length + apps.length > 0;
 
   return (
     <ScoreVisibilityProvider value={showScores}>
-    <div className={styles.page}>
-      <div className={styles.topBar}>
-        <button
-          type="button"
-          className={styles.backButton}
-          onClick={() => {
-            if (isSubtask && snapshot.parentId != null) {
-              navigate(`/task/${snapshot.parentId}`);
-            } else {
-              navigate('/');
-            }
-          }}
-        >
-          {isSubtask ? 'Parent task' : 'All tasks'}
-        </button>
-        <input
-          className={styles.titleInput}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={commitName}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-          }}
-          placeholder="Untitled task"
-        />
-        <div style={{ marginLeft: 'auto' }}>
-          <TaskActionButtons
-            isActive={activeTask?.id === snapshot.id}
-            onActivate={() => handleActivate(snapshot.id)}
-            onStop={handleStop}
-            onDelete={() => setDeleteTarget(snapshot)}
+      <div className={styles.page}>
+        <div className={styles.topBar}>
+          <button
+            type="button"
+            className={styles.backButton}
+            onClick={() => {
+              if (isSubtask && snapshot.parentId != null) {
+                navigate(`/task/${snapshot.parentId}`);
+              } else {
+                navigate('/');
+              }
+            }}
+          >
+            {isSubtask ? 'Parent task' : 'All tasks'}
+          </button>
+          <input
+            className={styles.titleInput}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={commitName}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+            }}
+            placeholder="Untitled task"
           />
-        </div>
-      </div>
-
-      {/* Subtasks */}
-      {!isSubtask && (
-        <section className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <span className={styles.sectionTitle}>Subtasks</span>
-            <button
-              type="button"
-              className={styles.addButton}
-              onClick={() => setShowAdd((v) => !v)}
-            >
-              {showAdd ? 'Cancel' : 'Add subtask'}
-            </button>
+          <div style={{ marginLeft: 'auto' }}>
+            <TaskActionButtons
+              isActive={activeTask?.id === snapshot.id}
+              onActivate={() => handleActivate(snapshot.id)}
+              onStop={handleStop}
+              onDelete={() => setDeleteTarget(snapshot)}
+            />
           </div>
+        </div>
 
-          {showAdd && (
-            <div className={styles.dialog}>
-              <input
-                autoFocus
-                className={styles.dialogInput}
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') addSubtask();
-                  if (e.key === 'Escape') {
-                    setShowAdd(false);
-                    setNewName('');
-                  }
-                }}
-                placeholder="Subtask name"
-              />
+        {/* Subtasks */}
+        {!isSubtask && (
+          <section className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <span className={styles.sectionTitle}>Subtasks</span>
               <button
                 type="button"
                 className={styles.addButton}
-                onClick={addSubtask}
-                disabled={!newName.trim()}
+                onClick={() => setShowAdd((v) => !v)}
               >
-                Create
+                {showAdd ? 'Cancel' : 'Add subtask'}
               </button>
+            </div>
+
+            {showAdd && (
+              <div className={styles.dialog}>
+                <input
+                  autoFocus
+                  className={styles.dialogInput}
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') addSubtask();
+                    if (e.key === 'Escape') {
+                      setShowAdd(false);
+                      setNewName('');
+                    }
+                  }}
+                  placeholder="Subtask name"
+                />
+                <button
+                  type="button"
+                  className={styles.addButton}
+                  onClick={addSubtask}
+                  disabled={!newName.trim()}
+                >
+                  Create
+                </button>
+              </div>
+            )}
+
+            {children.length === 0 && !showAdd && (
+              <div className={styles.empty}>No subtasks yet.</div>
+            )}
+
+            <div className={styles.list}>
+              {children.map((c) => (
+                <div
+                  key={c.id}
+                  className={styles.subtaskRow}
+                  onClick={() => navigate(`/task/${c.id}`)}
+                >
+                  <span className={styles.subtaskName}>
+                    {c.name || `Task ${c.id}`}
+                  </span>
+                  <TaskActionButtons
+                    isActive={activeTask?.id === c.id}
+                    onActivate={() => handleActivate(c.id)}
+                    onStop={handleStop}
+                    onDelete={() => setDeleteTarget(c)}
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Artifacts */}
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <span className={styles.sectionTitle}>Artifacts</span>
+            {hasAnyArtifact && orderingEnabled && (
+              <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                {ORDER_MODES.map((m) => (
+                  <button
+                    key={m.value}
+                    type="button"
+                    onClick={() => setOrderMode(m.value)}
+                    style={{
+                      fontSize: 11,
+                      padding: '2px 8px',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                      border: '1px solid rgba(128,128,128,0.4)',
+                      background:
+                        orderMode === m.value
+                          ? 'rgba(46,90,136,0.18)'
+                          : 'transparent',
+                      color: 'inherit',
+                      fontWeight: orderMode === m.value ? 600 : 400,
+                    }}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </span>
+            )}
+          </div>
+
+          {!hasAnyArtifact && (
+            <div className={styles.empty}>No artifacts captured.</div>
+          )}
+
+          {hasAnyArtifact && listMode === 'flat' && (
+            <div className={styles.artifactGroup}>
+              {flatLeaves.map((l) => (
+                <ArtifactRow
+                  key={l.key}
+                  icon={
+                    l.glyph ? (
+                      <span className={styles.artifactFileGlyph}>
+                        {l.glyph}
+                      </span>
+                    ) : (
+                      <ArtifactIcon
+                        src={l.iconSrc ?? null}
+                        letter={l.iconLetter ?? '?'}
+                      />
+                    )
+                  }
+                  name={l.name}
+                  sub={
+                    <span
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                    >
+                      in
+                      {l.appIconSrc ? (
+                        <img
+                          src={l.appIconSrc}
+                          alt=""
+                          style={{
+                            width: 14,
+                            height: 14,
+                            borderRadius: 3,
+                            objectFit: 'contain',
+                          }}
+                        />
+                      ) : null}
+                      {l.app}
+                    </span>
+                  }
+                  onRemove={() => removeArtefact(l.remove.kind, l.remove.id)}
+                  extra={
+                    <SemInfoButton
+                      kind={l.sem.kind}
+                      name={l.sem.name}
+                      path={l.sem.path}
+                      url={l.sem.url}
+                      title={l.sem.title}
+                    />
+                  }
+                />
+              ))}
             </div>
           )}
 
-          {children.length === 0 && !showAdd && (
-            <div className={styles.empty}>No subtasks yet.</div>
-          )}
-
-          <div className={styles.list}>
-            {children.map((c) => (
-              <div
-                key={c.id}
-                className={styles.subtaskRow}
-                onClick={() => navigate(`/task/${c.id}`)}
-              >
-                <span className={styles.subtaskName}>
-                  {c.name || `Task ${c.id}`}
-                </span>
-                <TaskActionButtons
-                  isActive={activeTask?.id === c.id}
-                  onActivate={() => handleActivate(c.id)}
-                  onStop={handleStop}
-                  onDelete={() => setDeleteTarget(c)}
-                />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Artifacts */}
-      <section className={styles.section}>
-        <div className={styles.sectionHeader}>
-          <span className={styles.sectionTitle}>Artifacts</span>
-        </div>
-
-        {!hasAnyArtifact && (
-          <div className={styles.empty}>No artifacts captured.</div>
-        )}
-
-        {browsers.length > 0 && (
-          <div className={styles.artifactGroup}>
-            <div className={styles.groupName}>Browsers</div>
-            {browsers.map((b) => {
-              const tabs = (b.browserTabs ?? []) as BrowserTabEntity[];
-              const k = `browser-${b.id}`;
-              const isOpen = expanded.has(k);
-              return (
-                <div key={k}>
+          {hasAnyArtifact && listMode === 'grouped' && (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {browsers.map((b) => {
+                const allTabs = (b.browserTabs ?? []) as BrowserTabEntity[];
+                const tabs = orderingEnabled
+                  ? [...allTabs].sort(byRelevanceDesc((t) => num(t.relevance)))
+                  : allTabs;
+                const score = maxOf(
+                  b.relevance,
+                  ...allTabs.map((t) => num(t.relevance))
+                );
+                const k = `browser-${b.id}`;
+                const isOpen = expanded.has(k);
+                const renderTab = (t: BrowserTabEntity) => (
                   <ArtifactRow
+                    key={`tab-${t.id}`}
+                    isChild
                     icon={
                       <ArtifactIcon
-                        src={(b as any).icon || null}
-                        letter={String(b.type ?? 'B')}
+                        src={faviconFor(t)}
+                        letter={hostFromUrl(t.url || t.title || '?')}
                       />
                     }
-                    name={(b as any).name || String(b.type) || 'Browser'}
-                    sub={`${tabs.length} tab${tabs.length === 1 ? '' : 's'}`}
-                    childCount={tabs.length}
-                    isOpen={isOpen}
-                    onToggle={() => toggleExpanded(k)}
-                    onRemove={() => removeArtefact('browser', b.id)}
-                  />
-                  {isOpen &&
-                    (() => {
-                      const renderTab = (t: BrowserTabEntity) => (
-                        <ArtifactRow
-                          key={`tab-${t.id}`}
-                          isChild
-                          icon={
-                            <ArtifactIcon
-                              src={faviconFor(t)}
-                              letter={hostFromUrl(t.url || t.title || '?')}
-                            />
-                          }
-                          name={t.title || hostFromUrl(t.url)}
-                          sub={hostFromUrl(t.url)}
-                          onRemove={() => removeArtefact('tab', t.id)}
-                          extra={
-                            <SemInfoButton kind="tab" title={t.title} url={t.url} />
-                          }
-                        />
-                      );
-                      const grouped = new Map<string, BrowserTabEntity[]>();
-                      const ungrouped: BrowserTabEntity[] = [];
-                      tabs.forEach((t) => {
-                        const gt = (t as any).groupTitle as string | undefined;
-                        if (gt) {
-                          const arr = grouped.get(gt) ?? [];
-                          arr.push(t);
-                          grouped.set(gt, arr);
-                        } else ungrouped.push(t);
-                      });
-                      return (
-                        <>
-                          {Array.from(grouped.entries()).map(([title, gt]) => (
-                            <div key={`grp-${title}`}>
-                              <ArtifactRow
-                                isChild
-                                icon={null}
-                                swatch={chromeGroupColor(
-                                  (gt[0] as any).groupColor
-                                )}
-                                name={title}
-                                sub={`tab group · ${gt.length} tab${
-                                  gt.length === 1 ? '' : 's'
-                                }`}
-                              />
-                              {gt.map(renderTab)}
-                            </div>
-                          ))}
-                          {ungrouped.map(renderTab)}
-                        </>
-                      );
-                    })()}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {ides.length > 0 && (
-          <div className={styles.artifactGroup}>
-            <div className={styles.groupName}>IDEs</div>
-            {ides.map((ide) => {
-              const files = (ide.ideFiles ?? []) as IDEFileEntity[];
-              const k = `ide-${ide.id}`;
-              const isOpen = expanded.has(k);
-              return (
-                <div key={k}>
-                  <ArtifactRow
-                    icon={
-                      <ArtifactIcon
-                        src={(ide as any).icon || null}
-                        letter={ide.name || 'IDE'}
-                      />
-                    }
-                    name={ide.workspaceName || ide.name || 'IDE'}
-                    sub={ide.workspacePath || ide.path}
-                    childCount={files.length + (ide.workspacePath ? 1 : 0)}
-                    isOpen={isOpen}
-                    onToggle={() => toggleExpanded(k)}
-                    onRemove={() => removeArtefact('ide', ide.id)}
+                    name={t.title || hostFromUrl(t.url)}
+                    sub={hostFromUrl(t.url)}
+                    onRemove={() => removeArtefact('tab', t.id)}
                     extra={
-                      <SemInfoButton
-                        kind="ide"
-                        name={ide.name}
-                        path={ide.path}
-                        title={(ide as any).title}
-                      />
+                      <SemInfoButton kind="tab" title={t.title} url={t.url} />
                     }
                   />
-                  {isOpen && ide.workspacePath && (
+                );
+                const grouped = new Map<string, BrowserTabEntity[]>();
+                const ungrouped: BrowserTabEntity[] = [];
+                tabs.forEach((t) => {
+                  const gt = (t as { groupTitle?: string }).groupTitle;
+                  if (gt) {
+                    const arr = grouped.get(gt) ?? [];
+                    arr.push(t);
+                    grouped.set(gt, arr);
+                  } else ungrouped.push(t);
+                });
+                return (
+                  <div
+                    key={k}
+                    style={
+                      orderingEnabled
+                        ? { order: Math.round(-score * 1000) }
+                        : undefined
+                    }
+                  >
                     <ArtifactRow
-                      isChild
-                      icon={<span className={styles.artifactFileGlyph}>📁</span>}
-                      name={`Project Folder${
-                        ide.workspaceSelected === false ? ' (not selected)' : ''
-                      }`}
-                      sub={ide.workspaceName || ide.workspacePath}
+                      icon={
+                        <ArtifactIcon
+                          src={(b as { icon?: string }).icon || null}
+                          letter={String(b.type ?? 'B')}
+                        />
+                      }
+                      name={
+                        (b as { name?: string }).name ||
+                        String(b.type) ||
+                        'Browser'
+                      }
+                      sub={`${tabs.length} tab${tabs.length === 1 ? '' : 's'}`}
+                      childCount={tabs.length}
+                      isOpen={isOpen}
+                      onToggle={() => toggleExpanded(k)}
+                      onRemove={() => removeArtefact('browser', b.id)}
                     />
-                  )}
-                  {isOpen &&
-                    files.map((f) => {
-                      const display =
-                        f.name || (f.path || '').split('/').pop() || f.path;
-                      return (
+                    {isOpen && (
+                      <>
+                        {Array.from(grouped.entries()).map(([title, gt]) => (
+                          <div key={`grp-${title}`}>
+                            <ArtifactRow
+                              isChild
+                              icon={null}
+                              swatch={chromeGroupColor(
+                                (gt[0] as { groupColor?: string }).groupColor
+                              )}
+                              name={title}
+                              sub={`tab group · ${gt.length} tab${
+                                gt.length === 1 ? '' : 's'
+                              }`}
+                            />
+                            {gt.map(renderTab)}
+                          </div>
+                        ))}
+                        {ungrouped.map(renderTab)}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+              {ides.map((ide) => {
+                const ideFiles = (ide.ideFiles ?? []) as IDEFileEntity[];
+                const files = orderingEnabled
+                  ? [...ideFiles].sort(byRelevanceDesc((f) => num(f.relevance)))
+                  : ideFiles;
+                const score = maxOf(
+                  ide.relevance,
+                  ...((ide.ideFiles ?? []) as IDEFileEntity[]).map((f) =>
+                    num(f.relevance)
+                  )
+                );
+                const k = `ide-${ide.id}`;
+                const isOpen = expanded.has(k);
+                return (
+                  <div
+                    key={k}
+                    style={
+                      orderingEnabled
+                        ? { order: Math.round(-score * 1000) }
+                        : undefined
+                    }
+                  >
+                    <ArtifactRow
+                      icon={
+                        <ArtifactIcon
+                          src={(ide as any).icon || null}
+                          letter={ide.name || 'IDE'}
+                        />
+                      }
+                      name={ide.workspaceName || ide.name || 'IDE'}
+                      sub={ide.workspacePath || ide.path}
+                      childCount={files.length + (ide.workspacePath ? 1 : 0)}
+                      isOpen={isOpen}
+                      onToggle={() => toggleExpanded(k)}
+                      onRemove={() => removeArtefact('ide', ide.id)}
+                      extra={
+                        <SemInfoButton
+                          kind="ide"
+                          name={ide.name}
+                          path={ide.path}
+                          title={(ide as any).title}
+                        />
+                      }
+                    />
+                    {isOpen && ide.workspacePath && (
+                      <ArtifactRow
+                        isChild
+                        icon={
+                          <span className={styles.artifactFileGlyph}>📁</span>
+                        }
+                        name={`Project Folder${
+                          ide.workspaceSelected === false
+                            ? ' (not selected)'
+                            : ''
+                        }`}
+                        sub={ide.workspaceName || ide.workspacePath}
+                      />
+                    )}
+                    {isOpen &&
+                      files.map((f) => {
+                        const display =
+                          f.name || (f.path || '').split('/').pop() || f.path;
+                        return (
+                          <ArtifactRow
+                            key={`idefile-${f.id}`}
+                            isChild
+                            icon={
+                              <span className={styles.artifactFileGlyph}>
+                                📄
+                              </span>
+                            }
+                            name={display}
+                            sub={f.path}
+                            onRemove={() => removeArtefact('ideFile', f.id)}
+                            extra={<SemInfoButton kind="file" path={f.path} />}
+                          />
+                        );
+                      })}
+                  </div>
+                );
+              })}
+              {apps.map((app) => {
+                const appFiles = (app.files ?? []) as FileEntity[];
+                const files = orderingEnabled
+                  ? [...appFiles].sort(byRelevanceDesc((f) => num(f.relevance)))
+                  : appFiles;
+                const score = maxOf(
+                  app.relevance,
+                  ...((app.files ?? []) as FileEntity[]).map((f) =>
+                    num(f.relevance)
+                  )
+                );
+                const k = `app-${app.id}`;
+                const isOpen = expanded.has(k);
+                return (
+                  <div
+                    key={k}
+                    style={
+                      orderingEnabled
+                        ? { order: Math.round(-score * 1000) }
+                        : undefined
+                    }
+                  >
+                    <ArtifactRow
+                      icon={
+                        <ArtifactIcon
+                          src={(app as any).icon || null}
+                          letter={app.name || 'A'}
+                        />
+                      }
+                      name={app.name || app.title || 'Application'}
+                      sub={
+                        app.title && app.title !== app.name ? app.title : null
+                      }
+                      childCount={files.length}
+                      isOpen={isOpen}
+                      onToggle={() => toggleExpanded(k)}
+                      onRemove={() => removeArtefact('app', app.id)}
+                      extra={
+                        <SemInfoButton
+                          kind="app"
+                          name={app.name}
+                          path={app.path}
+                          title={app.title}
+                        />
+                      }
+                    />
+                    {isOpen &&
+                      files.map((f) => (
                         <ArtifactRow
-                          key={`idefile-${f.id}`}
+                          key={`file-${f.id}`}
                           isChild
                           icon={
                             <span className={styles.artifactFileGlyph}>📄</span>
                           }
-                          name={display}
+                          name={f.name || f.path}
                           sub={f.path}
-                          onRemove={() => removeArtefact('ideFile', f.id)}
+                          onRemove={() => removeArtefact('file', f.id)}
                           extra={<SemInfoButton kind="file" path={f.path} />}
                         />
-                      );
-                    })}
-                </div>
-              );
-            })}
-          </div>
+                      ))}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {showCommitTask && (
+          <CommitTaskDialog
+            onClose={async () => {
+              setShowCommitTask(false);
+              await finaliseAction();
+            }}
+            onCommitted={async () => {
+              setShowCommitTask(false);
+              await finaliseAction();
+            }}
+          />
         )}
 
-        {apps.length > 0 && (
-          <div className={styles.artifactGroup}>
-            <div className={styles.groupName}>Applications</div>
-            {apps.map((app) => {
-              const files = (app.files ?? []) as FileEntity[];
-              const k = `app-${app.id}`;
-              const isOpen = expanded.has(k);
-              return (
-                <div key={k}>
-                  <ArtifactRow
-                    icon={
-                      <ArtifactIcon
-                        src={(app as any).icon || null}
-                        letter={app.name || 'A'}
-                      />
-                    }
-                    name={app.name || app.title || 'Application'}
-                    sub={
-                      app.title && app.title !== app.name ? app.title : null
-                    }
-                    childCount={files.length}
-                    isOpen={isOpen}
-                    onToggle={() => toggleExpanded(k)}
-                    onRemove={() => removeArtefact('app', app.id)}
-                    extra={
-                      <SemInfoButton
-                        kind="app"
-                        name={app.name}
-                        path={app.path}
-                        title={app.title}
-                      />
-                    }
-                  />
-                  {isOpen &&
-                    files.map((f) => (
-                      <ArtifactRow
-                        key={`file-${f.id}`}
-                        isChild
-                        icon={
-                          <span className={styles.artifactFileGlyph}>📄</span>
-                        }
-                        name={f.name || f.path}
-                        sub={f.path}
-                        onRemove={() => removeArtefact('file', f.id)}
-                        extra={<SemInfoButton kind="file" path={f.path} />}
-                      />
-                    ))}
-                </div>
-              );
-            })}
-          </div>
+        {showStartTask && (
+          <StartTaskDialog
+            onClose={() => setShowStartTask(false)}
+            onStarted={() => {
+              setShowStartTask(false);
+              load();
+            }}
+            parentId={startTaskParentId}
+            parentName={
+              startTaskParentId !== null && startTaskParentId === snapshot?.id
+                ? snapshot?.name ?? null
+                : null
+            }
+          />
         )}
-      </section>
 
-      {showCommitTask && (
-        <CommitTaskDialog
-          onClose={async () => {
-            setShowCommitTask(false);
-            await finaliseAction();
-          }}
-          onCommitted={async () => {
-            setShowCommitTask(false);
-            await finaliseAction();
-          }}
-        />
-      )}
-
-      {showStartTask && (
-        <StartTaskDialog
-          onClose={() => setShowStartTask(false)}
-          onStarted={() => {
-            setShowStartTask(false);
-            load();
-          }}
-          parentId={startTaskParentId}
-          parentName={
-            startTaskParentId !== null && startTaskParentId === snapshot?.id
-              ? snapshot?.name ?? null
-              : null
-          }
-        />
-      )}
-
-      {deleteTarget && (
-        <ConfirmDialog
-          title="Delete task"
-          message={`Delete "${
-            deleteTarget.name || `Task ${deleteTarget.id}`
-          }"? This also removes its subtasks and captured artefacts. This cannot be undone.`}
-          confirmLabel="Delete"
-          danger
-          onConfirm={confirmDelete}
-          onCancel={() => setDeleteTarget(null)}
-        />
-      )}
-    </div>
+        {deleteTarget && (
+          <ConfirmDialog
+            title="Delete task"
+            message={`Delete "${
+              deleteTarget.name || `Task ${deleteTarget.id}`
+            }"? This also removes its subtasks and captured artefacts. This cannot be undone.`}
+            confirmLabel="Delete"
+            danger
+            onConfirm={confirmDelete}
+            onCancel={() => setDeleteTarget(null)}
+          />
+        )}
+      </div>
     </ScoreVisibilityProvider>
   );
 }

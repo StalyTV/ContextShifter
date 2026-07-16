@@ -48,9 +48,17 @@ export default class Settings extends BaseEntity {
     return enabled !== 'false';
   }
 
+  static async getKeepArtefactsOnSwitch(): Promise<boolean> {
+    // Default OFF: switching tasks closes the other artefacts as usual. When ON,
+    // activating a task only OPENS its artefacts and nothing is closed.
+    const keep = (await this.findOneBy({ key: 'keepArtefactsOnSwitch' }))
+      ?.value;
+    return keep === 'true';
+  }
+
   static async getStudyPhase(): Promise<'phase1' | 'phase2'> {
     // Phase 1 (default): the artefact picker makes NO preselection the user
-    // decides fully. 
+    // decides fully.
     // Phase 2: the scorer preselects relevant artefacts.
     const phase = (await this.findOneBy({ key: 'studyPhase' }))?.value;
     return phase === 'phase2' ? 'phase2' : 'phase1';
@@ -65,10 +73,17 @@ export default class Settings extends BaseEntity {
   }
 
   static async getIsStudyDataCollectionEnabled(): Promise<boolean> {
+    // Default ON: only OFF when explicitly set to 'false'.
     const enabled = (
       await this.findOneBy({ key: 'isStudyDataCollectionEnabled' })
     )?.value;
-    return enabled === 'true';
+    return enabled !== 'false';
+  }
+
+  static async getColorTheme(): Promise<'dark' | 'light'> {
+    // Default DARK on a fresh install; only light when explicitly chosen.
+    const theme = (await this.findOneBy({ key: 'colorTheme' }))?.value;
+    return theme === 'light' ? 'light' : 'dark';
   }
 
   static async getShowQuestionnaireOnlyOnWorkdays(): Promise<boolean> {

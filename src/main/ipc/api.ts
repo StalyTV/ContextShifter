@@ -241,9 +241,7 @@ async function buildStoppedBundle(
     (prev.ides ?? []).forEach((i) => {
       previousKeys.add(keyIde(i));
       prevIdesByKey.set(keyIde(i), i);
-      (i.ideFiles ?? []).forEach((f) =>
-        previousKeys.add(keyIdeFile(i, f))
-      );
+      (i.ideFiles ?? []).forEach((f) => previousKeys.add(keyIdeFile(i, f)));
     });
     (prev.applications ?? []).forEach((a) => {
       previousKeys.add(keyApp(a));
@@ -368,9 +366,7 @@ async function buildStoppedBundle(
     // Browser row's semantic = its best tab's (undefined if none computed).
     b.semanticRelevance = b.browserTabs.reduce<number | undefined>(
       (m, t) =>
-        t.semanticRelevance != null
-          ? Math.max(m ?? 0, t.semanticRelevance)
-          : m,
+        t.semanticRelevance != null ? Math.max(m ?? 0, t.semanticRelevance) : m,
       undefined
     ) as number;
     browserList.push(b);
@@ -385,7 +381,7 @@ async function buildStoppedBundle(
   const allIdeEntries = new Map<
     string,
     {
-      tracked?: typeof stopped.ides[number];
+      tracked?: (typeof stopped.ides)[number];
       prev?: IDEEntity;
     }
   >();
@@ -408,8 +404,7 @@ async function buildStoppedBundle(
   }
   const underWorkspace = (filePath: string, ws: string) =>
     !!ws &&
-    (filePath === ws ||
-      filePath.startsWith(ws.endsWith('/') ? ws : `${ws}/`));
+    (filePath === ws || filePath.startsWith(ws.endsWith('/') ? ws : `${ws}/`));
   for (const [, entry] of allIdeEntries) {
     const tracked = entry.tracked;
     const prevIde = entry.prev;
@@ -418,13 +413,11 @@ async function buildStoppedBundle(
     i.path = tracked?.path ?? prevIde?.path ?? '';
     i.icon = tracked?.icon ?? prevIde?.icon ?? '';
     i.title = tracked?.title ?? prevIde?.title ?? i.name;
-    i.branch = prevIde?.branch ?? (vscodeSnap?.branch ?? '');
+    i.branch = prevIde?.branch ?? vscodeSnap?.branch ?? '';
     i.lastCommitMessage =
       prevIde?.lastCommitMessage ?? vscodeSnap?.lastCommit?.message ?? '';
-    i.workspaceName =
-      prevIde?.workspaceName ?? vscodeSnap?.workspaceName ?? '';
-    i.workspacePath =
-      prevIde?.workspacePath ?? vscodeSnap?.workspacePath ?? '';
+    i.workspaceName = prevIde?.workspaceName ?? vscodeSnap?.workspaceName ?? '';
+    i.workspacePath = prevIde?.workspacePath ?? vscodeSnap?.workspacePath ?? '';
     i.workspaceSelected = prevIde?.workspaceSelected ?? true;
     i.isSelected = true;
     i.relevance = 0;
@@ -555,9 +548,7 @@ async function buildStoppedBundle(
   // stay open across task switches, so they shouldn't be associated with tasks.
   const neverClose = await KnownApplication.getAppsThatShouldNeverBeClosed();
   const neverClosePaths = new Set(neverClose.map((a) => a.path));
-  const neverCloseNames = new Set(
-    neverClose.map((a) => a.name.toLowerCase())
-  );
+  const neverCloseNames = new Set(neverClose.map((a) => a.name.toLowerCase()));
   const isNeverClose = (name?: string, path?: string) =>
     (path != null && neverClosePaths.has(path)) ||
     (name != null && neverCloseNames.has(name.toLowerCase()));
@@ -620,19 +611,22 @@ async function buildStoppedBundle(
   const selectedLeaves = ArtifactScorer.selectAboveThreshold(leafScores);
   browserList.forEach((b) =>
     b.browserTabs.forEach((t) => {
-      if (deselected.has(`tab:${t.url}`)) selectedLeaves.delete(keyTab(b.type, t.url));
+      if (deselected.has(`tab:${t.url}`))
+        selectedLeaves.delete(keyTab(b.type, t.url));
     })
   );
   filteredIdes.forEach((i) => {
     (i.ideFiles ?? []).forEach((f) => {
-      if (deselected.has(`file:${f.path}`)) selectedLeaves.delete(keyIdeFile(i, f));
+      if (deselected.has(`file:${f.path}`))
+        selectedLeaves.delete(keyIdeFile(i, f));
     });
     if (deselected.has(`ide:${i.path}`)) selectedLeaves.delete(keyIde(i));
   });
   filteredApps.forEach((a) => {
     if (deselected.has(`app:${a.path}`)) selectedLeaves.delete(keyApp(a));
     (a.files ?? []).forEach((f) => {
-      if (deselected.has(`file:${f.path}`)) selectedLeaves.delete(keyFile(a, f));
+      if (deselected.has(`file:${f.path}`))
+        selectedLeaves.delete(keyFile(a, f));
     });
   });
 
@@ -860,9 +854,9 @@ typedIpcMain.handle('export-study-data', async () => {
   if (count === 0) {
     return { canceled: false, count: 0, path: null };
   }
-  const defaultName = `contextshifter-study-data-${
-    new Date().toISOString().slice(0, 10)
-  }.json`;
+  const defaultName = `contextshifter-study-data-${new Date()
+    .toISOString()
+    .slice(0, 10)}.json`;
   const result = await dialog.showSaveDialog({
     title: 'Export Study Data',
     defaultPath: path.join(electronApp.getPath('downloads'), defaultName),
@@ -887,15 +881,15 @@ typedIpcMain.handle('get-settings', async () => {
   const userSettings: UserSettings = {
     isDarkModeEnabled: nativeTheme.shouldUseDarkColors,
     isDataAnonymized: await Settings.getIsDataAnonymized(),
-    isArtefactSelectionEnabled:
-      await Settings.getIsArtefactSelectionEnabled(),
+    isArtefactSelectionEnabled: await Settings.getIsArtefactSelectionEnabled(),
     showRelevanceScores: await Settings.getShowRelevanceScores(),
+    keepArtefactsOnSwitch: await Settings.getKeepArtefactsOnSwitch(),
     studyPhase: await Settings.getStudyPhase(),
     isStudyDataCollectionEnabled:
       await Settings.getIsStudyDataCollectionEnabled(),
     endOfDayPopUpTime: await Settings.getEndOfDayPopUpTime(),
     showQuestionnaireOnlyOnWorkdays:
-      await Settings.getShowQuestionnaireOnlyOnWorkdays()
+      await Settings.getShowQuestionnaireOnlyOnWorkdays(),
   };
   return userSettings;
 });
@@ -908,32 +902,40 @@ typedIpcMain.handle('set-settings', async (e, updatedSettings) => {
   }
 
   await Database.manager.save(Settings, {
+    key: 'colorTheme',
+    value: updatedSettings.isDarkModeEnabled ? 'dark' : 'light',
+  });
+  await Database.manager.save(Settings, {
     key: 'isDataAnonymized',
-    value: updatedSettings.isDataAnonymized ? 'true' : 'false'
+    value: updatedSettings.isDataAnonymized ? 'true' : 'false',
   });
   await Database.manager.save(Settings, {
     key: 'isArtefactSelectionEnabled',
-    value: updatedSettings.isArtefactSelectionEnabled ? 'true' : 'false'
+    value: updatedSettings.isArtefactSelectionEnabled ? 'true' : 'false',
   });
   await Database.manager.save(Settings, {
     key: 'showRelevanceScores',
-    value: updatedSettings.showRelevanceScores ? 'true' : 'false'
+    value: updatedSettings.showRelevanceScores ? 'true' : 'false',
+  });
+  await Database.manager.save(Settings, {
+    key: 'keepArtefactsOnSwitch',
+    value: updatedSettings.keepArtefactsOnSwitch ? 'true' : 'false',
   });
   await Database.manager.save(Settings, {
     key: 'studyPhase',
-    value: updatedSettings.studyPhase === 'phase2' ? 'phase2' : 'phase1'
+    value: updatedSettings.studyPhase === 'phase2' ? 'phase2' : 'phase1',
   });
   await Database.manager.save(Settings, {
     key: 'isStudyDataCollectionEnabled',
-    value: updatedSettings.isStudyDataCollectionEnabled ? 'true' : 'false'
+    value: updatedSettings.isStudyDataCollectionEnabled ? 'true' : 'false',
   });
   await Database.manager.save(Settings, {
     key: 'endOfDayPopUpTime',
-    value: updatedSettings.endOfDayPopUpTime.toISOString()
+    value: updatedSettings.endOfDayPopUpTime.toISOString(),
   });
   await Database.manager.save(Settings, {
     key: 'showQuestionnaireOnlyOnWorkdays',
-    value: updatedSettings.showQuestionnaireOnlyOnWorkdays ? 'true' : 'false'
+    value: updatedSettings.showQuestionnaireOnlyOnWorkdays ? 'true' : 'false',
   });
   await UsageData.addEntry(
     'update-settings',
@@ -1021,5 +1023,3 @@ typedIpcMain.handle('open-settings-window', async () => {
 typedIpcMain.handle('get-study-phase', () => {
   return StudyManager.getStudyPhase();
 });
-
-

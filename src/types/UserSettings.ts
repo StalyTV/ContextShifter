@@ -9,6 +9,8 @@ type UserSettings = {
   isDataAnonymized: boolean;
   isArtefactSelectionEnabled: boolean;
   showRelevanceScores: boolean;
+  /** When true, activating a task only opens its artefacts and closes nothing. */
+  keepArtefactsOnSwitch: boolean;
   /** 'phase1' = no preselection in the picker; 'phase2' = scorer preselects. */
   studyPhase: 'phase1' | 'phase2';
   isStudyDataCollectionEnabled: boolean;

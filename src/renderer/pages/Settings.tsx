@@ -31,6 +31,8 @@ export default function Settings() {
     useState<boolean>(true);
   const [showRelevanceScores, setShowRelevanceScores] =
     useState<boolean>(false);
+  const [keepArtefactsOnSwitch, setKeepArtefactsOnSwitch] =
+    useState<boolean>(false);
   const [studyPhase, setStudyPhase] = useState<'phase1' | 'phase2'>('phase1');
   // The study-config controls (phase + artefact selection + show scores) are
   // locked so participants can't change them; a password unlocks them for this
@@ -78,6 +80,7 @@ export default function Settings() {
       setIsDataAnonymized(settings.isDataAnonymized);
       setIsArtefactSelectionEnabled(settings.isArtefactSelectionEnabled);
       setShowRelevanceScores(settings.showRelevanceScores);
+      setKeepArtefactsOnSwitch(settings.keepArtefactsOnSwitch);
       setStudyPhase(settings.studyPhase ?? 'phase1');
       setIsStudyDataCollectionEnabled(settings.isStudyDataCollectionEnabled);
       setEndOfDayPopUpTime(settings.endOfDayPopUpTime);
@@ -180,6 +183,7 @@ export default function Settings() {
     isDataAnonymized: isDataAnonymized,
     isArtefactSelectionEnabled: isArtefactSelectionEnabled,
     showRelevanceScores: showRelevanceScores,
+    keepArtefactsOnSwitch: keepArtefactsOnSwitch,
     studyPhase: studyPhase,
     isStudyDataCollectionEnabled: isStudyDataCollectionEnabled,
     endOfDayPopUpTime: endOfDayPopUpTime,
@@ -216,6 +220,12 @@ export default function Settings() {
     const next = !showRelevanceScores;
     setShowRelevanceScores(next);
     setSettings(buildSettings({ showRelevanceScores: next }));
+  };
+
+  const onToggleKeepArtefacts = async () => {
+    const next = !keepArtefactsOnSwitch;
+    setKeepArtefactsOnSwitch(next);
+    setSettings(buildSettings({ keepArtefactsOnSwitch: next }));
   };
 
   const onSelectPhase = async (phase: 'phase1' | 'phase2') => {
@@ -328,6 +338,25 @@ export default function Settings() {
           Phase 1: the selection screen makes no preselection, you choose all
           artefacts yourself. Phase 2: the scorer preselects the artefacts it
           finds relevant.
+        </p>
+      </div>
+
+      <h4>Task Switching</h4>
+      <div className={styles.studyCard}>
+        <label className={styles.dataCollectionRow}>
+          <input
+            type="checkbox"
+            className={styles.checkbox}
+            checked={keepArtefactsOnSwitch}
+            onChange={onToggleKeepArtefacts}
+          />
+          <span className={styles.dataCollectionLabel}>
+            Keep other artefacts open on task switch
+          </span>
+        </label>
+        <p className={styles.exportMessage}>
+          When on, activating a task only opens its artefacts and closes nothing
+          — nothing is closed when you switch or start a task. Off by default.
         </p>
       </div>
 

@@ -28,6 +28,7 @@ import activeWin from 'active-win';
 import { app } from 'electron';
 import { info, error } from 'electron-log';
 import Snapshot from './entity/Snapshot';
+import Settings from './entity/Settings';
 import KnownApplication from './entity/KnownApplication';
 import NeverCloseBrowserTab from './entity/NeverCloseBrowserTab';
 import BrowserTracker from './trackers/BrowserTracker';
@@ -122,22 +123,29 @@ export default class TaskRestorer {
       // 1) OPEN the task's artefacts.
       await this.openArtefacts(taskApps, taskIdes, taskBrowsers);
 
-      // 2) CLOSE the rest. Order matters: the extension-driven closes (browser
-      // tabs, VS Code files) are reliable and need no OS permission, so run
-      // them first. The osascript-driven closes (Finder windows, quitting apps)
-      // can be blocked by macOS Automation prompts, so run them last and
-      // timeout-guarded — a hang there must not prevent the others.
-      await this.closeOtherBrowserTabs(taskBrowsers);
-      await this.closeOtherVSCodeFiles(taskIdes);
-      await this.closeOtherVSCodeWindows(taskIdes);
-      await this.closeOtherFileExplorerWindows(taskApps);
-      await this.closeOtherApplications(
-        keepPaths,
-        keepNames,
-        keepBrowserTypes,
-        neverClosePaths,
-        neverCloseNames
-      );
+      // 2) CLOSE the rest — unless the user opted to keep everything open on a
+      // task switch (then a task only ADDS its artefacts, closing nothing).
+      // Order matters: the extension-driven closes (browser tabs, VS Code files)
+      // are reliable and need no OS permission, so run them first. The
+      // osascript-driven closes (Finder windows, quitting apps) can be blocked
+      // by macOS Automation prompts, so run them last and timeout-guarded — a
+      // hang there must not prevent the others.
+      const keepOthersOpen = await Settings.getKeepArtefactsOnSwitch();
+      if (!keepOthersOpen) {
+        await this.closeOtherBrowserTabs(taskBrowsers);
+        await this.closeOtherVSCodeFiles(taskIdes);
+        await this.closeOtherVSCodeWindows(taskIdes);
+        await this.closeOtherFileExplorerWindows(taskApps);
+        await this.closeOtherApplications(
+          keepPaths,
+          keepNames,
+          keepBrowserTypes,
+          neverClosePaths,
+          neverCloseNames
+        );
+      } else {
+        info('[TaskRestorer] Keep-open enabled — opened artefacts, closed none');
+      }
 
       snap.lastRestore = new Date().toISOString();
       await snap.save();

@@ -12,7 +12,7 @@ export default class StaticSettings {
   public static MOST_USED_APP_TIME_WINDOW = 12 * 60 * 1000;
   public static LIGHT_PULSE_COLOR: RGB = { r: 8, g: 192, b: 221 };
   public static LIGHT_PULSE_LENGTH = 100; // time in ms
-  public static IDLE_TIMEOUT = 5 * 60 // in seconds
+  public static IDLE_TIMEOUT = 5 * 60; // in seconds
   public static OPEN_ARTIFACTS_SAMPLING_RATE = 60 * 1000; // for study analysis
 
   // --- Artefact scoring (weighted linear: duration + frequency + recency) ---
@@ -56,7 +56,7 @@ export default class StaticSettings {
   // final = behavioral * ((1 - influence) + influence * normalizedSemantic).
   // influence = 0 -> semantic off (factor 1); 1 -> full multiply. Tunable while
   // calibrating; kept low by default so semantic is collected before it drives.
-  public static SCORE_SEMANTIC_INFLUENCE = 0;
+  public static SCORE_SEMANTIC_INFLUENCE = 1;
   // Local embedding backend: 'transformers' (on-device WASM) or 'off'.
   public static SEMANTIC_BACKEND: 'transformers' | 'off' = 'transformers';
   public static SEMANTIC_MODEL = 'Xenova/all-MiniLM-L6-v2';

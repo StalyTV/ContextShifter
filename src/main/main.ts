@@ -9,8 +9,9 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import './ipc/api';
-import { app, globalShortcut, powerMonitor } from 'electron';
-import log from "electron-log";
+import { app, globalShortcut, powerMonitor, nativeTheme } from 'electron';
+import Settings from './entity/Settings';
+import log from 'electron-log';
 import { info } from 'electron-log';
 import ContextShifter from './ContextShifter';
 import ScoreWeights from './ScoreWeights';
@@ -39,8 +40,8 @@ const isDebug =
 log.transports.file.level = 'info';
 log.transports.file.maxSize = 10485760; // 10MB
 
-if (require("electron-squirrel-startup")) app.quit();
-app.setAppUserModelId("com.squirrel.tasksnap.TaskSnap");
+if (require('electron-squirrel-startup')) app.quit();
+app.setAppUserModelId('com.squirrel.tasksnap.TaskSnap');
 
 // auto-start (https://www.electronjs.org/docs/latest/api/app#appsetloginitemsettingssettings-macos-windows)
 const appFolder = path.dirname(process.execPath);
@@ -98,6 +99,9 @@ app
 
     // create connection with database
     await Database.initialize();
+
+    // Apply the persisted colour theme (defaults to dark on a fresh install).
+    nativeTheme.themeSource = await Settings.getColorTheme();
 
     // if export folder does not exist, create it
     if (!fs.existsSync(Exporter._exportFolder)) {
