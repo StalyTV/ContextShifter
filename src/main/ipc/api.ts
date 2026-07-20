@@ -94,6 +94,8 @@ const keyIdeFile = (
   i: { workspacePath?: string; path: string },
   f: { path: string }
 ) => `idef:${i.workspacePath || i.path}|${f.path}`;
+const keyWorkspace = (i: { workspacePath?: string; path: string }) =>
+  `workspace:${i.workspacePath || i.path}`;
 const keyApp = (a: { path: string }) => `app:${a.path}`;
 const keyFile = (a: { path: string }, f: { path: string }) =>
   `file:${a.path}|${f.path}`;
@@ -241,11 +243,18 @@ async function buildStoppedBundle(
     (prev.ides ?? []).forEach((i) => {
       previousKeys.add(keyIde(i));
       prevIdesByKey.set(keyIde(i), i);
+      // Reflect the previously-committed "Project Folder" choice so it can be
+      // pre-checked again (it's a child artefact, not covered by keyIde).
+      if (i.workspacePath && i.workspaceSelected !== false)
+        previousKeys.add(keyWorkspace(i));
       (i.ideFiles ?? []).forEach((f) => previousKeys.add(keyIdeFile(i, f)));
     });
     (prev.applications ?? []).forEach((a) => {
       previousKeys.add(keyApp(a));
       prevAppsByPath.set(a.path, a);
+      // Include the app's committed documents so a file-handler app (Preview,
+      // Word, …) restores its actual files, not just the application.
+      (a.files ?? []).forEach((f) => previousKeys.add(keyFile(a, f)));
     });
   }
 

@@ -262,12 +262,16 @@ export default function CommitTaskDialog({
   }, []);
 
   // Compute the picker's initial selection (and which parents to expand). Pure.
-  // In Phase 1 (`preselect = false`) nothing is pre-checked — the user decides
-  // fully — but the browser/IDE groups are still expanded so everything is
-  // visible to pick. In Phase 2 the scorer's above-threshold artefacts are
-  // pre-checked.
+  // In Phase 2 the scorer's above-threshold artefacts are pre-checked. In
+  // Phase 1 (`preselect = false`) the set committed to this task in a previous
+  // session is pre-checked (a brand-new task has no previousKeys, so nothing is
+  // pre-checked); the browser/IDE groups are still expanded so everything stays
+  // visible to pick. Phase 1 never reorders by relevance — only the prior
+  // selection is restored.
   const computeAutoSelection = (b: StoppedTaskBundle, preselect: boolean) => {
-    const sel = new Set<Key>(preselect ? [...(b.autoSelectKeys ?? [])] : []);
+    const sel = new Set<Key>(
+      preselect ? [...(b.autoSelectKeys ?? [])] : [...(b.previousKeys ?? [])]
+    );
     const exp = new Set<Key>();
     b.browsers.forEach((br) => {
       if (

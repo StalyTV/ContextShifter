@@ -307,9 +307,13 @@ chose **and** what the participant kept.
 **Two study phases** (`studyPhase` setting) mirror the field-study design in the
 consent form, and each record logs which phase it was made in:
 
-- **Phase 1 — baseline (3 working days):** the picker makes **no preselection**;
-  the participant ticks the relevant artefacts from scratch. This produces the
-  clean **ground truth** — the participant's judgement, uninfluenced by the model.
+- **Phase 1 — baseline (3 working days):** the picker makes **no model-driven
+  preselection** and never reorders by relevance, so the participant's judgement
+  is uninfluenced by the scorer — this produces the clean **ground truth**. As a
+  convenience, when a task is resumed the set of artefacts **committed to it in a
+  previous session** is pre-checked (a brand-new task starts blank), so the
+  participant re-confirms rather than re-picks the same items every day; this is
+  the participant's own prior choice, not a model suggestion.
 - **Phase 2 — assisted (2 working days):** the scorer **preselects** relevant
   artefacts and restoration reopens them; the participant confirms/corrects. This
   measures the usefulness of automatic pre-selection + one-click restoration
