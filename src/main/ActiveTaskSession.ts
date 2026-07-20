@@ -91,6 +91,8 @@ export type StoppedSession = {
   autoSelectKeys: string[];
   /** Keys the user deselected on a previous activation (kept out of auto-select). */
   deselectedKeys: string[];
+  /** Whether this session was a resume (its artefacts were restored on open). */
+  wasRestored: boolean;
   accumulatedActiveMs: number;
   stopMomentMs: number;
   /** When the task was set active — the default trim start + an indicator. */
@@ -183,6 +185,9 @@ export default class ActiveTaskSession {
 
   private _activeTaskId: number | null = null;
   private _activeTaskName: string | null = null;
+  // Whether the active session was started via resume() (task artefacts were
+  // restored) vs. a fresh start(). Drives the Phase-2 in-situ survey.
+  private _resumed = false;
 
   // Metadata maps (for rendering picker rows).
   private _apps: Map<string, TrackedApp> = new Map(); // by path
@@ -247,6 +252,8 @@ export default class ActiveTaskSession {
 
   public async start(taskId: number, taskName: string): Promise<void> {
     this._activeTaskName = taskName;
+    // A plain start is a brand-new/empty activation; resume() flips this on.
+    this._resumed = false;
     // Reset only per-task state — the ambient event log keeps running so this
     // task can later reach back into the time before it was activated.
     this.resetTaskState();
@@ -268,6 +275,8 @@ export default class ActiveTaskSession {
 
   public async resume(taskId: number, taskName: string): Promise<void> {
     await this.start(taskId, taskName);
+    // Resuming restores the task's artefacts, so this session was "restored".
+    this._resumed = true;
     info(`[ActiveTaskSession] Resumed task ${taskId} "${taskName}"`);
   }
 
@@ -295,10 +304,12 @@ export default class ActiveTaskSession {
     );
 
     info(
-      `[ActiveTaskSession] Stopped task ${taskId} "${taskName}" — ${stopped.apps.length +
+      `[ActiveTaskSession] Stopped task ${taskId} "${taskName}" — ${
+        stopped.apps.length +
         stopped.ides.length +
         stopped.browsers.length +
-        stopped.files.length} artefacts, ${stopped.autoSelectKeys.length} auto-selected`
+        stopped.files.length
+      } artefacts, ${stopped.autoSelectKeys.length} auto-selected`
     );
 
     // Clear the active task but KEEP the ambient log running for the next task.
@@ -475,7 +486,12 @@ export default class ActiveTaskSession {
         }
       }
       if (url && !isBlankTab(url)) {
-        this._tabs.set(url, { url, title: tabTitle, browserType, lastSeen: now });
+        this._tabs.set(url, {
+          url,
+          title: tabTitle,
+          browserType,
+          lastSeen: now,
+        });
         this.recordFocus(tabKey(url), 'tab');
       }
       return;
@@ -491,7 +507,10 @@ export default class ActiveTaskSession {
         title,
         lastSeen: now,
       });
-      if (this._lastActiveFilePath && this._files.has(this._lastActiveFilePath)) {
+      if (
+        this._lastActiveFilePath &&
+        this._files.has(this._lastActiveFilePath)
+      ) {
         this.recordFocus(fileKey(this._lastActiveFilePath), 'file');
       } else {
         this.recordFocus(ideKey(appPath), 'ide');
@@ -528,7 +547,8 @@ export default class ActiveTaskSession {
     getFrontDocumentPath(appName)
       .then((docPath) => {
         if (!docPath) return;
-        const docs = this._appDocuments.get(appPath) ?? new Map<string, string>();
+        const docs =
+          this._appDocuments.get(appPath) ?? new Map<string, string>();
         docs.set(docPath, getFileNameFromPath(docPath));
         this._appDocuments.set(appPath, docs);
         // Attribute focus to the document itself (like an IDE file) so each
@@ -687,7 +707,8 @@ export default class ActiveTaskSession {
     // gaps between sessions never age recency.
     let nowActiveMs = 0;
     for (const [key, stat] of merged) {
-      if (!isNeverCloseKey(key, stat)) totalInteractions += stat.interactionCount;
+      if (!isNeverCloseKey(key, stat))
+        totalInteractions += stat.interactionCount;
       nowActiveMs += stat.totalDurationMs;
     }
 
@@ -702,7 +723,8 @@ export default class ActiveTaskSession {
     let maxD = 0;
     for (const [key, stat] of merged) {
       const fNow =
-        stat.decayFreq * Math.pow(2, -(nowActiveMs - stat.decayFreqActiveMs) / H);
+        stat.decayFreq *
+        Math.pow(2, -(nowActiveMs - stat.decayFreqActiveMs) / H);
       const dNow =
         stat.decayDur * Math.pow(2, -(nowActiveMs - stat.decayDurActiveMs) / H);
       decayF.set(key, fNow);
@@ -862,6 +884,7 @@ export default class ActiveTaskSession {
       files,
       autoSelectKeys,
       deselectedKeys: Array.from(this._priorDeselected),
+      wasRestored: this._resumed,
       accumulatedActiveMs: 0,
       stopMomentMs: p.sessionEndMs,
       sessionStartMs: p.activeStartMs,
@@ -881,15 +904,29 @@ export default class ActiveTaskSession {
   private metaForKey(key: string, kind: ArtifactKind, meta: Meta) {
     if (kind === 'app') {
       const m = meta.apps.get(key.slice('app:'.length));
-      return blankMeta({ name: m?.name, path: m?.path ?? key.slice('app:'.length), title: m?.title, icon: m?.icon });
+      return blankMeta({
+        name: m?.name,
+        path: m?.path ?? key.slice('app:'.length),
+        title: m?.title,
+        icon: m?.icon,
+      });
     }
     if (kind === 'ide') {
       const m = meta.ides.get(key.slice('ide:'.length));
-      return blankMeta({ name: m?.name, path: m?.path ?? key.slice('ide:'.length), title: m?.title, icon: m?.icon });
+      return blankMeta({
+        name: m?.name,
+        path: m?.path ?? key.slice('ide:'.length),
+        title: m?.title,
+        icon: m?.icon,
+      });
     }
     if (kind === 'tab') {
       const m = meta.tabs.get(key.slice('tab:'.length));
-      return blankMeta({ url: m?.url ?? key.slice('tab:'.length), title: m?.title, browserType: m?.browserType });
+      return blankMeta({
+        url: m?.url ?? key.slice('tab:'.length),
+        title: m?.title,
+        browserType: m?.browserType,
+      });
     }
     const m = meta.files.get(key.slice('file:'.length));
     return blankMeta({ path: m?.path ?? key.slice('file:'.length) });
@@ -935,7 +972,11 @@ export default class ActiveTaskSession {
       const m = this.metaForKey(key, stat.kind, meta);
       let row = byKey.get(key);
       if (!row) {
-        row = ArtifactUsage.create({ snapshotId: taskId, key, kind: stat.kind });
+        row = ArtifactUsage.create({
+          snapshotId: taskId,
+          key,
+          kind: stat.kind,
+        });
       }
       row.kind = stat.kind;
       row.name = m.name;
@@ -1018,7 +1059,10 @@ export default class ActiveTaskSession {
         try {
           const vec = JSON.parse(r.embedding) as number[];
           if (Array.isArray(vec) && vec.length > 0) {
-            this._priorEmbeddings.set(r.key, { text: r.embeddedText, embedding: vec });
+            this._priorEmbeddings.set(r.key, {
+              text: r.embeddedText,
+              embedding: vec,
+            });
           }
         } catch {
           // ignore malformed cached embedding
@@ -1117,7 +1161,10 @@ export default class ActiveTaskSession {
             name: this._activeTaskName ?? `Task ${this._activeTaskId}`,
           };
       }
-      WindowManager.mainWindow?.webContents.send('active-task-changed', payload);
+      WindowManager.mainWindow?.webContents.send(
+        'active-task-changed',
+        payload
+      );
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         require('./TrayManager').default.updateTray();
@@ -1126,8 +1173,8 @@ export default class ActiveTaskSession {
       }
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        require('./HID/TimeBuzzerManager').default
-          .getInstance()
+        require('./HID/TimeBuzzerManager')
+          .default.getInstance()
           .updateActiveIndicator();
       } catch {
         // best-effort

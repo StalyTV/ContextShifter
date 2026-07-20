@@ -87,6 +87,8 @@ export type StoppedTaskBundle = {
   markers: TimelineMarkerDTO[];
   segments: TimelineSegmentDTO[];
   idlePeriods: IdlePeriodDTO[];
+  /** Whether this session was a resume (its artefacts were restored on open). */
+  wasRestored: boolean;
 };
 
 export type TrimWindow = { startMs: number; endMs: number };
@@ -165,6 +167,17 @@ type Commands = {
     path: string | null;
   }>;
   'clear-study-data': () => Promise<{ cleared: number }>;
+  // In-situ (Phase 2) micro-survey shown right after a task's artefacts are
+  // saved; merged onto that task's study record.
+  'record-insitu': (
+    taskId: number,
+    response: {
+      matchRating: number | null;
+      comment: string;
+      resumeFeeling: 'easier' | 'same' | 'harder' | null;
+      skipped: boolean;
+    }
+  ) => Promise<void>;
 
   // artefact-scoring weights (w1..w4 + lambda)
   'get-score-weights': () => Promise<ScoreWeightsDTO>;

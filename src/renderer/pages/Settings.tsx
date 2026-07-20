@@ -423,8 +423,9 @@ export default function Settings() {
           <InfoIcon
             className={styles.infoIcon}
             data-tooltip-id={'task-snap'}
+            data-tooltip-place="right"
             data-tooltip-html={
-              'These applications stay open when you switch tasks. Pick from the open apps below to protect one.'
+              'These applications are never tracked or closed: they stay open when you switch tasks and are not listed in the artefact selection. Pick from the open apps below to protect one.'
             }
           />
         </div>
@@ -436,7 +437,7 @@ export default function Settings() {
       {neverCloseApplications.length === 0 ? (
         <p className={styles.emptyHint}>No protected apps yet.</p>
       ) : (
-        <div className={styles.list}>
+        <div className={`${styles.list} ${styles.protectedList}`}>
           {neverCloseApplications.map((app) => (
             <div key={app.id} className={styles.row}>
               <img className={styles.rowIcon} src={app.icon} alt="" />
@@ -482,8 +483,9 @@ export default function Settings() {
           <InfoIcon
             className={styles.infoIcon}
             data-tooltip-id={'task-snap'}
+            data-tooltip-place="right"
             data-tooltip-html={
-              'These tabs stay open when you switch tasks. Requires the browser extension to be connected.'
+              'These tabs are never tracked or closed: they stay open when you switch tasks and are not listed in the artefact selection. Requires the browser extension to be connected.'
             }
           />
         </div>
@@ -498,7 +500,7 @@ export default function Settings() {
           {neverCloseTabs.length === 0 ? (
             <p className={styles.emptyHint}>No protected tabs yet.</p>
           ) : (
-            <div className={styles.list}>
+            <div className={`${styles.list} ${styles.protectedList}`}>
               {neverCloseTabs.map((tab) => (
                 <div key={tab.id} className={styles.row}>
                   {tab.favIconUrl ? (

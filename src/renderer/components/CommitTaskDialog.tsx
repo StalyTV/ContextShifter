@@ -9,6 +9,7 @@ import { StoppedTaskBundle } from '../../types/Commands';
 import TrimBar from './TrimBar';
 import ConfirmDialog from './ConfirmDialog';
 import SemInfoButton from './SemInfoButton';
+import InSituSurvey, { InSituResponse } from './InSituSurvey';
 import { ScoreVisibilityProvider, useScoresVisible } from './ScoreVisibility';
 import {
   OrderMode,
@@ -178,6 +179,8 @@ export default function CommitTaskDialog({
   // How the artefact list is ordered (see artefactOrder). Default keeps
   // applications grouped and ordered by their most relevant artefact.
   const [orderMode, setOrderMode] = useState<OrderMode>('grouped');
+  // Phase-2 in-situ survey shown right after a successful save.
+  const [showInSitu, setShowInSitu] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -616,11 +619,34 @@ export default function CommitTaskDialog({
       const trim = { startMs: trimStart, endMs: trimEnd };
       await commitSelection(bundle, selected, trim);
       setCommitted(true);
-      onCommitted();
+      // Phase 2, and only for tasks that were actually resumed (their artefacts
+      // were restored) — a brand-new task has nothing to have "brought back".
+      if (preselect && bundle.wasRestored) {
+        setShowInSitu(true);
+      } else {
+        onCommitted();
+      }
     } catch (err) {
       setError(String(err));
       setSaving(false);
     }
+  };
+
+  // Persist the in-situ survey answer against the just-saved task, then finish.
+  const finishInSitu = async (resp: InSituResponse) => {
+    if (bundle) {
+      try {
+        await window.electron.ipcRenderer.invoke(
+          'record-insitu',
+          bundle.taskId,
+          resp
+        );
+      } catch {
+        // best-effort; never block finishing on the survey
+      }
+    }
+    setShowInSitu(false);
+    onCommitted();
   };
 
   // The Discard/Cancel button. When this would throw away a tracked session,
@@ -1247,6 +1273,9 @@ export default function CommitTaskDialog({
           />
         )}
       </div>
+      {showInSitu && bundle && (
+        <InSituSurvey taskName={bundle.taskName} onDone={finishInSitu} />
+      )}
     </ScoreVisibilityProvider>
   );
 }

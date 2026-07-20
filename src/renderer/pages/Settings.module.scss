@@ -311,5 +311,15 @@
     }
   }
 
+  // Groups the never-tracked/closed artefacts in a bordered box so they read as
+  // a protected set, set apart from the pickable lists below.
+  .protectedList {
+    border: 1px solid var(--accent);
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
+    border-radius: 8px;
+    padding: 0.4rem;
+    gap: 0.3rem;
+  }
+
 }
 

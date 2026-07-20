@@ -5,5 +5,8 @@
   border-radius: var(--border-radius);
   opacity: 1;
   box-shadow: var(--overlay-box-shadow);
-  z-index: 2;
+  // Sit above the settings window / drawer and any other overlay. react-tooltip
+  // sets its own z-index inline, so force ours to win.
+  z-index: 99999 !important;
+  max-width: 260px;
 }

@@ -744,6 +744,7 @@ async function buildStoppedBundle(
     markers,
     segments,
     idlePeriods: stopped.idlePeriods,
+    wasRestored: stopped.wasRestored,
   };
 }
 
@@ -847,6 +848,18 @@ typedIpcMain.handle('set-score-weights', async (e, weights) => {
 typedIpcMain.handle('clear-study-data', async () => {
   const cleared = await StudyDataCollector.clearAll();
   return { cleared };
+});
+
+typedIpcMain.handle('record-insitu', async (e, taskId, response) => {
+  // Only the assisted phase collects the in-situ survey, and only while data
+  // collection is on (its record must already exist to merge onto).
+  if (
+    (await Settings.getStudyPhase()) !== 'phase2' ||
+    !(await Settings.getIsStudyDataCollectionEnabled())
+  ) {
+    return;
+  }
+  await StudyDataCollector.recordInSitu(taskId, response);
 });
 
 typedIpcMain.handle('export-study-data', async () => {

@@ -1,7 +1,7 @@
 {
   "name": "contextshifter",
   "productName": "ContextShifter",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Tool that supports task resumption",
   "license": "MIT",
   "author": {

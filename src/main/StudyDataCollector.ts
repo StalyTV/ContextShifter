@@ -158,16 +158,22 @@ export default class StudyDataCollector {
       // Natural identifiers of the manually-kept artefacts.
       const selectedTabUrls = new Set<string>();
       selection.browsers?.forEach((b) =>
-        (b.browserTabs ?? []).forEach((t) => t.url && selectedTabUrls.add(t.url))
+        (b.browserTabs ?? []).forEach(
+          (t) => t.url && selectedTabUrls.add(t.url)
+        )
       );
       const selectedFilePaths = new Set<string>();
       const selectedIdePaths = new Set<string>();
       selection.ides?.forEach((i) => {
         if (i.path) selectedIdePaths.add(i.path);
-        (i.ideFiles ?? []).forEach((f) => f.path && selectedFilePaths.add(f.path));
+        (i.ideFiles ?? []).forEach(
+          (f) => f.path && selectedFilePaths.add(f.path)
+        );
       });
       const selectedAppPaths = new Set<string>();
-      selection.applications?.forEach((a) => a.path && selectedAppPaths.add(a.path));
+      selection.applications?.forEach(
+        (a) => a.path && selectedAppPaths.add(a.path)
+      );
 
       const isSelected = (r: ArtifactUsage): boolean => {
         switch (r.kind) {
@@ -289,12 +295,51 @@ export default class StudyDataCollector {
       });
       await row.save();
       info(
-        `[StudyDataCollector] Recorded task ${taskId} — ${payload.artefactCount} artefacts, ${payload.selectedCount} selected${
+        `[StudyDataCollector] Recorded task ${taskId} — ${
+          payload.artefactCount
+        } artefacts, ${payload.selectedCount} selected${
           anonymized ? ' (anonymized)' : ''
         }`
       );
     } catch (err) {
       warn(`[StudyDataCollector] Failed to record study data: ${String(err)}`);
+    }
+  }
+
+  /**
+   * Merge a Phase-2 in-situ micro-survey answer onto the most recent study
+   * record for the task (the one just written on save). No-op if data
+   * collection is off (no record exists) or the record can't be read.
+   */
+  public static async recordInSitu(
+    taskId: number,
+    response: {
+      matchRating: number | null;
+      comment: string;
+      resumeFeeling: 'easier' | 'same' | 'harder' | null;
+      skipped: boolean;
+    }
+  ): Promise<void> {
+    try {
+      const row = await StudyDataRecord.findOne({
+        where: { snapshotId: taskId },
+        order: { id: 'DESC' },
+      });
+      if (!row) return;
+      let payload: Record<string, unknown>;
+      try {
+        payload = JSON.parse(row.payload);
+      } catch {
+        return;
+      }
+      payload.insitu = { ...response, respondedAt: new Date().toISOString() };
+      row.payload = JSON.stringify(payload);
+      await row.save();
+      info(`[StudyDataCollector] In-situ response recorded for task ${taskId}`);
+    } catch (err) {
+      warn(
+        `[StudyDataCollector] Failed to record in-situ response: ${String(err)}`
+      );
     }
   }
 
@@ -336,7 +381,9 @@ export default class StudyDataCollector {
           : { url: t.url, title: t.title, browserType: t.browserType }
       );
     } catch (err) {
-      warn(`[StudyDataCollector] Could not read never-close list: ${String(err)}`);
+      warn(
+        `[StudyDataCollector] Could not read never-close list: ${String(err)}`
+      );
     }
 
     const out = {
