@@ -11,6 +11,7 @@ import getAssetPath from './helpers/getAssetPath';
 import { app } from 'electron';
 import path from 'path';
 import UsageData from './entity/UsageData';
+import isMac from './helpers/isMac';
 
 export default class WindowManager {
   public static mainWindow: BrowserWindow | null = null;
@@ -148,10 +149,18 @@ export default class WindowManager {
     const win = this.taskSwitcherWindow;
     if (!win) return;
     const { screen } = require('electron');
-    win.setAlwaysOnTop(true, 'screen-saver');
-    win.setVisibleOnAllWorkspaces(true, {
-      visibleOnFullScreen: true,
-    });
+    if (isMac) {
+      // macOS: float above everything (incl. full-screen Spaces) and show on
+      // every Desktop. These collection-behavior settings are macOS-only; on
+      // Windows they either no-op or trigger a process-type transform, so we
+      // use a plain always-on-top window there instead.
+      win.setAlwaysOnTop(true, 'screen-saver');
+      win.setVisibleOnAllWorkspaces(true, {
+        visibleOnFullScreen: true,
+      });
+    } else {
+      win.setAlwaysOnTop(true);
+    }
     try {
       const point = screen.getCursorScreenPoint();
       const display = screen.getDisplayNearestPoint(point);

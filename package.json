@@ -10,6 +10,7 @@
     "lint": "cross-env NODE_ENV=development eslint . --ext .js,.jsx,.ts,.tsx",
     "fetch-model": "node scripts/fetch-model.mjs",
     "package": "npm run fetch-model && ts-node ./.erb/scripts/clean.js dist && npm run build && electron-builder build --publish never",
+    "package:win": "npm run fetch-model && ts-node ./.erb/scripts/clean.js dist && npm run build && electron-builder build --win --publish never",
     "rebuild": "electron-rebuild --parallel --types prod,dev,optional --module-dir release/app",
     "start": "ts-node ./.erb/scripts/check-port-in-use.js && npm run start:renderer",
     "start:main": "cross-env NODE_ENV=development electronmon -r ts-node/register/transpile-only .",
@@ -200,8 +201,17 @@
     },
     "win": {
       "target": [
-        "squirrel"
-      ]
+        "nsis"
+      ],
+      "icon": "assets/icon.ico",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     },
     "linux": {
       "target": [

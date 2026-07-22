@@ -91,12 +91,21 @@ export async function openFiles(artifact: ArtifactFiles) {
   }
 
   else {
-    let filesToOpen = artifact.artifact.map((file) => {
-      return  `"`+ file + `"`;
-    }).join(',');
+    let filesToOpen = artifact.artifact
+      .map((file) => {
+        return `"` + file + `"`;
+      })
+      .join(',');
 
-    const command = `ii ${filesToOpen}`;
-    exec(command, { shell: 'powershell.exe' });
+    if (artifact.application) {
+      // Open the folder/files *with* the target app (e.g. a VS Code workspace),
+      // not just their default handler. Start-Process routes the paths as args.
+      const command = `Start-Process -FilePath "${artifact.application}" -ArgumentList ${filesToOpen}`;
+      exec(command, { shell: 'powershell.exe' });
+    } else {
+      const command = `ii ${filesToOpen}`;
+      exec(command, { shell: 'powershell.exe' });
+    }
   }
 }
 

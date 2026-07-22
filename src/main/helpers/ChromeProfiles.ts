@@ -11,15 +11,16 @@
  * `Local State` file maps directories ("Default", "Profile 1", …) to the
  * signed-in account, so we read it to resolve email -> directory.
  *
- * macOS + Chrome only (the model the study runs on). Other browsers fall back
- * to the existing extension-only open path.
+ * Chrome only. Profile directories/binary are resolved per-platform (macOS and
+ * Windows). Other browsers fall back to the existing extension-only open path.
  */
 
 import { homedir } from 'os';
 import { join } from 'path';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { spawn } from 'child_process';
 import { debug, info } from 'electron-log';
+import isMac from './isMac';
 
 export type ChromeProfileDir = {
   directory: string; // e.g. "Default", "Profile 1"
@@ -27,17 +28,50 @@ export type ChromeProfileDir = {
   name: string; // display name
 };
 
-const LOCAL_STATE = join(
-  homedir(),
-  'Library',
-  'Application Support',
-  'Google',
-  'Chrome',
-  'Local State'
-);
+// Chrome's user-data directory ("User Data" on Windows, "…/Google/Chrome" on
+// macOS); its `Local State` file maps profile directories to signed-in accounts.
+const CHROME_USER_DATA = isMac
+  ? join(homedir(), 'Library', 'Application Support', 'Google', 'Chrome')
+  : join(
+      process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'),
+      'Google',
+      'Chrome',
+      'User Data'
+    );
 
-const CHROME_BINARY =
-  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const LOCAL_STATE = join(CHROME_USER_DATA, 'Local State');
+
+// First existing chrome executable for the platform.
+function resolveChromeBinary(): string {
+  const candidates = isMac
+    ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']
+    : [
+        join(
+          process.env.PROGRAMFILES ?? 'C:\\Program Files',
+          'Google',
+          'Chrome',
+          'Application',
+          'chrome.exe'
+        ),
+        join(
+          process.env['PROGRAMFILES(X86)'] ?? 'C:\\Program Files (x86)',
+          'Google',
+          'Chrome',
+          'Application',
+          'chrome.exe'
+        ),
+        join(
+          process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'),
+          'Google',
+          'Chrome',
+          'Application',
+          'chrome.exe'
+        ),
+      ];
+  return candidates.find((p) => existsSync(p)) ?? candidates[0];
+}
+
+const CHROME_BINARY = resolveChromeBinary();
 
 /** Parse Chrome's `Local State` into the list of known profile directories. */
 export function readChromeProfiles(): ChromeProfileDir[] {
@@ -88,12 +122,18 @@ export function launchChrome(): boolean {
     info('[ChromeProfiles] launched Chrome (no profile — expecting picker)');
     return true;
   } catch (err) {
-    // Fallback to `open -a` when the binary path differs.
+    // Fallback when the binary path differs: `open -a` on macOS, `start` on
+    // Windows (via cmd, which resolves Chrome off the App Paths registry).
     try {
-      const child = spawn('open', ['-a', 'Google Chrome'], {
-        detached: true,
-        stdio: 'ignore',
-      });
+      const child = isMac
+        ? spawn('open', ['-a', 'Google Chrome'], {
+            detached: true,
+            stdio: 'ignore',
+          })
+        : spawn('cmd', ['/c', 'start', '', 'chrome'], {
+            detached: true,
+            stdio: 'ignore',
+          });
       child.unref();
       return true;
     } catch (err2) {
@@ -123,14 +163,33 @@ export function launchChromeProfile(directory: string, urls: string[]): boolean 
     );
     return true;
   } catch (err) {
-    // Fallback: `open` with a fresh instance. Less ideal (may spawn a second
-    // Chrome process) but works when the binary path differs.
+    // Fallback when the binary path differs. macOS: `open -na`. Windows: `start`
+    // via cmd, which resolves chrome.exe from the App Paths registry key.
     try {
-      const child = spawn(
-        'open',
-        ['-na', 'Google Chrome', '--args', `--profile-directory=${directory}`, ...urls],
-        { detached: true, stdio: 'ignore' }
-      );
+      const child = isMac
+        ? spawn(
+            'open',
+            [
+              '-na',
+              'Google Chrome',
+              '--args',
+              `--profile-directory=${directory}`,
+              ...urls,
+            ],
+            { detached: true, stdio: 'ignore' }
+          )
+        : spawn(
+            'cmd',
+            [
+              '/c',
+              'start',
+              '',
+              'chrome',
+              `--profile-directory=${directory}`,
+              ...urls,
+            ],
+            { detached: true, stdio: 'ignore' }
+          );
       child.unref();
       return true;
     } catch (err2) {
