@@ -407,6 +407,36 @@ the tool.
 - **Documentation** (`93ebdd2`): `architecture.md` rewritten for the active-task
   model (the companion to this document).
 
+### 7.1 Windows portability (`windows-release` branch)
+
+The study runs on macOS/Apple Silicon, but the codebase is a fork of the
+originally dual-platform TaskSnap, so a `windows-release` branch makes it build
+and run on Windows for potential cross-platform participants. The core trackers
+(`active-win`, `uiohook-napi`, the two extensions, Transformers.js, SQLite) are
+already cross-platform; the branch fixes the macOS-only surfaces:
+
+- **macOS-only UX gated off** (`isMac`): the switcher overlay drops the
+  all-Spaces / float-over-fullscreen / Dock-reshow behaviour (a plain
+  always-on-top window on Windows); the permission onboarding (Screen Recording
+  / Accessibility / Input Monitoring / `xattr` quarantine) is replaced by a
+  short SmartScreen note; the tray already used a Windows glyph.
+- **Path/command fixes:** Chrome's `Local State` + `chrome.exe` are resolved
+  from `%LOCALAPPDATA%`/`%PROGRAMFILES%` with a `cmd /c start chrome` launch
+  fallback; IDE/workspace restore uses `Start-Process` so a VS Code workspace
+  reopens in the editor rather than the default handler.
+- **Build robustness:** the physical-dial native modules (`midi`, `usb`,
+  `node-hid`) are made *optional* and their imports guarded, so a machine
+  without a full C++ toolchain still packages the app (without dial support);
+  the installer target is NSIS. Build steps + limitations live in
+  [`docs/BUILD_WINDOWS.md`](BUILD_WINDOWS.md).
+- **Known limitation:** open-document tracking (`getFrontDocumentPath`, macOS
+  Accessibility `AXDocument`) has no Windows equivalent, so file-handler apps
+  (Word/Preview/…) don't auto-capture their open document there. `active-win`
+  has no prebuilt binary and must be compiled, so a Windows build still needs
+  the Visual Studio C++ Build Tools. The Windows branches predate the
+  ContextShifter work and are unpiloted — "compiles" is not "validated," so a
+  Windows study would need its own pilot pass.
+
 ---
 
 ## 8. Chronological changelog (ContextShifter era)
@@ -458,6 +488,18 @@ Grouped by theme; commit hashes in parentheses for traceability.
 - Move WebSocket ports to a distinct pair (`9f9af26`)
 - Fix active-win poll pile-up (`5915703`)
 - Rewrite architecture.md (`93ebdd2`)
+
+**Phase 1 preselection**
+- Phase 1 pre-checks the set committed to a task in a previous session (the
+  participant's own prior choice — no model preselection, no relevance
+  reordering); `previousKeys` completed with workspace + document child keys so
+  resumed file-handler apps restore their actual files (v0.4.3)
+
+**Windows port** (`windows-release` branch)
+- Gate macOS-only UX (switcher overlay, permission onboarding) behind `isMac`
+- Platform-aware Chrome paths/launch; `Start-Process` IDE/workspace restore
+- Make dial natives (`midi`/`usb`/`node-hid`) optional + guarded; NSIS target;
+  `docs/BUILD_WINDOWS.md`
 
 ---
 
