@@ -13,11 +13,15 @@ macOS-only surfaces and gates the macOS-specific UX.
 ## Prerequisites (on Windows)
 
 - **Node.js 18+** and npm.
-- **Build tools for native modules:** install the "Desktop development with C++"
-  workload (Visual Studio Build Tools) and Python 3. The quickest path is
-  `npm install --global windows-build-tools` (older) or installing VS Build
-  Tools 2022 manually.
 - **Git**, and (optional) a code-signing certificate — see *Signing* below.
+- **No C++ compiler is required for a standard build.** The required native
+  modules (`better-sqlite3`, `active-win`, `uiohook-napi`, …) ship prebuilt
+  binaries. The only modules that need compilation — `midi`, `usb`, `node-hid`,
+  used solely by the optional TimeBuzzer dial — are declared as
+  **optionalDependencies**, so if they fail to build (no Visual Studio C++
+  toolchain) the install simply skips them and the app runs **without dial
+  support**. Install VS Build Tools 2022 ("Desktop development with C++") +
+  Python 3 **only if you want the physical dial to work**.
 
 ## Build
 
@@ -55,9 +59,11 @@ desktop + start-menu shortcuts).
 2. **The Windows branches predate the ContextShifter work and are untested.**
    "It compiles" ≠ "it behaves identically." The study was validated on
    macOS/Apple Silicon; a Windows run needs its own pilot pass.
-3. **TimeBuzzer dial (optional)** — `node-hid`/`usb` are cross-platform but
-   Windows may need a WinUSB/HIDAPI driver for the device. The app degrades
-   gracefully without it.
+3. **TimeBuzzer dial (optional, off by default on Windows)** — the dial's
+   native modules (`midi`/`usb`/`node-hid`) are optionalDependencies and their
+   `require`s are guarded, so the app runs fine without them. To enable the dial
+   on Windows you need the C++ build toolchain (so `midi` compiles) and possibly
+   a WinUSB/HIDAPI driver for the device.
 
 ## Signing
 

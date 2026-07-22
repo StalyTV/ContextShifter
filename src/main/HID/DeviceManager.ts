@@ -5,11 +5,26 @@
  */
 
 import { info, error } from 'electron-log';
+import type * as NodeHID from 'node-hid';
 import UsageData from '../entity/UsageData';
-import HID from 'node-hid';
-import { usb } from 'usb';
 import StaticSettings from '../StaticSettings';
 import RGB from '../../types/RGB';
+
+// `node-hid` and `usb` are optional native modules for the Luxafor/HID dial
+// button (no prebuilt binary on some platforms, e.g. Windows without a C++
+// toolchain). Load them defensively so the app runs without dial support when
+// they're absent.
+let nodeHid: typeof NodeHID | null = null;
+let usb: any = null;
+try {
+  // eslint-disable-next-line global-require
+  nodeHid = require('node-hid');
+  // eslint-disable-next-line global-require
+  ({ usb } = require('usb'));
+} catch (e) {
+  nodeHid = null;
+  usb = null;
+}
 
 const supportedDevice: {
   name: string;
@@ -25,10 +40,15 @@ const supportedDevice: {
 
 export default class DeviceManager {
   private static _instance: DeviceManager;
-  private _connectedDevice: HID.HID | undefined;
+  private _connectedDevice: NodeHID.HID | undefined;
   private _lastButtonClick: number = Date.now();
 
   private constructor() {
+    // No native HID/USB backend on this platform — stay dormant.
+    if (!nodeHid || !usb) {
+      info('[DeviceManager] HID/USB modules unavailable — disabled');
+      return;
+    }
     this.registerListeners();
     this.findConnectedDevices();
   }
@@ -38,8 +58,9 @@ export default class DeviceManager {
   }
 
   private async findConnectedDevices(): Promise<void> {
+    if (!nodeHid) return;
     info('[DeviceManager] Finding connected usb devices...');
-    const allDevices = HID.devices();
+    const allDevices = nodeHid.devices();
 
     const connectedSupportedDevice = allDevices.find(
       (dev) =>
@@ -49,7 +70,7 @@ export default class DeviceManager {
     if (connectedSupportedDevice && connectedSupportedDevice.path) {
       info(`[DeviceManager] ${supportedDevice.name} is connected`);
       try {
-        this._connectedDevice = new HID.HID(connectedSupportedDevice.path);
+        this._connectedDevice = new nodeHid.HID(connectedSupportedDevice.path);
         this.showLightPulse(1000);
 
         this._connectedDevice.on('data', (data) => {
@@ -82,6 +103,7 @@ export default class DeviceManager {
   }
 
   public registerListeners() {
+    if (!usb) return;
     usb.on('attach', () => {
       //! This should really not be required.. but it is what is recommended by the the maintainer of node-hid
       //! See this https://github.com/node-hid/node-hid/issues/422
@@ -97,7 +119,7 @@ export default class DeviceManager {
 
   public stopMonitoring() {
     this._connectedDevice?.close();
-    usb.unrefHotplugEvents();
+    usb?.unrefHotplugEvents();
   }
 
   public showLightPulse(length: number = StaticSettings.LIGHT_PULSE_LENGTH) {

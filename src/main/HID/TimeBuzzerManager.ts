@@ -3,10 +3,20 @@ import TaskManager from '../TaskManager';
 import ActiveTaskSession from '../ActiveTaskSession';
 
 const TimeBuzzer = require('./time-buzzer');
-// libusb-based hotplug events (no polling). The package is shipped via
-// release/app/node_modules/usb and exposes attach/detach events on its
-// default export.
-const { usb } = require('usb');
+// libusb-based hotplug events (no polling). `usb` is an optional native module
+// (no prebuilt binary on some platforms); load it defensively so the app runs
+// without dial hotplug support when it's absent.
+let usb: any = null;
+try {
+  // eslint-disable-next-line global-require
+  ({ usb } = require('usb'));
+} catch (e) {
+  usb = null;
+}
+
+// The dial needs the native `midi` backend (via time-buzzer); without it there
+// is nothing to connect to, so the whole subsystem stays dormant.
+const DIAL_SUPPORTED: boolean = TimeBuzzer.available === true;
 
 /**
  * TimeBuzzerManager - bridges the physical TimeBuzzer to TaskManager.
@@ -58,6 +68,12 @@ export default class TimeBuzzerManager {
   private _ledActive: boolean | null = null;
 
   private constructor() {
+    // No native dial backend on this platform — stay dormant (no connect, no
+    // polling, no USB listeners).
+    if (!DIAL_SUPPORTED) {
+      info('[TimeBuzzerManager] dial backend unavailable — disabled');
+      return;
+    }
     this.connect();
     this.registerHotplug();
     this.startReconnectPoll();
@@ -78,6 +94,7 @@ export default class TimeBuzzerManager {
   }
 
   private registerHotplug() {
+    if (!usb) return;
     try {
       this._onUsbAttach = () => {
         if (this.isDeviceConnected()) return;
@@ -301,8 +318,8 @@ export default class TimeBuzzerManager {
       this._pollTimer = null;
     }
     try {
-      if (this._onUsbAttach) usb.off('attach', this._onUsbAttach);
-      if (this._onUsbDetach) usb.off('detach', this._onUsbDetach);
+      if (usb && this._onUsbAttach) usb.off('attach', this._onUsbAttach);
+      if (usb && this._onUsbDetach) usb.off('detach', this._onUsbDetach);
     } catch { /* ignore */ }
     this._onUsbAttach = null;
     this._onUsbDetach = null;

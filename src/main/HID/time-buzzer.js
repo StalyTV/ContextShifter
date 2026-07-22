@@ -1,4 +1,12 @@
-const midi = require('midi');
+// `midi` is a native module for the optional TimeBuzzer dial. It has no
+// prebuilt binary on some platforms (e.g. Windows without a C++ toolchain), so
+// load it optionally — the app runs fine without dial support when it's absent.
+let midi = null;
+try {
+  midi = require('midi');
+} catch (e) {
+  midi = null;
+}
 const log = require("electron-log")
 
 module.exports =
@@ -21,6 +29,13 @@ module.exports =
     this.close = function () {
       throw 'timeBuzzer not initialized';
     };
+
+    // Dial support unavailable (native `midi` module not installed): report no
+    // device, exactly like the "no timeBuzzer port" path below.
+    if (!midi) {
+      callback('error', 'midi module not installed');
+      return;
+    }
 
     this.input = new midi.Input();
     this.output = new midi.Output();
@@ -138,3 +153,7 @@ module.exports =
           .then(() => writeToMidi(80, 64));
     };
   };
+
+// Whether the native `midi` module loaded — lets callers skip dial setup
+// entirely when the hardware backend isn't available on this platform.
+module.exports.available = !!midi;

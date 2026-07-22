@@ -20,12 +20,14 @@
     "active-win": "^8.1.0",
     "better-sqlite3": "^8.2.0",
     "extract-file-icon": "^0.3.2",
-    "midi": "^2.0.0",
-    "node-hid": "^2.1.2",
     "typeorm": "^0.3.12",
     "uiohook-napi": "^1.5.5",
-    "usb": "^2.9.0",
     "windows-activity-tracker": "file:PA.WindowsActivityTracker/typescript"
+  },
+  "optionalDependencies": {
+    "midi": "^2.0.0",
+    "node-hid": "^2.1.2",
+    "usb": "^2.9.0"
   },
   "overrides": {
     "sharp": "file:./stubs/sharp"

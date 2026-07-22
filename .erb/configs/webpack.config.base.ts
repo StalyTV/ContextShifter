@@ -5,7 +5,16 @@
 import webpack from 'webpack';
 import TsconfigPathsPlugins from 'tsconfig-paths-webpack-plugin';
 import webpackPaths from './webpack.paths';
-import { dependencies as externals } from '../../release/app/package.json';
+import {
+  dependencies,
+  optionalDependencies,
+} from '../../release/app/package.json';
+
+// Keep every runtime dependency external (resolved from the packaged
+// node_modules, not bundled). Includes optionalDependencies — the dial's native
+// modules (midi/usb/node-hid) live there and must NOT be bundled, so the build
+// succeeds on machines where those optional natives aren't installed.
+const externals = { ...(dependencies || {}), ...(optionalDependencies || {}) };
 
 const configuration: webpack.Configuration = {
   externals: [...Object.keys(externals || {})],
