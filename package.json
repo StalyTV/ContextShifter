@@ -160,7 +160,7 @@
   "build": {
     "productName": "ContextShifter",
     "appId": "ch.ifi.hasel.ContextShifter",
-    "asar": true,
+    "asar": false,
     "asarUnpack": [
       "**/*.{node,dll}",
       "**/node_modules/onnxruntime-node/**"
