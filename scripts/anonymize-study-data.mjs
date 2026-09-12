@@ -170,7 +170,10 @@ class Anonymizer {
 
   /** Anonymise a {name, path} app entry (never-close lists). */
   appEntry(e) {
-    const identity = e.path || e.name || (e.anonId != null ? `anon:${e.anonId}` : '');
+    const identity =
+      e.path || e.name ||
+      (e.anonId != null ? `anon:${e.anonId}` : '') ||
+      (e.id != null ? `id:${e.id}` : '');
     this.secret(e.name); this.secret(e.path);
     const id = this.id('artefact', identity, 'a');
     return { anonId: id, name: `app-${id.slice(2)}`, path: '', pathExt: extOf(e.path) };
@@ -278,6 +281,26 @@ function leakCheck(outputJson, secrets) {
   return hits;
 }
 
+/*
+ * Structural check. The plaintext leak check cannot catch a HASH of an
+ * identifier — e.g. the app's own unsalted `hashString` ids, which are
+ * reversible by hashing a dictionary of likely app paths. So we also assert
+ * that no legacy `id` field survived anywhere in the output.
+ */
+function structuralCheck(data) {
+  const issues = [];
+  (function walk(o, path) {
+    if (Array.isArray(o)) return o.forEach((v, i) => walk(v, `${path}[${i}]`));
+    if (o && typeof o === 'object') {
+      if (Object.prototype.hasOwnProperty.call(o, 'id')) {
+        issues.push(`legacy id survived at ${path}: ${JSON.stringify(o.id)}`);
+      }
+      for (const [k, v] of Object.entries(o)) walk(v, path ? `${path}.${k}` : k);
+    }
+  })(data, '');
+  return issues;
+}
+
 /* -------------------------------- main -------------------------------- */
 
 function parseArgs(argv) {
@@ -322,12 +345,19 @@ function main() {
     const label = basename(inPath);
     const data = JSON.parse(readFileSync(inPath, 'utf8'));
 
-    for (const e of data.neverCloseApplications ?? []) Object.assign(e, anon.appEntry(e));
-    for (const t of data.neverCloseBrowserTabs ?? []) {
+    data.neverCloseApplications = (data.neverCloseApplications ?? []).map((e) =>
+      anon.appEntry(e)
+    );
+    data.neverCloseBrowserTabs = (data.neverCloseBrowserTabs ?? []).map((t) => {
       anon.secret(t.url); anon.secret(t.title);
-      const id = anon.id('artefact', t.url || t.title || '', 'a');
-      Object.assign(t, { anonId: id, url: undefined, title: undefined });
-    }
+      const identity = t.url || t.title || (t.id != null ? `id:${t.id}` : '');
+      const host = hostOf(t.url);
+      return {
+        anonId: anon.id('artefact', identity, 'a'),
+        browserType: t.browserType ?? '',
+        domainId: host ? anon.id('domain', host, 'd') : null,
+      };
+    });
 
     data.records = (data.records ?? []).map((r) => anon.record(r, label));
     data.anonymized = true;
@@ -388,6 +418,9 @@ function main() {
   // ---- verification: hunt for surviving fragments of the originals ----
   let leaks = [];
   for (const w of written) leaks = leaks.concat(leakCheck(w.scannable, anon.secrets));
+  for (const w of written) leaks = leaks.concat(
+    structuralCheck(JSON.parse(w.serialised)).map((m) => ({ fragment: m, from: 'structural' }))
+  );
 
   if (opts.mappingOut) {
     const mp = resolve(opts.mappingOut);
