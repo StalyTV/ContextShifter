@@ -179,7 +179,24 @@ class Anonymizer {
     return { anonId: id, name: `app-${id.slice(2)}`, path: '', pathExt: extOf(e.path) };
   }
 
+  /*
+   * Curation/merge provenance added by our own tooling is a de-anonymisation
+   * vector: it names participants, machines and source files (e.g. "MM
+   * completed two days on the researcher's laptop"). Strip it, but keep the
+   * analytically-essential fact that a record came from a DIFFERENT capture
+   * context, as a pseudonymous id - that difference is a confound the analyst
+   * must be able to see.
+   */
+  recordProvenance(r) {
+    const FIELDS = ['sourceExport', 'recordedOnHostOf', 'importedForParticipant'];
+    const marker = FIELDS.map((f) => r[f]).filter(Boolean).join('|');
+    if (!marker) return;
+    FIELDS.forEach((f) => { this.secret(r[f]); delete r[f]; });
+    r.captureContext = this.id('context', marker, 'ctx');
+  }
+
   record(r, fileLabel) {
+    this.recordProvenance(r);
     this.secret(r.taskName);
     const taskId = this.id('task', String(r.taskName ?? ''), 't');
     r.taskName = taskId;
@@ -262,7 +279,8 @@ const GENERIC = new Set([
   'name', 'path', 'url', 'title', 'users', 'user', 'applications', 'system',
   'library', 'documents', 'desktop', 'downloads', 'contents', 'macos',
   'program', 'files', 'windows', 'appdata', 'local', 'roaming', 'exe',
-  'phase1', 'phase2', 'task', 'artefact', 'reconstructed', 'neutral',
+  'phase', 'phase1', 'phase2', 'task', 'artefact', 'reconstructed', 'neutral',
+  'anonymisation', 'anonymised', 'recorded', 'imported', 'researcher', 'machine',
 ]);
 
 function leakCheck(outputJson, secrets) {
@@ -359,6 +377,23 @@ function main() {
       };
     });
 
+    // Top-level provenance blocks written by our curation/merge/correction
+    // tooling carry participant initials, machine descriptions, source-file
+    // paths and pre-correction timestamps. None of that may ship in an
+    // anonymised file; the unanonymised chain retains the full audit trail.
+    const PROVENANCE_BLOCKS = ['merge', 'curation', 'filtering', 'corrections'];
+    const sanitisedBlocks = [];
+    for (const b of PROVENANCE_BLOCKS) {
+      if (data[b] === undefined) continue;
+      (function harvest(o) {
+        if (Array.isArray(o)) return o.forEach(harvest);
+        if (o && typeof o === 'object') return Object.values(o).forEach(harvest);
+        if (typeof o === 'string') anon.secret(o);
+      })(data[b]);
+      delete data[b];
+      sanitisedBlocks.push(b);
+    }
+
     data.records = (data.records ?? []).map((r) => anon.record(r, label));
     data.anonymized = true;
     totalRecords += data.records.length;
@@ -382,7 +417,8 @@ function main() {
         'studyPhase', 'weights', 'scores/similarities/cosines', 'semanticStatus',
         opts.stripEmbeddings ? 'embeddings REMOVED' : 'embedding vectors',
       ],
-      derivedAdded: ['anonId', 'contentId', 'pathExt', 'pathDepth', 'domainId',
+      sanitisedProvenanceBlocks: sanitisedBlocks,
+      derivedAdded: ['anonId', 'contentId', 'captureContext', 'pathExt', 'pathDepth', 'domainId',
                      'embeddedTextWords', 'embeddedTextChars'],
       options: {
         stripEmbeddings: opts.stripEmbeddings,
