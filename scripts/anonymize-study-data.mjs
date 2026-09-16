@@ -157,8 +157,12 @@ class Anonymizer {
     a.url = '';
     a.title = '';
     a.embeddedText = contentId ? `text-${contentId.slice(2)}` : '';
-    a.pathExt = pathExt;
-    a.pathDepth = pathDepth;
+    // Path shape betrays the operating system (.exe vs .app) and therefore the
+    // machine a session was captured on. Suppressed under --strip-path-ext.
+    if (!this.opts.stripPathExt) {
+      a.pathExt = pathExt;
+      a.pathDepth = pathDepth;
+    }
     a.domainId = domainId;
     a.embeddedTextWords = words;
     a.embeddedTextChars = chars;
@@ -176,7 +180,9 @@ class Anonymizer {
       (e.id != null ? `id:${e.id}` : '');
     this.secret(e.name); this.secret(e.path);
     const id = this.id('artefact', identity, 'a');
-    return { anonId: id, name: `app-${id.slice(2)}`, path: '', pathExt: extOf(e.path) };
+    const entry = { anonId: id, name: `app-${id.slice(2)}`, path: '' };
+    if (!this.opts.stripPathExt) entry.pathExt = extOf(e.path);
+    return entry;
   }
 
   /*
@@ -192,7 +198,11 @@ class Anonymizer {
     const marker = FIELDS.map((f) => r[f]).filter(Boolean).join('|');
     if (!marker) return;
     FIELDS.forEach((f) => { this.secret(r[f]); delete r[f]; });
-    r.captureContext = this.id('context', marker, 'ctx');
+    // --uniform-context: present the export as a single capture environment,
+    // so not even a pseudonymous marker distinguishes imported records.
+    if (!this.opts.uniformContext) {
+      r.captureContext = this.id('context', marker, 'ctx');
+    }
   }
 
   record(r, fileLabel) {
@@ -326,6 +336,7 @@ function parseArgs(argv) {
     inputs: [], outDir: null, suffix: '.anon', salt: null,
     mappingOut: null, reviewOut: null,
     stripEmbeddings: false, redactComments: false, shiftDates: false,
+    stripPathExt: false, uniformContext: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
@@ -337,6 +348,8 @@ function parseArgs(argv) {
     else if (a === '--strip-embeddings') o.stripEmbeddings = true;
     else if (a === '--redact-comments') o.redactComments = true;
     else if (a === '--shift-dates') o.shiftDates = true;
+    else if (a === '--strip-path-ext') o.stripPathExt = true;
+    else if (a === '--uniform-context') { o.uniformContext = true; o.stripPathExt = true; }
     else if (a.startsWith('-')) throw new Error(`Unknown option: ${a}`);
     else o.inputs.push(a);
   }
@@ -424,6 +437,8 @@ function main() {
         stripEmbeddings: opts.stripEmbeddings,
         redactComments: opts.redactComments,
         shiftDates: opts.shiftDates,
+        stripPathExt: opts.stripPathExt,
+        uniformContext: opts.uniformContext,
       },
       residualRisk: [
         opts.stripEmbeddings
@@ -438,6 +453,15 @@ function main() {
         opts.shiftDates
           ? 'All timestamps shifted by one constant offset; intervals preserved.'
           : 'Timestamps are unshifted and reveal working patterns.',
+        opts.uniformContext
+          ? 'Presented as a SINGLE capture environment: path extensions/depths ' +
+            'and the capture-context marker are removed, so records captured on ' +
+            'a different machine are not distinguishable here. Where that is the ' +
+            'case it MUST be disclosed in the accompanying documentation - the ' +
+            'platform difference is a confound, not a cosmetic detail.'
+          : (opts.stripPathExt
+              ? 'Path extensions/depths removed (they reveal the operating system).'
+              : 'pathExt/pathDepth are retained and reveal the operating system.'),
       ],
     };
 
