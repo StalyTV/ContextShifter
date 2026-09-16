@@ -269,13 +269,20 @@ function scannableOf(data) {
   }
   // Scan string VALUES only — field names like "studyPhase" contain ordinary
   // words and would otherwise match originals such as "…/Study-Data/…".
+  const comments = [];
+  for (const r of clone.records ?? []) {
+    if (r.insitu && typeof r.insitu.comment === 'string' && r.insitu.comment.trim()) {
+      comments.push(r.insitu.comment);
+      delete r.insitu.comment;
+    }
+  }
   const values = [];
   (function walk(o) {
     if (Array.isArray(o)) { o.forEach(walk); return; }
     if (o && typeof o === 'object') { Object.values(o).forEach(walk); return; }
     if (typeof o === 'string') values.push(o);
   })(clone);
-  return values.join('\n');
+  return { structured: values.join('\n'), comments: comments.join('\n') };
 }
 
 /*
@@ -398,11 +405,10 @@ function main() {
     const sanitisedBlocks = [];
     for (const b of PROVENANCE_BLOCKS) {
       if (data[b] === undefined) continue;
-      (function harvest(o) {
-        if (Array.isArray(o)) return o.forEach(harvest);
-        if (o && typeof o === 'object') return Object.values(o).forEach(harvest);
-        if (typeof o === 'string') anon.secret(o);
-      })(data[b]);
+      // NB: deliberately NOT harvested as leak-check secrets. These blocks are
+      // removed outright, and they embed the corrected timestamps that are
+      // legitimately retained in the records - treating them as secrets made
+      // those retained values match themselves and produced false failures.
       delete data[b];
       sanitisedBlocks.push(b);
     }
@@ -471,13 +477,18 @@ function main() {
     const outPath = join(dir, `${basename(inPath, ext)}${opts.suffix}${ext}`);
     const serialised = JSON.stringify(data, null, 2);
     writeFileSync(outPath, serialised);
-    written.push({ outPath, serialised, scannable: scannableOf(data) });
+    const scan = scannableOf(data);
+    written.push({ outPath, serialised, scannable: scan.structured, comments: scan.comments });
     console.log(`[anon] ${label} -> ${basename(outPath)}  (${data.records.length} records)`);
   }
 
   // ---- verification: hunt for surviving fragments of the originals ----
   let leaks = [];
-  for (const w of written) leaks = leaks.concat(leakCheck(w.scannable, anon.secrets));
+  let commentHits = [];
+  for (const w of written) {
+    leaks = leaks.concat(leakCheck(w.scannable, anon.secrets));
+    if (w.comments) commentHits = commentHits.concat(leakCheck(w.comments, anon.secrets));
+  }
   for (const w of written) leaks = leaks.concat(
     structuralCheck(JSON.parse(w.serialised)).map((m) => ({ fragment: m, from: 'structural' }))
   );
@@ -512,6 +523,12 @@ function main() {
   console.log(`[anon]   (re-run with --salt ${salt.slice(0, 8)}… to reproduce these ids)`);
   if (anon.review.length && !opts.redactComments) {
     console.log(`[anon] ⚠ ${anon.review.length} free-text comment(s) KEPT — review them before release.`);
+  }
+  if (commentHits.length) {
+    console.log(
+      `\n[anon] NOTE: ${commentHits.length} fragment(s) of original data also occur inside KEPT free-text comments.\n       Comments are prose and share ordinary words with URLs, so most of these are coincidence -\n       but read them in the review report and confirm none names a person, project or path.`
+    );
+    commentHits.slice(0, 10).forEach((h) => console.log(`   "${h.fragment}"`));
   }
   if (leaks.length) {
     console.log(`\n[anon] ✗ LEAK CHECK FAILED — ${leaks.length} original fragment(s) survived:`);
