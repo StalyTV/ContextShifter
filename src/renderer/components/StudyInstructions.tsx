@@ -11,7 +11,7 @@ const REPO_VSCODE =
   'https://github.com/StalyTV/ContextShifter-vscode-extension';
 
 /**
- * Full-screen instructions panel for study participants. Opened from Settings.
+ * Full-screen instructions panel. Opened from Settings.
  * Back button (top-left) closes it.
  */
 export default function StudyInstructions({ onClose }: Props) {
@@ -40,27 +40,30 @@ export default function StudyInstructions({ onClose }: Props) {
             <h3>1. Installation and connection</h3>
             <p>
               ContextShifter works together with a browser extension and a VS
-              Code extension. The extensions are optional, but the study relies
-              on them, so please install both.
+              Code extension. They are optional, but ContextShifter can only
+              track browser tabs and editor files when they are installed, so
+              installing both is recommended.
             </p>
             <ul>
               <li>
-                <strong>Desktop app:</strong> download and install ContextShifter
-                from {REPO_DESKTOP} (You probably have already done that). The app
-                is unsigned, so on first launch macOS may say it is "damaged". If
-                so, drag it into Applications, then run this once in Terminal and
-                open it again:
+                <strong>Desktop app:</strong> download and install
+                ContextShifter from {REPO_DESKTOP} (You probably have already
+                done that). The app is unsigned, so on first launch macOS may
+                say it is "damaged". If so, drag it into Applications, then run
+                this once in Terminal and open it again:
                 <br />
                 <code>
-                  xattr -dr com.apple.quarantine /Applications/ContextShifter.app
+                  xattr -dr com.apple.quarantine
+                  /Applications/ContextShifter.app
                 </code>
                 <br />
                 Then grant it <strong>Screen Recording</strong>,{' '}
-                <strong>Accessibility</strong>, and <strong>Input Monitoring</strong>{' '}
-                permission under System Settings &rarr; Privacy &amp; Security, and
-                restart the app. (Screen Recording / Accessibility track windows
-                and tabs; Input Monitoring counts clicks and keystrokes per
-                artefact — only counts, never the keys themselves.)
+                <strong>Accessibility</strong>, and{' '}
+                <strong>Input Monitoring</strong> permission under System
+                Settings &rarr; Privacy &amp; Security, and restart the app.
+                (Screen Recording / Accessibility track windows and tabs; Input
+                Monitoring counts clicks and keystrokes per artefact — only
+                counts, never the keys themselves.)
               </li>
               <li>
                 <strong>Browser extension (Chrome):</strong> install it from{' '}
@@ -71,11 +74,11 @@ export default function StudyInstructions({ onClose }: Props) {
                 the "Browser Extension" dot turns green.
               </li>
               <li>
-                <strong>VS Code extension:</strong> install it from {REPO_VSCODE}.
-                In the Extensions view choose "Install from VSIX" and select the
-                file (or install from the Marketplace), then reload the VS Code
-                window. Verify under Settings &rarr; Connection Status: the
-                "VSCode Extension" dot turns green.
+                <strong>VS Code extension:</strong> install it from{' '}
+                {REPO_VSCODE}. In the Extensions view choose "Install from VSIX"
+                and select the file (or install from the Marketplace), then
+                reload the VS Code window. Verify under Settings &rarr;
+                Connection Status: the "VSCode Extension" dot turns green.
               </li>
             </ul>
           </section>
@@ -84,22 +87,22 @@ export default function StudyInstructions({ onClose }: Props) {
             <h3>2. Using ContextShifter</h3>
             <ul>
               <li>
-                <strong>Start a task:</strong> click "Start new task" (or use the
-                menu-bar icon "Create Task", or press the physical button). Give
-                the task a clear title.
+                <strong>Start a task:</strong> click "Start new task" (or use
+                the menu-bar icon "Create Task", or press the physical button).
+                Give the task a clear title.
               </li>
               <li>
                 <strong>Work normally.</strong> While a task is active,
-                ContextShifter tracks which applications, browser tabs, and files
-                you use.
+                ContextShifter tracks which applications, browser tabs, and
+                files you use.
               </li>
               <li>
-                <strong>Pause, stop, or switch:</strong> when you stop working on
-                a task, stop it in ContextShifter or switch to another task or
-                subtask. When a task stops, a selection screen lists the tracked
-                artefacts; tick the ones that belong to the task and confirm.
-                What is pre-selected for you depends on the study phase (see
-                "The two study phases" below).
+                <strong>Pause, stop, or switch:</strong> when you stop working
+                on a task, stop it in ContextShifter or switch to another task
+                or subtask. When a task stops, a selection screen lists the
+                tracked artefacts; the ones it considers relevant are already
+                ticked. Confirm the selection, adding anything it missed and
+                removing anything that doesn't belong.
               </li>
               <li>
                 <strong>Button actions:</strong>
@@ -111,12 +114,13 @@ export default function StudyInstructions({ onClose }: Props) {
                   </li>
                   <li>
                     Turn: opens the widget and lets you move through your tasks.
-                    Stay on a task for 3 seconds to select it. Pressing the button
-                    while the widget is open opens that task's subtask selection.
+                    Stay on a task for 3 seconds to select it. Pressing the
+                    button while the widget is open opens that task's subtask
+                    selection.
                   </li>
                   <li>
-                    Light: while a task is active the button glows blue. It is off
-                    when no task is active.
+                    Light: while a task is active the button glows blue. It is
+                    off when no task is active.
                   </li>
                 </ul>
               </li>
@@ -125,16 +129,18 @@ export default function StudyInstructions({ onClose }: Props) {
                 Settings, the sections "Apps that should never be tracked and
                 closed" and "Browser tabs that should never be tracked and
                 closed" let you exclude specific applications or tabs. These
-                stay open when you switch tasks and are not associated with,
-                or scored for, any task.
+                stay open when you switch tasks and are not associated with, or
+                scored for, any task.
               </li>
             </ul>
           </section>
 
           <section className={styles.section}>
             <h3>3. In-app controls</h3>
-            <p>These actions are available in the app and are not tied to the
-              physical button.</p>
+            <p>
+              These actions are available in the app and are not tied to the
+              physical button.
+            </p>
             <ul>
               <li>
                 <strong>Play:</strong> makes a task active. Its saved artefacts
@@ -148,45 +154,46 @@ export default function StudyInstructions({ onClose }: Props) {
                 <strong>Delete:</strong> removes a task and its subtasks.
               </li>
               <li>
-                <strong>Subtasks</strong> behave like normal tasks and are scored
-                separately.
+                <strong>Subtasks</strong> behave like normal tasks and are
+                scored separately.
               </li>
               <li>
-                <strong>Widget:</strong> open it by turning the physical button or
-                from the menu-bar icon ("Open Widget"). Use the arrow keys to move
-                through tasks (stay on one for 3 seconds to select it) and Enter to
-                open its subtasks — just like turning and pressing the button.
+                <strong>Widget:</strong> open it by turning the physical button
+                or from the menu-bar icon ("Open Widget"). Use the arrow keys to
+                move through tasks (stay on one for 3 seconds to select it) and
+                Enter to open its subtasks — just like turning and pressing the
+                button.
               </li>
             </ul>
           </section>
 
           <section className={styles.section}>
-            <h3>4. The two study phases</h3>
+            <h3>4. How artefacts are ranked</h3>
             <p>
-              The study runs in two phases over about six working days. The
-              current phase is set under Settings &rarr; "Study Phase". Please
-              switch to Phase 2 only when the researcher tells you to (after the
-              first three days).
+              ContextShifter scores every artefact you touch while a task is
+              active, and uses that score to decide what to pre-select and how
+              to order the selection screen.
             </p>
             <ul>
               <li>
-                <strong>Phase 1 — baseline (3 working days):</strong> work as
-                usual. At each task switch, ContextShifter shows the artefacts it
-                tracked with <strong>nothing pre-selected</strong> — you tick the
-                artefacts that actually belong to the task and confirm. Your
-                selections are the ground truth for evaluating the algorithm.
+                <strong>How you used it:</strong> how long an artefact was in
+                the foreground, how often you returned to it, and how recently
+                you touched it. Recent and repeated use counts for more, and
+                time spent idle does not count.
               </li>
               <li>
-                <strong>Phase 2 — assisted (2 working days):</strong> same as
-                before, but now ContextShifter <strong>pre-selects</strong> the
-                artefacts its algorithm considers relevant, and{' '}
-                <strong>restores</strong> them for you when you return to a task.
-                Confirm the pre-selection, adding any relevant artefact it missed
-                and removing any that were included wrongly.
+                <strong>What it is about:</strong> the artefact's title, file
+                name or address is turned into a sentence embedding on your
+                machine and compared with the rest of the task's artefacts.
+                Something that doesn't fit the task's theme is demoted even if
+                it happened to be open a lot. Nothing is sent anywhere — the
+                model runs locally and works offline.
               </li>
               <li>
-                <strong>At the end:</strong> complete the short questionnaire
-                (about 10 minutes) about your experience.
+                <strong>Ordering:</strong> use the toggle on the selection
+                screen to switch between grouping artefacts by application and a
+                single flat ranking. Turn on "Show relevance scores" in Settings
+                to see the numbers behind the ranking.
               </li>
             </ul>
           </section>
@@ -195,19 +202,22 @@ export default function StudyInstructions({ onClose }: Props) {
             <h3>5. Data collection</h3>
             <ul>
               <li>
-                <strong>At the start of the study:</strong> open Settings, go to
-                "Data Collection", and enable the "Data Collection" tickbox.
+                <strong>Collecting:</strong> open Settings, go to "Data
+                Collection", and enable the "Data Collection" tickbox. When it
+                is on, ContextShifter records the usage scores behind each
+                ranking and which artefacts you kept.
               </li>
               <li>
-                <strong>At the end of the study:</strong> open Settings, go to
-                "Data Collection", and click "Export Study Data" to choose where
-                to save the collected data.
+                <strong>Exporting:</strong> open Settings, go to "Data
+                Collection", and click "Export Data" to choose where to save the
+                collected records. "Clear Data Collection" deletes them.
               </li>
               <li>
-                <strong>Anonymize data (optional):</strong> enable the "Anonymize
-                Data" tickbox in Data Collection to strip artefact names, paths,
-                and URLs from the collected data. Only the artefact kind, usage
-                scores, and which artefacts you selected are kept.
+                <strong>Anonymize data (optional):</strong> enable the
+                "Anonymize Data" tickbox in Data Collection to strip artefact
+                names, paths, and URLs from the collected data. Only the
+                artefact kind, usage scores, and which artefacts you selected
+                are kept.
               </li>
             </ul>
           </section>

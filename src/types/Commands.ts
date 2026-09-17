@@ -12,7 +12,6 @@ import ExtensionsStatus from './ExtensionsStatus';
 import KnownApplication from 'main/entity/KnownApplication';
 import NeverCloseBrowserTab from 'main/entity/NeverCloseBrowserTab';
 import UserSettings from './UserSettings';
-import { StudyPhase } from './StudyPhase';
 import { BrowserType } from './BrowserType';
 
 // A currently-open browser tab, surfaced to the Settings page so the user can
@@ -167,26 +166,12 @@ type Commands = {
     path: string | null;
   }>;
   'clear-study-data': () => Promise<{ cleared: number }>;
-  // In-situ (Phase 2) micro-survey shown right after a task's artefacts are
-  // saved; merged onto that task's study record.
-  'record-insitu': (
-    taskId: number,
-    response: {
-      matchRating: number | null;
-      comment: string;
-      resumeFeeling: 'easier' | 'same' | 'harder' | null;
-      skipped: boolean;
-    }
-  ) => Promise<void>;
 
   // artefact-scoring weights (w1..w4 + lambda)
   'get-score-weights': () => Promise<ScoreWeightsDTO>;
   'set-score-weights': (
     weights: ScoreWeightsDTO
   ) => Promise<{ rescoredTasks: number }>;
-
-  // questionnaires
-  'get-study-phase': () => StudyPhase;
 };
 
 export default Commands;

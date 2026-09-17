@@ -9,7 +9,6 @@ import { StoppedTaskBundle } from '../../types/Commands';
 import TrimBar from './TrimBar';
 import ConfirmDialog from './ConfirmDialog';
 import SemInfoButton from './SemInfoButton';
-import InSituSurvey, { InSituResponse } from './InSituSurvey';
 import { ScoreVisibilityProvider, useScoresVisible } from './ScoreVisibility';
 import {
   OrderMode,
@@ -173,14 +172,9 @@ export default function CommitTaskDialog({
   // Whether to show relevance/semantic scores in the picker ("Show relevance
   // scores" setting; off by default).
   const [showScores, setShowScores] = useState(false);
-  // Whether the scorer preselects artefacts (Study Phase 2). Phase 1 = no
-  // preselection. Defaults to false (Phase 1 is the app default).
-  const [preselect, setPreselect] = useState(false);
   // How the artefact list is ordered (see artefactOrder). Default keeps
   // applications grouped and ordered by their most relevant artefact.
   const [orderMode, setOrderMode] = useState<OrderMode>('grouped');
-  // Phase-2 in-situ survey shown right after a successful save.
-  const [showInSitu, setShowInSitu] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -188,8 +182,6 @@ export default function CommitTaskDialog({
       try {
         // Is the artefact-selection screen enabled? If not, we auto-commit.
         let skip = false;
-        // Study Phase 2 preselects; Phase 1 (default) does not.
-        let preselectNow = false;
         try {
           const settings = await window.electron.ipcRenderer.invoke(
             'get-settings'
@@ -203,9 +195,6 @@ export default function CommitTaskDialog({
                 ?.showRelevanceScores === true
             );
           }
-          preselectNow =
-            (settings as { studyPhase?: string })?.studyPhase === 'phase2';
-          if (!cancelled) setPreselect(preselectNow);
         } catch {
           // default to showing the picker
         }
@@ -225,7 +214,7 @@ export default function CommitTaskDialog({
           if (skip) {
             // Skip the screen: commit the scorer's selection over the default
             // (active) window and finish. (Skipping the picker always trusts
-            // the scorer, regardless of study phase.)
+            // the scorer.)
             const { sel } = computeAutoSelection(result, true);
             await commitSelection(result, sel, {
               startMs: result.sessionStartMs,
@@ -237,7 +226,7 @@ export default function CommitTaskDialog({
             }
             return;
           }
-          const { sel, exp } = computeAutoSelection(result, preselectNow);
+          const { sel, exp } = computeAutoSelection(result, true);
           setSelected(sel);
           setExpanded(exp);
           setTrimStart(result.sessionStartMs);
@@ -261,13 +250,8 @@ export default function CommitTaskDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Compute the picker's initial selection (and which parents to expand). Pure.
-  // In Phase 2 the scorer's above-threshold artefacts are pre-checked. In
-  // Phase 1 (`preselect = false`) the set committed to this task in a previous
-  // session is pre-checked (a brand-new task has no previousKeys, so nothing is
-  // pre-checked); the browser/IDE groups are still expanded so everything stays
-  // visible to pick. Phase 1 never reorders by relevance — only the prior
-  // selection is restored.
+  // Compute the picker's initial selection (and which parents to expand). The
+  // scorer's above-threshold artefacts are pre-checked; the user confirms.
   const computeAutoSelection = (b: StoppedTaskBundle, preselect: boolean) => {
     const sel = new Set<Key>(
       preselect ? [...(b.autoSelectKeys ?? [])] : [...(b.previousKeys ?? [])]
@@ -603,7 +587,7 @@ export default function CommitTaskDialog({
       );
       if (rescored) {
         setBundle(rescored);
-        const { sel } = computeAutoSelection(rescored, preselect);
+        const { sel } = computeAutoSelection(rescored, true);
         setSelected(sel);
       }
     } catch (err) {
@@ -623,34 +607,11 @@ export default function CommitTaskDialog({
       const trim = { startMs: trimStart, endMs: trimEnd };
       await commitSelection(bundle, selected, trim);
       setCommitted(true);
-      // Phase 2, and only for tasks that were actually resumed (their artefacts
-      // were restored) — a brand-new task has nothing to have "brought back".
-      if (preselect && bundle.wasRestored) {
-        setShowInSitu(true);
-      } else {
-        onCommitted();
-      }
+      onCommitted();
     } catch (err) {
       setError(String(err));
       setSaving(false);
     }
-  };
-
-  // Persist the in-situ survey answer against the just-saved task, then finish.
-  const finishInSitu = async (resp: InSituResponse) => {
-    if (bundle) {
-      try {
-        await window.electron.ipcRenderer.invoke(
-          'record-insitu',
-          bundle.taskId,
-          resp
-        );
-      } catch {
-        // best-effort; never block finishing on the survey
-      }
-    }
-    setShowInSitu(false);
-    onCommitted();
   };
 
   // The Discard/Cancel button. When this would throw away a tracked session,
@@ -680,10 +641,9 @@ export default function CommitTaskDialog({
   // dialog auto-commits in the effect above and renders nothing.
   if (autoMode !== false) return null;
 
-  // Relevance ordering is a Phase 2 (assisted) feature. In Phase 1 (baseline)
-  // artefacts are shown in their natural order with no ordering toggle, so the
-  // participant isn't nudged by the scores.
-  const orderingEnabled = preselect;
+  // Artefacts are ordered by relevance, with a toggle between grouping by
+  // application and a flat ranking.
+  const orderingEnabled = true;
   const listMode: OrderMode = orderingEnabled ? orderMode : 'grouped';
 
   return (
@@ -1277,9 +1237,6 @@ export default function CommitTaskDialog({
           />
         )}
       </div>
-      {showInSitu && bundle && (
-        <InSituSurvey taskName={bundle.taskName} onDone={finishInSitu} />
-      )}
     </ScoreVisibilityProvider>
   );
 }

@@ -15,7 +15,6 @@ import DeviceManager from '../HID/DeviceManager';
 import UserSettings from 'types/UserSettings';
 import Settings from '../entity/Settings';
 import { Database } from '../database';
-import StudyManager from '../StudyManager';
 import WindowManager from '../WindowManager';
 import ActiveTaskSession, { StoppedSession } from '../ActiveTaskSession';
 import TaskRestorer from '../TaskRestorer';
@@ -859,18 +858,6 @@ typedIpcMain.handle('clear-study-data', async () => {
   return { cleared };
 });
 
-typedIpcMain.handle('record-insitu', async (e, taskId, response) => {
-  // Only the assisted phase collects the in-situ survey, and only while data
-  // collection is on (its record must already exist to merge onto).
-  if (
-    (await Settings.getStudyPhase()) !== 'phase2' ||
-    !(await Settings.getIsStudyDataCollectionEnabled())
-  ) {
-    return;
-  }
-  await StudyDataCollector.recordInSitu(taskId, response);
-});
-
 typedIpcMain.handle('export-study-data', async () => {
   const count = await StudyDataCollector.count();
   if (count === 0) {
@@ -906,7 +893,6 @@ typedIpcMain.handle('get-settings', async () => {
     isArtefactSelectionEnabled: await Settings.getIsArtefactSelectionEnabled(),
     showRelevanceScores: await Settings.getShowRelevanceScores(),
     keepArtefactsOnSwitch: await Settings.getKeepArtefactsOnSwitch(),
-    studyPhase: await Settings.getStudyPhase(),
     isStudyDataCollectionEnabled:
       await Settings.getIsStudyDataCollectionEnabled(),
     endOfDayPopUpTime: await Settings.getEndOfDayPopUpTime(),
@@ -942,10 +928,6 @@ typedIpcMain.handle('set-settings', async (e, updatedSettings) => {
   await Database.manager.save(Settings, {
     key: 'keepArtefactsOnSwitch',
     value: updatedSettings.keepArtefactsOnSwitch ? 'true' : 'false',
-  });
-  await Database.manager.save(Settings, {
-    key: 'studyPhase',
-    value: updatedSettings.studyPhase === 'phase2' ? 'phase2' : 'phase1',
   });
   await Database.manager.save(Settings, {
     key: 'isStudyDataCollectionEnabled',
@@ -1042,6 +1024,3 @@ typedIpcMain.handle('open-settings-window', async () => {
 });
 
 // questionnaires
-typedIpcMain.handle('get-study-phase', () => {
-  return StudyManager.getStudyPhase();
-});

@@ -188,8 +188,10 @@ export default function TaskEditView() {
   const [showScores, setShowScores] = useState(false);
   // Artefact ordering (see artefactOrder). Default: grouped by application.
   const [orderMode, setOrderMode] = useState<OrderMode>('grouped');
-  // Relevance ordering is a Phase 2 feature; Phase 1 shows natural order only.
-  const [orderingEnabled, setOrderingEnabled] = useState(false);
+  // Artefacts are always ordered by relevance.
+  // Artefacts are always ordered by relevance; the toggle switches between
+  // grouping by application and a flat ranking.
+  const orderingEnabled = true;
 
   // Flat "Relevance" ordering: every committed artefact as a leaf, remembering
   // which application it belongs to. Ordered by relevance.
@@ -392,9 +394,6 @@ export default function TaskEditView() {
           setShowScores(
             (settings as { showRelevanceScores?: boolean })
               ?.showRelevanceScores === true
-          );
-          setOrderingEnabled(
-            (settings as { studyPhase?: string })?.studyPhase === 'phase2'
           );
         }
       } catch {

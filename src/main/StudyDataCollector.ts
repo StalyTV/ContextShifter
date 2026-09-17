@@ -276,8 +276,6 @@ export default class StudyDataCollector {
         sessionDurationMs,
         // Scoring weights in effect when this task was scored/saved.
         weights: ScoreWeights.get(),
-        // Study phase in effect (phase1 = no preselection, phase2 = preselect).
-        studyPhase: await Settings.getStudyPhase(),
         accumulatedActiveMs: snap?.activeMs ?? 0,
         totalInteractions,
         artefactCount: artefacts.length,
@@ -303,43 +301,6 @@ export default class StudyDataCollector {
       );
     } catch (err) {
       warn(`[StudyDataCollector] Failed to record study data: ${String(err)}`);
-    }
-  }
-
-  /**
-   * Merge a Phase-2 in-situ micro-survey answer onto the most recent study
-   * record for the task (the one just written on save). No-op if data
-   * collection is off (no record exists) or the record can't be read.
-   */
-  public static async recordInSitu(
-    taskId: number,
-    response: {
-      matchRating: number | null;
-      comment: string;
-      resumeFeeling: 'easier' | 'same' | 'harder' | null;
-      skipped: boolean;
-    }
-  ): Promise<void> {
-    try {
-      const row = await StudyDataRecord.findOne({
-        where: { snapshotId: taskId },
-        order: { id: 'DESC' },
-      });
-      if (!row) return;
-      let payload: Record<string, unknown>;
-      try {
-        payload = JSON.parse(row.payload);
-      } catch {
-        return;
-      }
-      payload.insitu = { ...response, respondedAt: new Date().toISOString() };
-      row.payload = JSON.stringify(payload);
-      await row.save();
-      info(`[StudyDataCollector] In-situ response recorded for task ${taskId}`);
-    } catch (err) {
-      warn(
-        `[StudyDataCollector] Failed to record in-situ response: ${String(err)}`
-      );
     }
   }
 
